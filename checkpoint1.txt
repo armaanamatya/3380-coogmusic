@@ -1,0 +1,139 @@
+Team 10 Checkpoint #1
+Online Music Library Mini-world & Requirements
+
+Entities:
+-	User
+-	Song/Track
+-	Album
+-	Playlist
+-	Artist
+-	History 
+-	Likes
+-	Genre
+-	Rating
+
+Attributes:
+User:
+-	UserID (Int, Primary Key)
+-	Username (Varchar(30), Not Null, Unique, No special characters)
+-	UserPassword (Varchar(20), Not Null)
+-	FirstName (Varchar(30), Not Null, No special characters)
+-	LastName (Varchar(30), Not Null, No special characters)
+-	DateOfBirth (Date, Not Null)
+-	Email (Varchar(255), Unique, No special characters besides “@” & “.”, Not Null)
+-	UserType (Listener, Administrator, Artist, Developer)
+-	DateJoined (Date, Not Null)
+-	Country (Varchar(30), Not Null)
+-	City (Varchar(30))
+-	IsOnline (Boolean)
+-	AccountStatus (Active, Suspended, or Banned)
+
+Artist:
+-	ArtistID (Int, Primary/Foreign Key)
+-	ArtistBio (Varchar(275), No special characters)
+-	ArtistPFP (BLOB)
+-	VerifiedStatus (Boolean[True = Verified, False = Not Verified])
+-	VerifyingAdminID (Int, Foreign Key, Not Null)
+-	DateVerified (Timestamp, Not Null)
+
+Album:
+-	AlbumID (Int, Primary Key)
+-	ArtistID (Int, Foreign Key)
+-	AlbumName (Varchar(30), Not Null, No special characters)
+-	AlbumArt (BLOB)
+-	AlbumDate (Timestamp, Not Null)
+-	AlbumType (Single, EP, or Album)
+-	AlbumDescription (Varchar(275))
+
+Song/Track:
+-	SongID (Int, Primary Key)
+-	SongLength (Int[Seconds], >0 & <3600)
+-	SongName (Varchar(50), No special characters)
+-	GenreID (Int, Foreign Key)
+-	AlbumID (Int, Foreign key)
+-	Listens (Int, Default = 0)
+-	SongFile (BLOB, Unique)
+-	FileFormat (Varchar(10))
+-	FileSize (BigInt)
+-	Explicit (Boolean [True = Explicit, False = Not Explicit])
+-	TrackNumber (Int, Not Null, Unique, Ordered)
+-	CopyRightInfo (Varchar(275))
+
+Playlist:
+-	PlaylistID (Int, Primary Key)
+-	UserID (Int, Foreign Key, Not Null)
+-	PlaylistName (Varchar(50), Default = [Playlist1,Playlist2,...])
+-	PlaylistDescription (Varchar(275))
+-	PublicPlaylist (Boolean [True = Public, False = Private])
+-	PlaylistImage (BLOB)
+-	DateCreated (Timestamp, Not Null)
+-	Shuffle (Boolean [True = Shuffles songs, False = Plays songs sequentially], Default = False)
+
+Genre:
+-	GenreID (Int, Primary Key)
+-	GenreName (Varchar(30), Not Null, Unique)
+-	GenreDescription (Varchar(275))
+
+History:
+-	HistoryID (Int, Primary Key)
+-	UserID (Int, Foreign Key)
+
+Likes:
+-	LikesID (Int, Primary Key)
+-	UserID (Int, Foreign Key, Not Null)
+
+Rating:
+-	RatingID (Int, Primary Key)
+-	UserID (Int, Foreign Key)
+-	RatingValue (Decimal(2,1), >=0.0 & <=5.0)
+-	RatingDate (TimeStamp, Not Null)
+-	RatingDescription (Varchar(275))
+-	RateType (Song, Playlist, Album, Artist)
+-	RatedTypeID (Int, Foreign Key, Not Null)
+
+Associative Entities:
+UserFollows:
+-	FollowerID (Int, Primary/Foreign Key)
+-	ArtistID (Int, Primary/Foreign Key)
+-	DateFollowed (Date, Not Null)
+
+LikedSong:
+-	LikesID (Int, Primary/Foreign Key)
+-	SongID (Int, Primary/Foreign Key)
+-	TimeLiked (Timestamp, Not Null)
+-	LikedPosition (Int, Ordered by least recently listened to)
+
+PlaylistSong:
+-	PlaylistID (Primary/Foreign Key)
+-	SongID (Primary/Foreign Key)
+-	TimeAdded (Timestamp, Not Null)
+-	PlaylistPosition (Int, Unique)
+
+HistorySong:
+-	SongID (Int, Primary/Foreign Key)
+-	HistoryID (Int Primary/Foreign Key)
+-	TimeListened (Timestamp, Not Null)
+-	HistoryPosition (Int, Increment)
+Relationships:
+-	User hasPlaylist Playlist (0:N)
+-	User isArtist Artist (0:1)
+-	User hasLikes Likes (1:1)
+-	User hasHistory History (1:1)
+-	Album hasRating Rating (0:N)
+-	Song hasRating Rating (1:N)
+-	Artist hasRating Rating (1:N)
+-	Album hasSong Song/Track (1:N)
+-	Artist hasAlbum Album (1:N)
+-	Song/Track songGenre Genre (1:N)
+-	Album albumGenre Genre (1:N)
+-	Artist artistGenre Genre (1:N)
+-	Artist hasAlbum Album (1:N)
+
+
+
+
+
+
+
+
+
