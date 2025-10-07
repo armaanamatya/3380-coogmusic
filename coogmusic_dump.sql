@@ -44,7 +44,7 @@ CREATE TABLE `album` (
   KEY `fk_album_genre` (`GenreID`),
   CONSTRAINT `fk_album_artist` FOREIGN KEY (`ArtistID`) REFERENCES `artist` (`ArtistID`) ON DELETE CASCADE,
   CONSTRAINT `fk_album_genre` FOREIGN KEY (`GenreID`) REFERENCES `genre` (`GenreID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -58,14 +58,14 @@ CREATE TABLE `artist` (
   `ArtistID` int NOT NULL,
   `ArtistBio` varchar(275) DEFAULT NULL,
   `ArtistPFP` longblob,
-  `VerifiedStatus` tinyint(1) NOT NULL DEFAULT '0',
-  `VerifyingAdminID` int NOT NULL,
-  `DateVerified` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `VerifiedStatus` boolean NOT NULL DEFAULT FALSE,
+  `VerifyingAdminID` int DEFAULT NULL,
+  `DateVerified` timestamp DEFAULT NULL,
   PRIMARY KEY (`ArtistID`),
   KEY `fk_artist_verifier` (`VerifyingAdminID`),
   CONSTRAINT `fk_artist_user` FOREIGN KEY (`ArtistID`) REFERENCES `user` (`UserID`) ON DELETE CASCADE,
   CONSTRAINT `fk_artist_verifier` FOREIGN KEY (`VerifyingAdminID`) REFERENCES `user` (`UserID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -81,7 +81,7 @@ CREATE TABLE `genre` (
   `GenreDescription` varchar(275) DEFAULT NULL,
   PRIMARY KEY (`GenreID`),
   UNIQUE KEY `GenreName` (`GenreName`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -97,7 +97,7 @@ CREATE TABLE `history` (
   PRIMARY KEY (`HistoryID`),
   UNIQUE KEY `UserID` (`UserID`),
   CONSTRAINT `fk_history_user` FOREIGN KEY (`UserID`) REFERENCES `user` (`UserID`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -116,7 +116,7 @@ CREATE TABLE `historysong` (
   KEY `fk_historysong_history` (`HistoryID`),
   CONSTRAINT `fk_historysong_history` FOREIGN KEY (`HistoryID`) REFERENCES `history` (`HistoryID`) ON DELETE CASCADE,
   CONSTRAINT `fk_historysong_song` FOREIGN KEY (`SongID`) REFERENCES `song` (`SongID`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -135,7 +135,7 @@ CREATE TABLE `likedsong` (
   KEY `fk_likedsong_song` (`SongID`),
   CONSTRAINT `fk_likedsong_likes` FOREIGN KEY (`LikesID`) REFERENCES `likes` (`LikesID`) ON DELETE CASCADE,
   CONSTRAINT `fk_likedsong_song` FOREIGN KEY (`SongID`) REFERENCES `song` (`SongID`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -151,7 +151,7 @@ CREATE TABLE `likes` (
   PRIMARY KEY (`LikesID`),
   UNIQUE KEY `UserID` (`UserID`),
   CONSTRAINT `fk_likes_user` FOREIGN KEY (`UserID`) REFERENCES `user` (`UserID`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -166,14 +166,14 @@ CREATE TABLE `playlist` (
   `UserID` int NOT NULL,
   `PlaylistName` varchar(50) NOT NULL,
   `PlaylistDescription` varchar(275) DEFAULT NULL,
-  `PublicPlaylist` tinyint(1) NOT NULL DEFAULT '1',
+  `PublicPlaylist` boolean NOT NULL DEFAULT TRUE,
   `PlaylistImage` longblob,
   `DateCreated` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `Shuffle` tinyint(1) NOT NULL DEFAULT '0',
+  `Shuffle` boolean NOT NULL DEFAULT FALSE,
   PRIMARY KEY (`PlaylistID`),
   KEY `fk_playlist_user` (`UserID`),
   CONSTRAINT `fk_playlist_user` FOREIGN KEY (`UserID`) REFERENCES `user` (`UserID`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -193,7 +193,7 @@ CREATE TABLE `playlistsong` (
   KEY `fk_playlistsong_song` (`SongID`),
   CONSTRAINT `fk_playlistsong_playlist` FOREIGN KEY (`PlaylistID`) REFERENCES `playlist` (`PlaylistID`) ON DELETE CASCADE,
   CONSTRAINT `fk_playlistsong_song` FOREIGN KEY (`SongID`) REFERENCES `song` (`SongID`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -213,9 +213,10 @@ CREATE TABLE `rating` (
   `RatedTypeID` int NOT NULL,
   PRIMARY KEY (`RatingID`),
   KEY `fk_rating_user` (`UserID`),
+  UNIQUE KEY `RatingID` (`RatingID`),
   CONSTRAINT `fk_rating_user` FOREIGN KEY (`UserID`) REFERENCES `user` (`UserID`) ON DELETE CASCADE,
-  CONSTRAINT `chk_rating_value` CHECK (((`RatingValue` >= 0.0) and (`RatingValue` <= 5.0)))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  CONSTRAINT `chk_rating_value` CHECK (RatingValue >= 0.0 AND RatingValue <= 5.0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -235,19 +236,19 @@ CREATE TABLE `song` (
   `SongFile` longblob,
   `FileFormat` varchar(10) DEFAULT NULL,
   `FileSize` bigint DEFAULT NULL,
-  `Explicit` tinyint(1) NOT NULL DEFAULT '0',
-  `TrackNumber` int NOT NULL,
+  `Explicit` boolean NOT NULL DEFAULT FALSE,
+  `TrackNumber` int DEFAULT 1,
   `CopyRightInfo` varchar(275) DEFAULT NULL,
   PRIMARY KEY (`SongID`),
   UNIQUE KEY `uq_track_per_album` (`AlbumID`,`TrackNumber`),
   KEY `fk_song_genre` (`GenreID`),
   CONSTRAINT `fk_song_album` FOREIGN KEY (`AlbumID`) REFERENCES `album` (`AlbumID`) ON DELETE SET NULL,
   CONSTRAINT `fk_song_genre` FOREIGN KEY (`GenreID`) REFERENCES `genre` (`GenreID`),
-  CONSTRAINT `chk_filesize_nonneg` CHECK (((`FileSize` is null) or (`FileSize` >= 0))),
-  CONSTRAINT `chk_listens_nonneg` CHECK ((`Listens` >= 0)),
-  CONSTRAINT `chk_song_length` CHECK (((`SongLength` > 0) and (`SongLength` < 3600))),
-  CONSTRAINT `chk_songname_chars` CHECK (regexp_like(`SongName`,_cp850'^[^\\/:*?"<>|]+$'))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  CONSTRAINT `chk_filesize_nonneg` CHECK (FileSize IS NULL OR FileSize >= 0),
+  CONSTRAINT `chk_listens_nonneg` CHECK (Listens >= 0),
+  CONSTRAINT `chk_song_length` CHECK (SongLength > 0 AND SongLength < 3600),
+  CONSTRAINT `chk_songname_chars` CHECK (SongName REGEXP '^[^\\/:*?"<>|]+$')
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -269,16 +270,17 @@ CREATE TABLE `user` (
   `DateJoined` date NOT NULL,
   `Country` varchar(30) NOT NULL,
   `City` varchar(30) DEFAULT NULL,
-  `IsOnline` tinyint(1) NOT NULL DEFAULT '0',
+  `IsOnline` boolean NOT NULL DEFAULT FALSE,
   `AccountStatus` enum('Active','Suspended','Banned') NOT NULL DEFAULT 'Active',
   PRIMARY KEY (`UserID`),
   UNIQUE KEY `Username` (`Username`),
   UNIQUE KEY `Email` (`Email`),
-  CONSTRAINT `chk_email_format` CHECK (regexp_like(`Email`,_cp850'^[^@\n]+@[^@\n]+.[^@\n]+$')),
-  CONSTRAINT `chk_firstname_chars` CHECK (regexp_like(`FirstName`,_cp850'^[A-Za-z0-9_ ]+$')),
-  CONSTRAINT `chk_lastname_chars` CHECK (regexp_like(`LastName`,_cp850'^[A-Za-z0-9_ ]+$')),
-  CONSTRAINT `chk_username_chars` CHECK (regexp_like(`Username`,_cp850'^[A-Za-z0-9_]+$'))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  UNIQUE KEY `UserID` (`UserID`),
+  CONSTRAINT `chk_email_format` CHECK (Email REGEXP '^[^@\n]+@[^@\n]+\.[^@\n]+$'),
+  CONSTRAINT `chk_firstname_chars` CHECK (FirstName REGEXP '^[A-Za-z0-9_ ]+$'),
+  CONSTRAINT `chk_lastname_chars` CHECK (LastName REGEXP '^[A-Za-z0-9_ ]+$'),
+  CONSTRAINT `chk_username_chars` CHECK (Username REGEXP '^[A-Za-z0-9_]+$')
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -296,7 +298,7 @@ CREATE TABLE `userfollows` (
   KEY `fk_follows_artist` (`ArtistID`),
   CONSTRAINT `fk_follows_artist` FOREIGN KEY (`ArtistID`) REFERENCES `artist` (`ArtistID`) ON DELETE CASCADE,
   CONSTRAINT `fk_follows_user` FOREIGN KEY (`FollowerID`) REFERENCES `user` (`UserID`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
