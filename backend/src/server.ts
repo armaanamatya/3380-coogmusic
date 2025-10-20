@@ -2,6 +2,7 @@ import { createServer, IncomingMessage, ServerResponse } from 'http';
 import { parse } from 'url';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import { initializeDatabase, testConnection } from './database.js';
 
 dotenv.config();
 
@@ -38,6 +39,19 @@ const server = createServer((req: IncomingMessage, res: ServerResponse) => {
   res.end(JSON.stringify({ error: 'Not Found' }));
 });
 
-server.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-});
+// Initialize database and start server
+const startServer = async () => {
+  try {
+    await initializeDatabase();
+    await testConnection();
+    
+    server.listen(PORT, () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+    });
+  } catch (error) {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+  }
+};
+
+startServer();

@@ -6,6 +6,7 @@
     "dev": "nodemon --exec \"tsx src/server.ts\"",
     "build": "tsc",
     "start": "node dist/server.js",
+    "migrate": "tsx src/migrate-to-sqlite.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -15,12 +16,15 @@
   "description": "",
   "dependencies": {
     "@types/node": "^24.7.2",
+    "better-sqlite3": "^12.4.1",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "mysql2": "^3.15.2",
+    "sqlite3": "^5.1.7",
     "typescript": "^5.9.3"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
     "@types/cors": "^2.8.19",
     "nodemon": "^3.1.10",
     "ts-node": "^10.9.2",
