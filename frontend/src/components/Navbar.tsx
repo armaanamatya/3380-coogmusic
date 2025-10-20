@@ -1,7 +1,9 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const navigate = useNavigate()
 
   return (
     <nav className="bg-white shadow-sm border-b border-gray-200">
@@ -34,7 +36,10 @@ const Navbar = () => {
 
           {/* Sign In Button */}
           <div className="hidden md:block">
-            <button className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
+            <button
+              onClick={() => navigate('/home')}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
+            >
               Sign In
             </button>
           </div>
@@ -68,7 +73,10 @@ const Navbar = () => {
               >
                 About
               </a>
-              <button className="bg-indigo-600 hover:bg-indigo-700 text-white w-full text-left px-3 py-2 rounded-md text-base font-medium transition-colors">
+              <button
+                onClick={() => navigate('/home')}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white w-full text-left px-3 py-2 rounded-md text-base font-medium transition-colors"
+              >
                 Sign In
               </button>
             </div>
