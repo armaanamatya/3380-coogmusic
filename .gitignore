@@ -82,6 +82,9 @@ jspm_packages/
 # TernJS port file
 .tern-port
 
+# Claude.md file
+claude.md
+
 # IDE
 .vscode/
 .idea/
