@@ -5,7 +5,7 @@
 PRAGMA foreign_keys = ON;
 
 -- Table: user
-CREATE TABLE user (
+CREATE TABLE userprofile (
     UserID INTEGER PRIMARY KEY AUTOINCREMENT,
     Username VARCHAR(30) NOT NULL UNIQUE,
     UserPassword VARCHAR(255) NOT NULL,
@@ -13,16 +13,19 @@ CREATE TABLE user (
     LastName VARCHAR(30) NOT NULL,
     DateOfBirth DATE NOT NULL,
     Email VARCHAR(255) NOT NULL UNIQUE,
-    UserType VARCHAR(20) NOT NULL CHECK (UserType IN ('Listener', 'Administrator', 'Artist', 'Developer')),
-    DateJoined DATE NOT NULL,
+    UserType VARCHAR(20) NOT NULL DEFAULT 'Listener' CHECK (UserType IN ('Listener', 'Administrator', 'Artist', 'Developer')),
+    DateJoined DATE NOT NULL DEFAULT CURRENT_DATE,
     Country VARCHAR(30) NOT NULL,
     City VARCHAR(30),
     IsOnline BOOLEAN NOT NULL DEFAULT 0,
     AccountStatus VARCHAR(20) NOT NULL DEFAULT 'Active' CHECK (AccountStatus IN ('Active', 'Suspended', 'Banned')),
     CHECK (Email LIKE '%@%.%'),
-    CHECK (FirstName GLOB '[A-Za-z0-9_ ]*'),
-    CHECK (LastName GLOB '[A-Za-z0-9_ ]*'),
-    CHECK (Username GLOB '[A-Za-z0-9_]*')
+    CHECK (FirstName GLOB '[A-Za-z]*'),  -- Updated: only letters
+    CHECK (LastName GLOB '[A-Za-z]*'),   -- Updated: only letters
+    CHECK (Username GLOB '[A-Za-z0-9]*'), -- Updated: only letters and numbers
+    CHECK (DateOfBirth >= '1925-01-01' AND DateOfBirth <= DATE('now')), -- Date range constraint
+    CHECK (Country GLOB '[A-Za-z ]*'),   -- Added: only letters and spaces
+    CHECK (City GLOB '[A-Za-z ]*')       -- Added: only letters and spaces (can be NULL)
 );
 
 -- Table: genre
@@ -41,8 +44,8 @@ CREATE TABLE artist (
     VerifyingAdminID INTEGER,
     DateVerified TIMESTAMP,
     PRIMARY KEY (ArtistID),
-    FOREIGN KEY (ArtistID) REFERENCES user(UserID) ON DELETE CASCADE,
-    FOREIGN KEY (VerifyingAdminID) REFERENCES user(UserID)
+    FOREIGN KEY (ArtistID) REFERENCES userprofile(UserID) ON DELETE CASCADE,
+    FOREIGN KEY (VerifyingAdminID) REFERENCES userprofile(UserID)
 );
 
 -- Table: album
@@ -84,7 +87,7 @@ CREATE TABLE song (
 CREATE TABLE history (
     HistoryID INTEGER PRIMARY KEY AUTOINCREMENT,
     UserID INTEGER NOT NULL UNIQUE,
-    FOREIGN KEY (UserID) REFERENCES user(UserID) ON DELETE CASCADE
+    FOREIGN KEY (UserID) REFERENCES userprofile(UserID) ON DELETE CASCADE
 );
 
 -- Table: historysong
@@ -102,7 +105,7 @@ CREATE TABLE historysong (
 CREATE TABLE likes (
     LikesID INTEGER PRIMARY KEY AUTOINCREMENT,
     UserID INTEGER NOT NULL UNIQUE,
-    FOREIGN KEY (UserID) REFERENCES user(UserID) ON DELETE CASCADE
+    FOREIGN KEY (UserID) REFERENCES userprofile(UserID) ON DELETE CASCADE
 );
 
 -- Table: likedsong
@@ -126,7 +129,7 @@ CREATE TABLE playlist (
     PlaylistImage BLOB,
     DateCreated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     Shuffle BOOLEAN NOT NULL DEFAULT 0,
-    FOREIGN KEY (UserID) REFERENCES user(UserID) ON DELETE CASCADE
+    FOREIGN KEY (UserID) REFERENCES userprofile(UserID) ON DELETE CASCADE
 );
 
 -- Table: playlistsong
@@ -150,7 +153,7 @@ CREATE TABLE rating (
     RatingDescription VARCHAR(275),
     RateType VARCHAR(20) NOT NULL CHECK (RateType IN ('Song', 'Playlist', 'Album', 'Artist')),
     RatedTypeID INTEGER NOT NULL,
-    FOREIGN KEY (UserID) REFERENCES user(UserID) ON DELETE CASCADE
+    FOREIGN KEY (UserID) REFERENCES userprofile(UserID) ON DELETE CASCADE
 );
 
 -- Table: userfollows
@@ -159,6 +162,6 @@ CREATE TABLE userfollows (
     ArtistID INTEGER NOT NULL,
     DateFollowed DATE NOT NULL,
     PRIMARY KEY (FollowerID, ArtistID),
-    FOREIGN KEY (FollowerID) REFERENCES user(UserID) ON DELETE CASCADE,
+    FOREIGN KEY (FollowerID) REFERENCES userprofile(UserID) ON DELETE CASCADE,
     FOREIGN KEY (ArtistID) REFERENCES artist(ArtistID) ON DELETE CASCADE
 );
