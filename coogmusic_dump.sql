@@ -63,8 +63,8 @@ CREATE TABLE `artist` (
   `DateVerified` timestamp DEFAULT NULL,
   PRIMARY KEY (`ArtistID`),
   KEY `fk_artist_verifier` (`VerifyingAdminID`),
-  CONSTRAINT `fk_artist_user` FOREIGN KEY (`ArtistID`) REFERENCES `user` (`UserID`) ON DELETE CASCADE,
-  CONSTRAINT `fk_artist_verifier` FOREIGN KEY (`VerifyingAdminID`) REFERENCES `user` (`UserID`)
+  CONSTRAINT `fk_artist_user` FOREIGN KEY (`ArtistID`) REFERENCES `userprofile` (`UserID`) ON DELETE CASCADE,
+  CONSTRAINT `fk_artist_verifier` FOREIGN KEY (`VerifyingAdminID`) REFERENCES `userprofile` (`UserID`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -96,7 +96,7 @@ CREATE TABLE `history` (
   `UserID` int NOT NULL,
   PRIMARY KEY (`HistoryID`),
   UNIQUE KEY `UserID` (`UserID`),
-  CONSTRAINT `fk_history_user` FOREIGN KEY (`UserID`) REFERENCES `user` (`UserID`) ON DELETE CASCADE
+  CONSTRAINT `fk_history_user` FOREIGN KEY (`UserID`) REFERENCES `userprofile` (`UserID`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -150,7 +150,7 @@ CREATE TABLE `likes` (
   `UserID` int NOT NULL,
   PRIMARY KEY (`LikesID`),
   UNIQUE KEY `UserID` (`UserID`),
-  CONSTRAINT `fk_likes_user` FOREIGN KEY (`UserID`) REFERENCES `user` (`UserID`) ON DELETE CASCADE
+  CONSTRAINT `fk_likes_user` FOREIGN KEY (`UserID`) REFERENCES `userprofile` (`UserID`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -172,7 +172,7 @@ CREATE TABLE `playlist` (
   `Shuffle` boolean NOT NULL DEFAULT FALSE,
   PRIMARY KEY (`PlaylistID`),
   KEY `fk_playlist_user` (`UserID`),
-  CONSTRAINT `fk_playlist_user` FOREIGN KEY (`UserID`) REFERENCES `user` (`UserID`) ON DELETE CASCADE
+  CONSTRAINT `fk_playlist_user` FOREIGN KEY (`UserID`) REFERENCES `userprofile` (`UserID`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -214,7 +214,7 @@ CREATE TABLE `rating` (
   PRIMARY KEY (`RatingID`),
   KEY `fk_rating_user` (`UserID`),
   UNIQUE KEY `RatingID` (`RatingID`),
-  CONSTRAINT `fk_rating_user` FOREIGN KEY (`UserID`) REFERENCES `user` (`UserID`) ON DELETE CASCADE,
+  CONSTRAINT `fk_rating_user` FOREIGN KEY (`UserID`) REFERENCES `userprofile` (`UserID`) ON DELETE CASCADE,
   CONSTRAINT `chk_rating_value` CHECK (RatingValue >= 0.0 AND RatingValue <= 5.0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -255,10 +255,10 @@ CREATE TABLE `song` (
 -- Table structure for table `user`
 --
 
-DROP TABLE IF EXISTS `user`;
+DROP TABLE IF EXISTS `userprofile`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `user` (
+CREATE TABLE `userprofile` (
   `UserID` int NOT NULL AUTO_INCREMENT,
   `Username` varchar(30) NOT NULL,
   `UserPassword` varchar(255) NOT NULL,
@@ -297,7 +297,7 @@ CREATE TABLE `userfollows` (
   PRIMARY KEY (`FollowerID`,`ArtistID`),
   KEY `fk_follows_artist` (`ArtistID`),
   CONSTRAINT `fk_follows_artist` FOREIGN KEY (`ArtistID`) REFERENCES `artist` (`ArtistID`) ON DELETE CASCADE,
-  CONSTRAINT `fk_follows_user` FOREIGN KEY (`FollowerID`) REFERENCES `user` (`UserID`) ON DELETE CASCADE
+  CONSTRAINT `fk_follows_user` FOREIGN KEY (`FollowerID`) REFERENCES `userprofile` (`UserID`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
