@@ -85,6 +85,9 @@ jspm_packages/
 # Claude.md file
 claude.md
 
+# Requirements file
+requirements.md
+
 # IDE
 .vscode/
 .idea/
