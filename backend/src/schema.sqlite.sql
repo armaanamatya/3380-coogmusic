@@ -5,7 +5,7 @@
 PRAGMA foreign_keys = ON;
 
 -- Table: user
-CREATE TABLE user (
+CREATE TABLE userprofile (
     UserID INTEGER PRIMARY KEY AUTOINCREMENT,
     Username VARCHAR(30) NOT NULL UNIQUE,
     UserPassword VARCHAR(255) NOT NULL,
@@ -41,8 +41,8 @@ CREATE TABLE artist (
     VerifyingAdminID INTEGER,
     DateVerified TIMESTAMP,
     PRIMARY KEY (ArtistID),
-    FOREIGN KEY (ArtistID) REFERENCES user(UserID) ON DELETE CASCADE,
-    FOREIGN KEY (VerifyingAdminID) REFERENCES user(UserID)
+    FOREIGN KEY (ArtistID) REFERENCES userprofile(UserID) ON DELETE CASCADE,
+    FOREIGN KEY (VerifyingAdminID) REFERENCES userprofile(UserID)
 );
 
 -- Table: album
@@ -84,7 +84,7 @@ CREATE TABLE song (
 CREATE TABLE history (
     HistoryID INTEGER PRIMARY KEY AUTOINCREMENT,
     UserID INTEGER NOT NULL UNIQUE,
-    FOREIGN KEY (UserID) REFERENCES user(UserID) ON DELETE CASCADE
+    FOREIGN KEY (UserID) REFERENCES userprofile(UserID) ON DELETE CASCADE
 );
 
 -- Table: historysong
@@ -102,7 +102,7 @@ CREATE TABLE historysong (
 CREATE TABLE likes (
     LikesID INTEGER PRIMARY KEY AUTOINCREMENT,
     UserID INTEGER NOT NULL UNIQUE,
-    FOREIGN KEY (UserID) REFERENCES user(UserID) ON DELETE CASCADE
+    FOREIGN KEY (UserID) REFERENCES userprofile(UserID) ON DELETE CASCADE
 );
 
 -- Table: likedsong
@@ -126,7 +126,7 @@ CREATE TABLE playlist (
     PlaylistImage BLOB,
     DateCreated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     Shuffle BOOLEAN NOT NULL DEFAULT 0,
-    FOREIGN KEY (UserID) REFERENCES user(UserID) ON DELETE CASCADE
+    FOREIGN KEY (UserID) REFERENCES userprofile(UserID) ON DELETE CASCADE
 );
 
 -- Table: playlistsong
@@ -150,7 +150,7 @@ CREATE TABLE rating (
     RatingDescription VARCHAR(275),
     RateType VARCHAR(20) NOT NULL CHECK (RateType IN ('Song', 'Playlist', 'Album', 'Artist')),
     RatedTypeID INTEGER NOT NULL,
-    FOREIGN KEY (UserID) REFERENCES user(UserID) ON DELETE CASCADE
+    FOREIGN KEY (UserID) REFERENCES userprofile(UserID) ON DELETE CASCADE
 );
 
 -- Table: userfollows
@@ -159,6 +159,6 @@ CREATE TABLE userfollows (
     ArtistID INTEGER NOT NULL,
     DateFollowed DATE NOT NULL,
     PRIMARY KEY (FollowerID, ArtistID),
-    FOREIGN KEY (FollowerID) REFERENCES user(UserID) ON DELETE CASCADE,
+    FOREIGN KEY (FollowerID) REFERENCES userprofile(UserID) ON DELETE CASCADE,
     FOREIGN KEY (ArtistID) REFERENCES artist(ArtistID) ON DELETE CASCADE
 );
