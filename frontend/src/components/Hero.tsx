@@ -1,4 +1,8 @@
+import { useNavigate } from 'react-router-dom'
+
 const Hero = () => {
+  const navigate = useNavigate()
+  
   return (
     <section id="home" className="bg-gradient-to-br from-indigo-50 to-white py-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -12,7 +16,9 @@ const Hero = () => {
             and the perfect soundtrack for every moment of your life.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <button className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-lg text-lg font-semibold transition-colors shadow-lg hover:shadow-xl">
+            <button 
+              onClick={() => navigate('/signup')}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-lg text-lg font-semibold transition-colors shadow-lg hover:shadow-xl">
               Start Listening Free
             </button>
             <button className="border border-indigo-600 text-indigo-600 hover:bg-indigo-50 px-8 py-3 rounded-lg text-lg font-semibold transition-colors">

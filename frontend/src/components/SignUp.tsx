@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
-const SignIn = () => {
+const SignUp = () => {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [formData, setFormData] = useState({
     username: '',
     password: '',
@@ -104,9 +106,9 @@ const SignIn = () => {
         const data = await response.json();
 
         if (response.ok) {
-          alert('Registration successful! Welcome to CoogMusic!');
-          // Navigate to home page after successful registration
-          navigate('/home');
+          alert('Registration successful! Please log in to continue.');
+          // Navigate to login page after successful registration
+          navigate('/login');
         } else {
           alert(data.error || 'Registration failed. Please try again.');
         }
@@ -318,4 +320,4 @@ const SignIn = () => {
   );
 };
 
-export default SignIn;
+export default SignUp;

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useAuth } from '../contexts/AuthContext'
 
 interface ContentItem {
   id: string
@@ -9,6 +10,7 @@ interface ContentItem {
 }
 
 function HomePage() {
+  const { user, logout } = useAuth()
   const [searchQuery, setSearchQuery] = useState('')
   
   // Placeholder data - replace with actual API calls later
@@ -46,8 +48,12 @@ function HomePage() {
               className="w-24 h-24 rounded-full border-4 border-indigo-500 shadow-md"
             />
             <div className="text-center">
-              <h2 className="text-xl font-semibold text-gray-800">John Doe</h2>
-              <p className="text-sm text-gray-500">Premium Member</p>
+              <h2 className="text-xl font-semibold text-gray-800">
+                {user ? `${user.firstName || user.username}` : 'User'}
+              </h2>
+              <p className="text-sm text-gray-500">
+                {user?.userType || 'Member'}
+              </p>
             </div>
           </div>
           
@@ -96,6 +102,19 @@ function HomePage() {
                 </a>
               </li>
             </ul>
+            
+            {/* Sign Out Button */}
+            <div className="mt-8 pt-8 border-t border-gray-200">
+              <button
+                onClick={logout}
+                className="flex items-center w-full px-4 py-3 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+              >
+                <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+                Sign Out
+              </button>
+            </div>
           </nav>
         </div>
       </aside>
