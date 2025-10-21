@@ -94,3 +94,11 @@ claude.md
 # OS
 .DS_Store
 Thumbs.db
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Requirements and documentation
+requirements.md
