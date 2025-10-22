@@ -20,7 +20,6 @@ const getTypeColor = (type: string) => {
 }
 
 export const BaseCard: React.FC<BaseCardProps> = ({
-  id,
   title,
   imageUrl,
   type,
