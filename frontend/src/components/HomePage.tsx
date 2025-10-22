@@ -1,13 +1,68 @@
 import { useState } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import { ArtistCard, SongCard, AlbumCard, PlaylistCard } from './cards'
+import MusicUploadForm from './MusicUploadForm'
+import MusicLibrary from './MusicLibrary'
+import MusicEditForm from './MusicEditForm'
+import AlbumManager from './AlbumManager'
 
+
+interface Song {
+  SongID: number;
+  SongName: string;
+  ArtistID: number;
+  ArtistFirstName: string;
+  ArtistLastName: string;
+  AlbumID?: number;
+  AlbumName?: string;
+  GenreID?: number;
+  GenreName?: string;
+  Duration: number;
+  ListenCount: number;
+  FilePath: string;
+  FileSize: number;
+  ReleaseDate: string;
+  CreatedAt: string;
+}
+
+type MusicSubTab = 'library' | 'upload' | 'albums' | 'edit';
 
 function HomePage() {
   const { user, logout } = useAuth()
   const [searchQuery, setSearchQuery] = useState('')
   const [activeTab, setActiveTab] = useState('home')
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true)
+  
+  // Music management state
+  const [musicSubTab, setMusicSubTab] = useState<MusicSubTab>('library')
+  const [editingSong, setEditingSong] = useState<Song | null>(null)
+  const [refreshTrigger, setRefreshTrigger] = useState(0)
+
+  // Music management handlers
+  const handleEditSong = (song: Song) => {
+    setEditingSong(song);
+    setMusicSubTab('edit');
+  };
+
+  const handleUploadSuccess = (songId: number) => {
+    setMusicSubTab('library');
+    setRefreshTrigger(prev => prev + 1);
+  };
+
+  const handleUpdateSuccess = (songId: number) => {
+    setEditingSong(null);
+    setMusicSubTab('library');
+    setRefreshTrigger(prev => prev + 1);
+  };
+
+  const handleDeleteSong = (songId: number) => {
+    setRefreshTrigger(prev => prev + 1);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingSong(null);
+    setMusicSubTab('library');
+  };
   
   // Separate data by type - replace with actual API calls later
   const artists = [
@@ -274,10 +329,104 @@ function HomePage() {
           )}
 
           {activeTab === 'my-music' && user?.userType?.toLowerCase() === 'artist' && (
-            <div className="mb-8">
-              <h2 className="text-2xl font-bold text-red-700 mb-4">My Music</h2>
-              <p className="text-gray-600">Upload and manage your music here.</p>
-              {/* Add your music management content here */}
+            <div className="space-y-6">
+              {/* Music Management Header */}
+              <div className="mb-6">
+                <h2 className="text-2xl font-bold text-red-700 mb-2">My Music</h2>
+                <p className="text-gray-600">Upload, edit, and manage your music library</p>
+              </div>
+
+              {/* Sub-navigation for Music Management */}
+              {musicSubTab !== 'edit' && (
+                <div className="border-b border-gray-200 mb-6">
+                  <nav className="flex space-x-8">
+                    <button
+                      onClick={() => setMusicSubTab('library')}
+                      className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 ${
+                        musicSubTab === 'library'
+                          ? 'border-red-500 text-red-600'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      }`}
+                    >
+                      <span>🎵</span>
+                      <span>Music Library</span>
+                    </button>
+                    
+                    <button
+                      onClick={() => setMusicSubTab('upload')}
+                      className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 ${
+                        musicSubTab === 'upload'
+                          ? 'border-red-500 text-red-600'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      }`}
+                    >
+                      <span>⬆️</span>
+                      <span>Upload Music</span>
+                    </button>
+                    
+                    <button
+                      onClick={() => setMusicSubTab('albums')}
+                      className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 ${
+                        musicSubTab === 'albums'
+                          ? 'border-red-500 text-red-600'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      }`}
+                    >
+                      <span>💿</span>
+                      <span>Manage Albums</span>
+                    </button>
+                  </nav>
+                </div>
+              )}
+
+              {/* Back to Library button for Edit mode */}
+              {musicSubTab === 'edit' && editingSong && (
+                <div className="mb-6">
+                  <button
+                    onClick={handleCancelEdit}
+                    className="flex items-center space-x-2 px-4 py-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-colors"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                    </svg>
+                    <span>Back to Music Library</span>
+                  </button>
+                </div>
+              )}
+
+              {/* Content based on active sub-tab */}
+              <div className="bg-white rounded-lg shadow-sm">
+                {musicSubTab === 'library' && (
+                  <MusicLibrary
+                    onEditSong={handleEditSong}
+                    onDeleteSong={handleDeleteSong}
+                    refreshTrigger={refreshTrigger}
+                  />
+                )}
+
+                {musicSubTab === 'upload' && (
+                  <div className="p-6">
+                    <MusicUploadForm
+                      onUploadSuccess={handleUploadSuccess}
+                      onCancel={() => setMusicSubTab('library')}
+                    />
+                  </div>
+                )}
+
+                {musicSubTab === 'albums' && (
+                  <AlbumManager refreshTrigger={refreshTrigger} />
+                )}
+
+                {musicSubTab === 'edit' && editingSong && (
+                  <div className="p-6">
+                    <MusicEditForm
+                      song={editingSong}
+                      onUpdateSuccess={handleUpdateSuccess}
+                      onCancel={handleCancelEdit}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

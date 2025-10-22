@@ -32,8 +32,8 @@ const storage = multer.diskStorage({
   }
 });
 
-const upload = multer({
-  storage: storage,
+const uploadProfilePicture = multer({
+  storage: profilePictureStorage,
   limits: {
     fileSize: 5 * 1024 * 1024 // 5MB limit
   },
@@ -42,6 +42,56 @@ const upload = multer({
       cb(null, true);
     } else {
       cb(new Error('Only image files are allowed'));
+    }
+  }
+});
+
+// Configure multer for music file uploads
+const musicStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    let uploadDir;
+    if (file.fieldname === 'audioFile') {
+      uploadDir = 'uploads/music';
+    } else if (file.fieldname === 'albumCover') {
+      uploadDir = 'uploads/album-covers';
+    } else {
+      uploadDir = 'uploads/misc';
+    }
+    
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const uploadMusic = multer({
+  storage: musicStorage,
+  limits: {
+    fileSize: 50 * 1024 * 1024 // 50MB limit for audio files
+  },
+  fileFilter: (req, file, cb) => {
+    if (file.fieldname === 'audioFile') {
+      // Accept audio files
+      if (file.mimetype.startsWith('audio/') || 
+          ['.mp3', '.wav', '.flac', '.m4a', '.aac'].includes(path.extname(file.originalname).toLowerCase())) {
+        cb(null, true);
+      } else {
+        cb(new Error('Only audio files are allowed'));
+      }
+    } else if (file.fieldname === 'albumCover') {
+      // Accept image files for album covers
+      if (file.mimetype.startsWith('image/')) {
+        cb(null, true);
+      } else {
+        cb(new Error('Only image files are allowed for album covers'));
+      }
+    } else {
+      cb(null, true);
     }
   }
 });
@@ -98,20 +148,29 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     return;
   }
 
-  // Serve uploaded profile pictures
+  // Serve uploaded files (profile pictures, music, album covers)
   if (requestPath?.startsWith('/uploads/') && method === 'GET') {
     const filePath = path.join(process.cwd(), requestPath);
     if (fs.existsSync(filePath)) {
       const ext = path.extname(filePath).toLowerCase();
       const contentTypeMap: Record<string, string> = {
+        // Image types
         '.jpg': 'image/jpeg',
         '.jpeg': 'image/jpeg',
         '.png': 'image/png',
         '.gif': 'image/gif',
-        '.webp': 'image/webp'
+        '.webp': 'image/webp',
+        // Audio types
+        '.mp3': 'audio/mpeg',
+        '.wav': 'audio/wav',
+        '.flac': 'audio/flac',
+        '.m4a': 'audio/mp4',
+        '.aac': 'audio/aac'
       };
       const contentType = contentTypeMap[ext] || 'application/octet-stream';
 
+      // Add cache headers for better performance
+      res.setHeader('Cache-Control', 'public, max-age=31536000');
       res.writeHead(200, { 'Content-Type': contentType });
       fs.createReadStream(filePath).pipe(res);
     } else {
@@ -157,7 +216,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     console.log('  📝 Processing registration request...');
     try {
       // Use multer to handle multipart/form-data
-      upload.single('profilePicture')(req as any, res as any, async (err: any) => {
+      uploadProfilePicture.single('profilePicture')(req as any, res as any, async (err: any) => {
         if (err) {
           logError(err);
           res.writeHead(400, { 'Content-Type': 'application/json' });
