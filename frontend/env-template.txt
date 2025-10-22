@@ -1,0 +1,10 @@
+# Copy this content to a new file named ".env" in the frontend directory
+# This file should be in the same directory as package.json
+
+VITE_API_URL=http://localhost:3001
+
+# Instructions:
+# 1. Create a new file called ".env" in the frontend directory
+# 2. Copy the content above into that file
+# 3. Save the file
+# 4. Restart your development server (npm run dev)
