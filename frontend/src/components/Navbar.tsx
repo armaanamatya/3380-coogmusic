@@ -37,7 +37,7 @@ const Navbar = () => {
           {/* Sign In Button */}
           <div className="hidden md:block">
             <button
-              onClick={() => navigate('/home')}
+              onClick={() => navigate('/login')}
               className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
             >
               Sign In
@@ -74,7 +74,7 @@ const Navbar = () => {
                 About
               </a>
               <button
-                onClick={() => navigate('/home')}
+                onClick={() => navigate('/login')}
                 className="bg-indigo-600 hover:bg-indigo-700 text-white w-full text-left px-3 py-2 rounded-md text-base font-medium transition-colors"
               >
                 Sign In
