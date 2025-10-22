@@ -129,7 +129,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
 
           // Insert new user
           const stmt = db.prepare(`
-            INSERT INTO user (Username, UserPassword, FirstName, LastName, DateOfBirth, Email, UserType, DateJoined, Country, City, IsOnline, AccountStatus, ProfilePicture)
+            INSERT INTO userprofile (Username, UserPassword, FirstName, LastName, DateOfBirth, Email, UserType, DateJoined, Country, City, IsOnline, AccountStatus, ProfilePicture)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `);
 

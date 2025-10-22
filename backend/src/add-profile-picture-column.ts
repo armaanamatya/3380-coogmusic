@@ -10,12 +10,12 @@ const addProfilePictureColumn = async () => {
     const db = new Database('./coogmusic.db');
     
     // Check if ProfilePicture column already exists
-    const tableInfo = db.prepare("PRAGMA table_info(user)").all();
+    const tableInfo = db.prepare("PRAGMA table_info(userprofile)").all();
     const hasProfilePictureColumn = tableInfo.some((column: any) => column.name === 'ProfilePicture');
     
     if (!hasProfilePictureColumn) {
       // Add ProfilePicture column
-      db.prepare("ALTER TABLE user ADD COLUMN ProfilePicture VARCHAR(255)").run();
+      db.prepare("ALTER TABLE userprofile ADD COLUMN ProfilePicture VARCHAR(255)").run();
       console.log('ProfilePicture column added successfully');
     } else {
       console.log('ProfilePicture column already exists');
