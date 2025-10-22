@@ -74,7 +74,7 @@ const About = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {features.map((feature, index) => (
             <div key={index} className="bg-gray-50 rounded-xl p-6 hover:shadow-lg transition-shadow">
-              <div className="text-indigo-600 mb-4">
+              <div className="text-red-700 mb-4">
                 {feature.icon}
               </div>
               <h3 className="text-xl font-semibold text-gray-900 mb-3">
@@ -88,12 +88,12 @@ const About = () => {
         </div>
 
         {/* Stats Section */}
-        <div className="mt-20 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl p-8 md:p-12">
+        <div className="mt-20 bg-gradient-to-r from-red-600 to-red-800 rounded-2xl p-8 md:p-12">
           <div className="text-center text-white mb-8">
             <h3 className="text-2xl md:text-3xl font-bold mb-4">
               Join Millions of Music Lovers
             </h3>
-            <p className="text-indigo-100 text-lg">
+            <p className="text-red-100 text-lg">
               Experience the future of music streaming
             </p>
           </div>
@@ -101,15 +101,15 @@ const About = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
             <div>
               <div className="text-4xl md:text-5xl font-bold text-white mb-2">50M+</div>
-              <div className="text-indigo-100">Songs Available</div>
+              <div className="text-red-100">Songs Available</div>
             </div>
             <div>
               <div className="text-4xl md:text-5xl font-bold text-white mb-2">2M+</div>
-              <div className="text-indigo-100">Active Users</div>
+              <div className="text-red-100">Active Users</div>
             </div>
             <div>
               <div className="text-4xl md:text-5xl font-bold text-white mb-2">99.9%</div>
-              <div className="text-indigo-100">Uptime Guarantee</div>
+              <div className="text-red-100">Uptime Guarantee</div>
             </div>
           </div>
         </div>
