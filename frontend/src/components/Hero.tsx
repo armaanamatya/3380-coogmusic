@@ -4,12 +4,12 @@ const Hero = () => {
   const navigate = useNavigate()
   
   return (
-    <section id="home" className="bg-gradient-to-br from-indigo-50 to-white py-20">
+    <section id="home" className="bg-gradient-to-br from-red-50 to-white py-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center">
           <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-6">
             Discover Your Next
-            <span className="text-indigo-600"> Favorite Song</span>
+            <span className="text-red-700"> Favorite Song</span>
           </h1>
           <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
             CoogMusic brings you personalized music recommendations, curated playlists, 
@@ -18,10 +18,10 @@ const Hero = () => {
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <button 
               onClick={() => navigate('/signup')}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-lg text-lg font-semibold transition-colors shadow-lg hover:shadow-xl">
+              className="bg-red-700 hover:bg-red-800 text-white px-8 py-3 rounded-lg text-lg font-semibold transition-colors shadow-lg hover:shadow-xl">
               Start Listening Free
             </button>
-            <button className="border border-indigo-600 text-indigo-600 hover:bg-indigo-50 px-8 py-3 rounded-lg text-lg font-semibold transition-colors">
+            <button className="border border-red-700 text-red-700 hover:bg-red-50 px-8 py-3 rounded-lg text-lg font-semibold transition-colors">
               Learn More
             </button>
           </div>
@@ -30,7 +30,7 @@ const Hero = () => {
         {/* Hero Image/Visual */}
         <div className="mt-16">
           <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-4xl mx-auto">
-            <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl p-8 text-white text-center">
+            <div className="bg-gradient-to-r from-red-600 to-red-800 rounded-xl p-8 text-white text-center">
               <div className="flex items-center justify-center mb-4">
                 <div className="w-16 h-16 bg-white bg-opacity-20 rounded-full flex items-center justify-center mr-4">
                   <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
@@ -39,7 +39,7 @@ const Hero = () => {
                 </div>
                 <h3 className="text-2xl font-bold">Now Playing</h3>
               </div>
-              <p className="text-indigo-100 text-lg">
+              <p className="text-red-100 text-lg">
                 Your personalized music experience starts here
               </p>
             </div>

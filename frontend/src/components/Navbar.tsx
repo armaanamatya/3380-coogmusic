@@ -11,7 +11,7 @@ const Navbar = () => {
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <div className="flex-shrink-0">
-            <h1 className="text-2xl font-bold text-indigo-600">
+            <h1 className="text-2xl font-bold text-red-700">
               CoogMusic
             </h1>
           </div>
@@ -21,13 +21,13 @@ const Navbar = () => {
             <div className="ml-10 flex items-baseline space-x-8">
               <a
                 href="#home"
-                className="text-gray-900 hover:text-indigo-600 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                className="text-gray-900 hover:text-red-700 px-3 py-2 rounded-md text-sm font-medium transition-colors"
               >
                 Home
               </a>
               <a
                 href="#about"
-                className="text-gray-500 hover:text-indigo-600 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                className="text-gray-500 hover:text-red-700 px-3 py-2 rounded-md text-sm font-medium transition-colors"
               >
                 About
               </a>
@@ -38,7 +38,7 @@ const Navbar = () => {
           <div className="hidden md:block">
             <button
               onClick={() => navigate('/login')}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
+              className="bg-red-700 hover:bg-red-800 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
             >
               Sign In
             </button>
@@ -63,19 +63,19 @@ const Navbar = () => {
             <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-white border-t border-gray-200">
               <a
                 href="#home"
-                className="text-gray-900 hover:text-indigo-600 block px-3 py-2 rounded-md text-base font-medium"
+                className="text-gray-900 hover:text-red-700 block px-3 py-2 rounded-md text-base font-medium"
               >
                 Home
               </a>
               <a
                 href="#about"
-                className="text-gray-500 hover:text-indigo-600 block px-3 py-2 rounded-md text-base font-medium"
+                className="text-gray-500 hover:text-red-700 block px-3 py-2 rounded-md text-base font-medium"
               >
                 About
               </a>
               <button
                 onClick={() => navigate('/login')}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white w-full text-left px-3 py-2 rounded-md text-base font-medium transition-colors"
+                className="bg-red-700 hover:bg-red-800 text-white w-full text-left px-3 py-2 rounded-md text-base font-medium transition-colors"
               >
                 Sign In
               </button>
