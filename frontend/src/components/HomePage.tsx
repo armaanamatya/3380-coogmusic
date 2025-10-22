@@ -77,7 +77,7 @@ function HomePage() {
                   {!isSidebarCollapsed && 'Home'}
                 </button>
               </li>
-              {user?.userType === 'artist' && (
+              {user?.userType?.toLowerCase() === 'artist' && (
                 <li>
                   <button
                     onClick={() => setActiveTab('my-music')}
@@ -273,7 +273,7 @@ function HomePage() {
             </>
           )}
 
-          {activeTab === 'my-music' && user?.userType === 'artist' && (
+          {activeTab === 'my-music' && user?.userType?.toLowerCase() === 'artist' && (
             <div className="mb-8">
               <h2 className="text-2xl font-bold text-red-700 mb-4">My Music</h2>
               <p className="text-gray-600">Upload and manage your music here.</p>

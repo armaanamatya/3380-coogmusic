@@ -110,7 +110,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
           const db = await createConnection();
 
           // Check if username or email already exists
-          const existingUser = db.prepare('SELECT UserID FROM user WHERE Username = ? OR Email = ?').get(userData.username, userData.email);
+          const existingUser = db.prepare('SELECT UserID FROM userprofile WHERE Username = ? OR Email = ?').get(userData.username, userData.email);
           
           if (existingUser) {
             res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -183,7 +183,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
         const db = await createConnection();
 
         // Find user by username
-        const user = db.prepare('SELECT UserID, Username, UserPassword, UserType, FirstName, LastName, ProfilePicture FROM user WHERE Username = ?').get(username) as any;
+        const user = db.prepare('SELECT UserID, Username, UserPassword, UserType, FirstName, LastName, ProfilePicture FROM userprofile WHERE Username = ?').get(username) as any;
         
         if (!user) {
           res.writeHead(401, { 'Content-Type': 'application/json' });
@@ -201,7 +201,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
         }
 
         // Update IsOnline status
-        db.prepare('UPDATE user SET IsOnline = 1 WHERE UserID = ?').run(user.UserID);
+        db.prepare('UPDATE userprofile SET IsOnline = 1 WHERE UserID = ?').run(user.UserID);
 
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ 
