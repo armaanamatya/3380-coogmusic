@@ -110,7 +110,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
           const db = await createConnection();
 
           // Check if username or email already exists
-          const existingUser = db.prepare('SELECT UserID FROM user WHERE Username = ? OR Email = ?').get(userData.username, userData.email);
+          const existingUser = db.prepare('SELECT UserID FROM userprofile WHERE Username = ? OR Email = ?').get(userData.username, userData.email);
           
           if (existingUser) {
             res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -129,7 +129,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
 
           // Insert new user
           const stmt = db.prepare(`
-            INSERT INTO user (Username, UserPassword, FirstName, LastName, DateOfBirth, Email, UserType, DateJoined, Country, City, IsOnline, AccountStatus, ProfilePicture)
+            INSERT INTO userprofile (Username, UserPassword, FirstName, LastName, DateOfBirth, Email, UserType, DateJoined, Country, City, IsOnline, AccountStatus, ProfilePicture)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `);
 
