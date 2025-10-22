@@ -1,10 +1,8 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
 
 const SignUp = () => {
   const navigate = useNavigate();
-  const { login } = useAuth();
   const [formData, setFormData] = useState({
     username: '',
     password: '',
@@ -17,6 +15,8 @@ const SignUp = () => {
     city: ''
   });
 
+  const [profilePicture, setProfilePicture] = useState<File | null>(null);
+  const [profilePicturePreview, setProfilePicturePreview] = useState<string>('');
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -29,6 +29,39 @@ const SignUp = () => {
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: '' }));
     }
+  };
+
+  const handleProfilePictureChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        setErrors(prev => ({ ...prev, profilePicture: 'Please select a valid image file' }));
+        return;
+      }
+      
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        setErrors(prev => ({ ...prev, profilePicture: 'Image size must be less than 5MB' }));
+        return;
+      }
+
+      setProfilePicture(file);
+      setErrors(prev => ({ ...prev, profilePicture: '' }));
+      
+      // Create preview URL
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setProfilePicturePreview(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeProfilePicture = () => {
+    setProfilePicture(null);
+    setProfilePicturePreview('');
+    setErrors(prev => ({ ...prev, profilePicture: '' }));
   };
 
   const validateForm = () => {
@@ -95,12 +128,22 @@ const SignUp = () => {
     
     if (validateForm()) {
       try {
+        // Create FormData for file upload
+        const formDataToSend = new FormData();
+        
+        // Add all form fields
+        Object.entries(formData).forEach(([key, value]) => {
+          formDataToSend.append(key, value);
+        });
+        
+        // Add profile picture if selected
+        if (profilePicture) {
+          formDataToSend.append('profilePicture', profilePicture);
+        }
+
         const response = await fetch('http://localhost:3001/api/auth/register', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(formData),
+          body: formDataToSend, // Don't set Content-Type header, let browser set it for FormData
         });
 
         const data = await response.json();
@@ -126,6 +169,63 @@ const SignUp = () => {
           <h2 className="text-3xl font-bold text-center mb-8 text-red-700">Create Your Account</h2>
           
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Profile Picture Upload */}
+            <div className="flex flex-col items-center space-y-4">
+              <label className="block text-sm font-medium text-gray-700">
+                Profile Picture
+              </label>
+              
+              {/* Profile Picture Preview */}
+              <div className="relative">
+                {profilePicturePreview ? (
+                  <div className="relative">
+                    <img
+                      src={profilePicturePreview}
+                      alt="Profile preview"
+                      className="w-32 h-32 rounded-full object-cover border-4 border-red-200"
+                    />
+                    <button
+                      type="button"
+                      onClick={removeProfilePicture}
+                      className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ) : (
+                  <div className="w-32 h-32 rounded-full bg-gray-200 border-4 border-red-200 flex items-center justify-center">
+                    <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                  </div>
+                )}
+              </div>
+              
+              {/* File Input */}
+              <div className="flex flex-col items-center space-y-2">
+                <input
+                  type="file"
+                  id="profilePicture"
+                  name="profilePicture"
+                  accept="image/*"
+                  onChange={handleProfilePictureChange}
+                  className="hidden"
+                />
+                <label
+                  htmlFor="profilePicture"
+                  className="cursor-pointer bg-red-700 hover:bg-red-800 text-white px-4 py-2 rounded-md transition duration-200 ease-in-out transform hover:scale-[1.02]"
+                >
+                  {profilePicturePreview ? 'Change Picture' : 'Upload Picture'}
+                </label>
+                <p className="text-xs text-gray-500 text-center">
+                  JPG, PNG or GIF. Max size 5MB.
+                </p>
+                {errors.profilePicture && (
+                  <p className="text-sm text-red-500">{errors.profilePicture}</p>
+                )}
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Username */}
               <div>

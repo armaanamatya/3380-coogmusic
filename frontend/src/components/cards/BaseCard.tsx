@@ -29,7 +29,7 @@ export const BaseCard: React.FC<BaseCardProps> = ({
 }) => {
   return (
     <div
-      className="bg-white rounded-lg shadow-md hover:shadow-xl transition-shadow cursor-pointer overflow-hidden w-32"
+      className="bg-white rounded-lg shadow-md hover:shadow-xl transition-shadow cursor-pointer overflow-hidden w-64"
       onClick={onClick}
     >
       <div className="aspect-square bg-gray-200 relative">
@@ -39,15 +39,15 @@ export const BaseCard: React.FC<BaseCardProps> = ({
           className="w-full h-full object-cover"
         />
         <div className="absolute top-1 right-1">
-          <span className={`px-1.5 py-0.5 text-xs font-semibold rounded-full ${getTypeColor(type)}`}>
+          <span className={`px-2 py-1 text-sm font-semibold rounded-full ${getTypeColor(type)}`}>
             {type}
           </span>
         </div>
       </div>
-      <div className="p-2">
-        <h3 className="font-semibold text-gray-800 truncate text-xs">{title}</h3>
+      <div className="p-3">
+        <h3 className="font-semibold text-gray-800 truncate text-sm">{title}</h3>
         {artist && (
-          <p className="text-xs text-gray-500 mt-0.5 truncate">{artist}</p>
+          <p className="text-sm text-gray-500 mt-1 truncate">{artist}</p>
         )}
       </div>
     </div>
