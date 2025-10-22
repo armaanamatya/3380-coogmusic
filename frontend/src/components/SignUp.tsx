@@ -120,16 +120,16 @@ const SignUp = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center px-4">
+    <div className="min-h-screen bg-white text-gray-900 flex items-center justify-center px-4">
       <div className="max-w-2xl w-full">
-        <div className="bg-gray-800 rounded-lg shadow-xl p-8">
-          <h2 className="text-3xl font-bold text-center mb-8 text-purple-400">Create Your Account</h2>
+        <div className="bg-white rounded-lg shadow-xl border border-gray-200 p-8">
+          <h2 className="text-3xl font-bold text-center mb-8 text-red-700">Create Your Account</h2>
           
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Username */}
               <div>
-                <label htmlFor="username" className="block text-sm font-medium mb-2">
+                <label htmlFor="username" className="block text-sm font-medium mb-2 text-gray-700">
                   Username
                 </label>
                 <input
@@ -138,7 +138,7 @@ const SignUp = () => {
                   name="username"
                   value={formData.username}
                   onChange={handleChange}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-gray-900"
                   placeholder="Enter username"
                 />
                 {errors.username && (
@@ -148,7 +148,7 @@ const SignUp = () => {
 
               {/* Password */}
               <div>
-                <label htmlFor="password" className="block text-sm font-medium mb-2">
+                <label htmlFor="password" className="block text-sm font-medium mb-2 text-gray-700">
                   Password
                 </label>
                 <input
@@ -157,7 +157,7 @@ const SignUp = () => {
                   name="password"
                   value={formData.password}
                   onChange={handleChange}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-gray-900"
                   placeholder="Enter password"
                 />
                 {errors.password && (
@@ -167,7 +167,7 @@ const SignUp = () => {
 
               {/* First Name */}
               <div>
-                <label htmlFor="firstName" className="block text-sm font-medium mb-2">
+                <label htmlFor="firstName" className="block text-sm font-medium mb-2 text-gray-700">
                   First Name
                 </label>
                 <input
@@ -176,7 +176,7 @@ const SignUp = () => {
                   name="firstName"
                   value={formData.firstName}
                   onChange={handleChange}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-gray-900"
                   placeholder="Enter first name"
                 />
                 {errors.firstName && (
@@ -186,7 +186,7 @@ const SignUp = () => {
 
               {/* Last Name */}
               <div>
-                <label htmlFor="lastName" className="block text-sm font-medium mb-2">
+                <label htmlFor="lastName" className="block text-sm font-medium mb-2 text-gray-700">
                   Last Name
                 </label>
                 <input
@@ -195,7 +195,7 @@ const SignUp = () => {
                   name="lastName"
                   value={formData.lastName}
                   onChange={handleChange}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-gray-900"
                   placeholder="Enter last name"
                 />
                 {errors.lastName && (
@@ -205,7 +205,7 @@ const SignUp = () => {
 
               {/* Date of Birth */}
               <div>
-                <label htmlFor="dateOfBirth" className="block text-sm font-medium mb-2">
+                <label htmlFor="dateOfBirth" className="block text-sm font-medium mb-2 text-gray-700">
                   Date of Birth
                 </label>
                 <input
@@ -214,7 +214,7 @@ const SignUp = () => {
                   name="dateOfBirth"
                   value={formData.dateOfBirth}
                   onChange={handleChange}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-gray-900"
                 />
                 {errors.dateOfBirth && (
                   <p className="mt-1 text-sm text-red-500">{errors.dateOfBirth}</p>
@@ -223,7 +223,7 @@ const SignUp = () => {
 
               {/* Email */}
               <div>
-                <label htmlFor="email" className="block text-sm font-medium mb-2">
+                <label htmlFor="email" className="block text-sm font-medium mb-2 text-gray-700">
                   Email
                 </label>
                 <input
@@ -232,7 +232,7 @@ const SignUp = () => {
                   name="email"
                   value={formData.email}
                   onChange={handleChange}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-gray-900"
                   placeholder="Enter email"
                 />
                 {errors.email && (
@@ -242,7 +242,7 @@ const SignUp = () => {
 
               {/* User Type */}
               <div>
-                <label htmlFor="userType" className="block text-sm font-medium mb-2">
+                <label htmlFor="userType" className="block text-sm font-medium mb-2 text-gray-700">
                   Account Type
                 </label>
                 <select
@@ -250,7 +250,7 @@ const SignUp = () => {
                   name="userType"
                   value={formData.userType}
                   onChange={handleChange}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-gray-900"
                 >
                   <option value="Listener">Listener</option>
                   <option value="Artist">Artist</option>
@@ -260,7 +260,7 @@ const SignUp = () => {
 
               {/* Country */}
               <div>
-                <label htmlFor="country" className="block text-sm font-medium mb-2">
+                <label htmlFor="country" className="block text-sm font-medium mb-2 text-gray-700">
                   Country
                 </label>
                 <input
@@ -269,7 +269,7 @@ const SignUp = () => {
                   name="country"
                   value={formData.country}
                   onChange={handleChange}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-gray-900"
                   placeholder="Enter country"
                 />
                 {errors.country && (
@@ -279,7 +279,7 @@ const SignUp = () => {
 
               {/* City */}
               <div>
-                <label htmlFor="city" className="block text-sm font-medium mb-2">
+                <label htmlFor="city" className="block text-sm font-medium mb-2 text-gray-700">
                   City <span className="text-gray-400">(optional)</span>
                 </label>
                 <input
@@ -288,7 +288,7 @@ const SignUp = () => {
                   name="city"
                   value={formData.city}
                   onChange={handleChange}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-gray-900"
                   placeholder="Enter city"
                 />
               </div>
@@ -298,7 +298,7 @@ const SignUp = () => {
             <div className="mt-8">
               <button
                 type="submit"
-                className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-4 rounded-md transition duration-200 ease-in-out transform hover:scale-[1.02]"
+                className="w-full bg-red-700 hover:bg-red-800 text-white font-bold py-3 px-4 rounded-md transition duration-200 ease-in-out transform hover:scale-[1.02]"
               >
                 Create Account
               </button>
@@ -307,9 +307,9 @@ const SignUp = () => {
 
           {/* Login Link */}
           <div className="mt-6 text-center">
-            <p className="text-gray-400">
+            <p className="text-gray-600">
               Already have an account?{' '}
-              <Link to="/login" className="text-purple-400 hover:text-purple-300 font-medium">
+              <Link to="/login" className="text-red-700 hover:text-red-800 font-medium">
                 Log in
               </Link>
             </p>
