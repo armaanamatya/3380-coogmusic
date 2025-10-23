@@ -73,7 +73,7 @@ export const initializeDatabase = async (): Promise<void> => {
     // Check if tables already exist
     const tables = database.prepare(`
       SELECT name FROM sqlite_master 
-      WHERE type='table' AND name='user'
+      WHERE type='table' AND name='userprofile'
     `).get();
     
     if (!tables) {
