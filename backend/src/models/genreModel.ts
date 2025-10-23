@@ -59,7 +59,7 @@ export const createGenre = async (genre: NewGenre) => {
   ];
 
   try {
-    const [result] = await pool.query(sql, values);
+    const result = pool.prepare(sql).run(...values);
     return result;
   } catch (error: any) {
     if (error.code === 'ER_DUP_ENTRY') {
@@ -71,19 +71,19 @@ export const createGenre = async (genre: NewGenre) => {
 
 export const getGenreById = async (genreId: number) => {
   const sql = `SELECT * FROM genre WHERE GenreID = ?`;
-  const [rows] = await pool.query(sql, [genreId]);
-  return (rows as any[])[0];
+  const rows = pool.prepare(sql).all(genreId);
+  return rows[0];
 };
 
 export const getGenreByName = async (genreName: string) => {
   const sql = `SELECT * FROM genre WHERE GenreName = ?`;
-  const [rows] = await pool.query(sql, [genreName]);
-  return (rows as any[])[0];
+  const rows = pool.prepare(sql).all(genreName);
+  return rows[0];
 };
 
 export const getAllGenres = async () => {
   const sql = `SELECT * FROM genre ORDER BY GenreName`;
-  const [rows] = await pool.query(sql);
+  const rows = pool.prepare(sql).all();
   return rows;
 };
 
@@ -116,7 +116,7 @@ export const updateGenre = async (genreId: number, updates: UpdateGenre) => {
   const sql = `UPDATE genre SET ${setClauses.join(', ')} WHERE GenreID = ?`;
 
   try {
-    const [result] = await pool.query(sql, params);
+    const result = pool.prepare(sql).run(...params);
     return result;
   } catch (error: any) {
     if (error.code === 'ER_DUP_ENTRY') {
@@ -129,15 +129,15 @@ export const updateGenre = async (genreId: number, updates: UpdateGenre) => {
 export const deleteGenre = async (genreId: number) => {
   // Check if genre is being used by any songs
   const checkSql = `SELECT COUNT(*) as count FROM song WHERE GenreID = ?`;
-  const [checkRows] = await pool.query(checkSql, [genreId]);
-  const count = (checkRows as any[])[0].count;
+  const checkRows = pool.prepare(checkSql).all(genreId);
+  const count = checkRows[0].count;
 
   if (count > 0) {
     throw new Error('Cannot delete genre that is associated with songs');
   }
 
   const sql = `DELETE FROM genre WHERE GenreID = ?`;
-  const [result] = await pool.query(sql, [genreId]);
+  const result = pool.prepare(sql).run(genreId);
   return result;
 };
 
@@ -149,7 +149,7 @@ export const searchGenres = async (query: string) => {
   `;
   
   const searchTerm = `%${query}%`;
-  const [rows] = await pool.query(sql, [searchTerm, searchTerm]);
+  const rows = pool.prepare(sql).all(searchTerm, searchTerm);
   return rows;
 };
 
@@ -162,7 +162,7 @@ export const getGenresWithSongCount = async () => {
     ORDER BY songCount DESC, g.GenreName
   `;
   
-  const [rows] = await pool.query(sql);
+  const rows = pool.prepare(sql).all();
   return rows;
 };
 
@@ -177,6 +177,6 @@ export const getSongsByGenre = async (genreId: number) => {
     ORDER BY s.ReleaseDate DESC
   `;
   
-  const [rows] = await pool.query(sql, [genreId]);
+  const rows = pool.prepare(sql).all(genreId);
   return rows;
 };
