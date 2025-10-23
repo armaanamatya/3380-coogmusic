@@ -1,16 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
+import { songApi, genreApi, albumApi } from '../services/api';
 
 interface Genre {
   GenreID: number;
   GenreName: string;
-}
-
-interface Artist {
-  ArtistID: number;
-  FirstName: string;
-  LastName: string;
-  Username: string;
 }
 
 interface Album {
@@ -42,7 +36,6 @@ const MusicUploadForm: React.FC<MusicUploadFormProps> = ({ onUploadSuccess, onCa
   });
   
   const [genres, setGenres] = useState<Genre[]>([]);
-  const [artists, setArtists] = useState<Artist[]>([]);
   const [albums, setAlbums] = useState<Album[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -50,13 +43,12 @@ const MusicUploadForm: React.FC<MusicUploadFormProps> = ({ onUploadSuccess, onCa
 
   useEffect(() => {
     fetchGenres();
-    // Remove fetchArtists() - no longer needed
     fetchAlbums();
   }, []);
 
   const fetchGenres = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/genres');
+      const response = await genreApi.getAll();
       const data = await response.json();
       setGenres(data.genres || []);
     } catch (error) {
@@ -64,19 +56,9 @@ const MusicUploadForm: React.FC<MusicUploadFormProps> = ({ onUploadSuccess, onCa
     }
   };
 
-  const fetchArtists = async () => {
-    try {
-      const response = await fetch('http://localhost:3001/api/artists');
-      const data = await response.json();
-      setArtists(data.artists || []);
-    } catch (error) {
-      console.error('Error fetching artists:', error);
-    }
-  };
-
   const fetchAlbums = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/albums');
+      const response = await albumApi.getAll();
       const data = await response.json();
       setAlbums(data.albums || []);
     } catch (error) {
@@ -168,10 +150,7 @@ const MusicUploadForm: React.FC<MusicUploadFormProps> = ({ onUploadSuccess, onCa
         }
       });
 
-      const response = await fetch('http://localhost:3001/api/music/upload', {
-        method: 'POST',
-        body: uploadData
-      });
+      const response = await songApi.upload(uploadData);
 
       const result = await response.json();
 

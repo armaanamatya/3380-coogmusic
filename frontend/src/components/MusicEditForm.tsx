@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { songApi, genreApi, albumApi } from '../services/api';
 
 interface Song {
   SongID: number;
@@ -53,7 +54,7 @@ const MusicEditForm: React.FC<MusicEditFormProps> = ({ song, onUpdateSuccess, on
 
   const fetchGenres = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/genres');
+      const response = await genreApi.getAll();
       const data = await response.json();
       setGenres(data.genres || []);
     } catch (error) {
@@ -63,7 +64,7 @@ const MusicEditForm: React.FC<MusicEditFormProps> = ({ song, onUpdateSuccess, on
 
   const fetchAlbums = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/albums');
+      const response = await albumApi.getAll();
       const data = await response.json();
       setAlbums(data.albums || []);
     } catch (error) {
@@ -111,13 +112,7 @@ const MusicEditForm: React.FC<MusicEditFormProps> = ({ song, onUpdateSuccess, on
         updateData.GenreID = null;
       }
 
-      const response = await fetch(`http://localhost:3001/api/music/${song.SongID}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(updateData)
-      });
+      const response = await songApi.update(song.SongID, updateData);
 
       const result = await response.json();
 

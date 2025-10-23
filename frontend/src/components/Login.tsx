@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { authApi } from '../services/api';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -24,13 +25,7 @@ const Login = () => {
     e.preventDefault();
     
     try {
-      const response = await fetch('http://localhost:3001/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-      });
+      const response = await authApi.login(formData);
 
       const data = await response.json();
 

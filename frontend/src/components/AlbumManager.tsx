@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { albumApi, artistApi } from '../services/api';
 
 interface Album {
   AlbumID: number;
@@ -49,7 +50,7 @@ const AlbumManager: React.FC<AlbumManagerProps> = ({ refreshTrigger }) => {
     setError('');
 
     try {
-      const response = await fetch('http://localhost:3001/api/albums');
+      const response = await albumApi.getAll();
       const data = await response.json();
 
       if (response.ok) {
@@ -67,7 +68,7 @@ const AlbumManager: React.FC<AlbumManagerProps> = ({ refreshTrigger }) => {
 
   const fetchArtists = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/artists');
+      const response = await artistApi.getAll();
       const data = await response.json();
       setArtists(data.artists || []);
     } catch (error) {
@@ -95,17 +96,11 @@ const AlbumManager: React.FC<AlbumManagerProps> = ({ refreshTrigger }) => {
     setError('');
 
     try {
-      const response = await fetch('http://localhost:3001/api/albums', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          albumName: formData.albumName.trim(),
-          artistId: parseInt(formData.artistId),
-          releaseDate: formData.releaseDate,
-          description: formData.description.trim() || null
-        })
+      const response = await albumApi.create({
+        albumName: formData.albumName.trim(),
+        artistId: parseInt(formData.artistId),
+        releaseDate: formData.releaseDate,
+        description: formData.description.trim() || undefined
       });
 
       const result = await response.json();
@@ -142,16 +137,10 @@ const AlbumManager: React.FC<AlbumManagerProps> = ({ refreshTrigger }) => {
     setError('');
 
     try {
-      const response = await fetch(`http://localhost:3001/api/albums/${editingAlbum.AlbumID}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          AlbumName: formData.albumName.trim(),
-          ReleaseDate: formData.releaseDate,
-          Description: formData.description.trim() || null
-        })
+      const response = await albumApi.update(editingAlbum.AlbumID, {
+        AlbumName: formData.albumName.trim(),
+        ReleaseDate: formData.releaseDate,
+        Description: formData.description.trim() || null
       });
 
       const result = await response.json();
@@ -182,9 +171,7 @@ const AlbumManager: React.FC<AlbumManagerProps> = ({ refreshTrigger }) => {
     }
 
     try {
-      const response = await fetch(`http://localhost:3001/api/albums/${albumId}`, {
-        method: 'DELETE'
-      });
+      const response = await albumApi.delete(albumId);
 
       if (response.ok) {
         setAlbums(prev => prev.filter(album => album.AlbumID !== albumId));

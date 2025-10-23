@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { authApi } from '../services/api';
 
 const SignUp = () => {
   const navigate = useNavigate();
@@ -141,10 +142,7 @@ const SignUp = () => {
           formDataToSend.append('profilePicture', profilePicture);
         }
 
-        const response = await fetch('http://localhost:3001/api/auth/register', {
-          method: 'POST',
-          body: formDataToSend, // Don't set Content-Type header, let browser set it for FormData
-        });
+        const response = await authApi.register(formDataToSend);
 
         const data = await response.json();
 

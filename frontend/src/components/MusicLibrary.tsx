@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { songApi, getFileUrl } from '../services/api';
 
 interface Song {
   SongID: number;
@@ -51,7 +52,13 @@ const MusicLibrary: React.FC<MusicLibraryProps> = ({ onEditSong, onDeleteSong, r
       if (filters.genreId) queryParams.append('genreId', filters.genreId);
       if (filters.albumId) queryParams.append('albumId', filters.albumId);
 
-      const response = await fetch(`http://localhost:3001/api/music?${queryParams}`);
+      const response = await songApi.getAll({
+        page: currentPage,
+        limit: 20,
+        ...(filters.artistId && { artistId: parseInt(filters.artistId) }),
+        ...(filters.genreId && { genreId: parseInt(filters.genreId) }),
+        ...(filters.albumId && { albumId: parseInt(filters.albumId) })
+      });
       const data = await response.json();
 
       if (response.ok) {
@@ -73,9 +80,7 @@ const MusicLibrary: React.FC<MusicLibraryProps> = ({ onEditSong, onDeleteSong, r
     }
 
     try {
-      const response = await fetch(`http://localhost:3001/api/music/${songId}`, {
-        method: 'DELETE'
-      });
+      const response = await songApi.delete(songId);
 
       if (response.ok) {
         setSongs(prev => prev.filter(song => song.SongID !== songId));
@@ -111,7 +116,7 @@ const MusicLibrary: React.FC<MusicLibraryProps> = ({ onEditSong, onDeleteSong, r
   };
 
   const playPreview = (filePath: string) => {
-    const audio = new Audio(`http://localhost:3001${filePath}`);
+    const audio = new Audio(getFileUrl(filePath));
     audio.play().catch(err => {
       console.error('Audio play error:', err);
       setError('Could not play audio file');
@@ -234,7 +239,7 @@ const MusicLibrary: React.FC<MusicLibraryProps> = ({ onEditSong, onDeleteSong, r
                     </button>
 
                     <a
-                      href={`http://localhost:3001${song.FilePath}`}
+                      href={getFileUrl(song.FilePath)}
                       download
                       className="p-2 text-gray-600 hover:bg-gray-50 rounded-full"
                       title="Download"
