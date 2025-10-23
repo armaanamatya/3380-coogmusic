@@ -19,12 +19,12 @@ export function getAllSongs(
   let query = `
     SELECT s.*, 
            a.ArtistID, up.FirstName AS ArtistFirstName, up.LastName AS ArtistLastName,
-           al.AlbumName, al.AlbumArt AS AlbumCover,
+           al.AlbumName, al.AlbumCover,
            g.GenreName
     FROM song s
-    LEFT JOIN album al ON s.AlbumID = al.AlbumID
-    LEFT JOIN artist a ON al.ArtistID = a.ArtistID
+    LEFT JOIN artist a ON s.ArtistID = a.ArtistID
     LEFT JOIN userprofile up ON a.ArtistID = up.UserID
+    LEFT JOIN album al ON s.AlbumID = al.AlbumID
     LEFT JOIN genre g ON s.GenreID = g.GenreID
     WHERE 1=1
   `;
@@ -32,7 +32,7 @@ export function getAllSongs(
   const queryParams: any[] = [];
   
   if (artistId !== undefined) {
-    query += ' AND al.ArtistID = ?';
+    query += ' AND s.ArtistID = ?';
     queryParams.push(artistId);
   }
   
@@ -57,12 +57,12 @@ export function getSongById(db: Database, songId: number): Song | null {
   const song = db.prepare(`
     SELECT s.*, 
            a.ArtistID, up.FirstName AS ArtistFirstName, up.LastName AS ArtistLastName,
-           al.AlbumName, al.AlbumArt AS AlbumCover,
+           al.AlbumName, al.AlbumCover,
            g.GenreName
     FROM song s
-    LEFT JOIN album al ON s.AlbumID = al.AlbumID
-    LEFT JOIN artist a ON al.ArtistID = a.ArtistID
+    LEFT JOIN artist a ON s.ArtistID = a.ArtistID
     LEFT JOIN userprofile up ON a.ArtistID = up.UserID
+    LEFT JOIN album al ON s.AlbumID = al.AlbumID
     LEFT JOIN genre g ON s.GenreID = g.GenreID
     WHERE s.SongID = ?
   `).get(songId) as Song | undefined;
@@ -85,18 +85,18 @@ export function createSong(
 
   // Insert new song
   const stmt = db.prepare(`
-    INSERT INTO song (SongName, AlbumID, GenreID, SongLength, SongFile, FileSize, FileFormat)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO song (SongName, ArtistID, AlbumID, GenreID, Duration, FilePath, FileSize, ReleaseDate)
+    VALUES (?, ?, ?, ?, ?, ?, ?, DATE('now'))
   `);
 
   const result = stmt.run(
     musicData.songName,
+    musicData.artistId,
     musicData.albumId || null,
     musicData.genreId || null,
     parseInt(musicData.duration) || 0,
     audioFilePath,
-    audioFileSize,
-    musicData.fileFormat || 'mp3'
+    audioFileSize
   );
 
   return {
@@ -118,7 +118,7 @@ export function updateSong(
   }
 
   // Build update query dynamically
-  const allowedFields = ['SongName', 'AlbumID', 'GenreID', 'SongLength', 'AlbumDate'];
+  const allowedFields = ['SongName', 'ArtistID', 'AlbumID', 'GenreID', 'Duration', 'ReleaseDate'];
   const updates: string[] = [];
   const values: any[] = [];
 
@@ -150,7 +150,7 @@ export function deleteSong(db: Database, songId: number): { filePath: string | n
   // Delete the song from database
   db.prepare('DELETE FROM song WHERE SongID = ?').run(songId);
 
-  return { filePath: song.SongFile || null };
+  return { filePath: song.FilePath || null };
 }
 
 // Delete file from filesystem

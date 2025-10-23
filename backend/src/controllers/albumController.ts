@@ -28,7 +28,7 @@ export function getAllAlbums(
     queryParams.push(artistId);
   }
   
-  query += ' ORDER BY al.AlbumDate DESC';
+  query += ' ORDER BY al.ReleaseDate DESC';
   
   return db.prepare(query).all(...queryParams) as Album[];
 }
@@ -60,7 +60,7 @@ export function createAlbum(
 
   // Insert new album
   const stmt = db.prepare(`
-    INSERT INTO album (AlbumName, ArtistID, AlbumDate, AlbumDescription)
+    INSERT INTO album (AlbumName, ArtistID, ReleaseDate, Description)
     VALUES (?, ?, ?, ?)
   `);
 
@@ -87,7 +87,7 @@ export function updateAlbum(
   }
 
   // Build update query dynamically
-  const allowedFields = ['AlbumName', 'AlbumDate', 'AlbumDescription'];
+  const allowedFields = ['AlbumName', 'ReleaseDate', 'Description'];
   const updates: string[] = [];
   const values: any[] = [];
 
@@ -114,7 +114,7 @@ export function updateAlbumCover(
   albumId: number,
   albumCoverPath: string
 ): void {
-  db.prepare('UPDATE album SET AlbumArt = ? WHERE AlbumID = ?').run(albumCoverPath, albumId);
+  db.prepare('UPDATE album SET AlbumCover = ? WHERE AlbumID = ?').run(albumCoverPath, albumId);
 }
 
 // Delete album
@@ -134,7 +134,7 @@ export function deleteAlbum(db: Database, albumId: number): { albumArtPath: stri
   // Delete the album from database
   db.prepare('DELETE FROM album WHERE AlbumID = ?').run(albumId);
 
-  return { albumArtPath: album.AlbumArt || null };
+  return { albumArtPath: album.AlbumCover || null };
 }
 
 // Delete file from filesystem
