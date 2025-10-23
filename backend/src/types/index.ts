@@ -130,6 +130,56 @@ export interface UploadMusicData {
   fileFormat?: string;
 }
 
+// Playlist types
+export interface Playlist {
+  PlaylistID: number;
+  PlaylistName: string;
+  UserID: number;
+  Description: string | null;
+  IsPublic: number;
+  CreatedAt: string;
+  UpdatedAt: string;
+}
+
+export interface CreatePlaylistData {
+  playlistName: string;
+  userId: number;
+  description?: string;
+  isPublic?: boolean;
+}
+
+export interface UpdatePlaylistData {
+  PlaylistName?: string;
+  Description?: string;
+  IsPublic?: number;
+}
+
+// User profile management types
+export interface UpdateUserData {
+  Username?: string;
+  FirstName?: string;
+  LastName?: string;
+  Email?: string;
+  Country?: string;
+  City?: string;
+  DateOfBirth?: string;
+}
+
+// Listening history types
+export interface ListeningHistory {
+  HistoryID: number;
+  UserID: number;
+  SongID: number;
+  ListenedAt: string;
+  Duration: number | null;
+}
+
+export interface AddListeningHistoryData {
+  userId: number;
+  songId: number;
+  duration?: number;
+}
+
 // Response helpers
 export interface SuccessResponse<T = any> {
   message?: string;

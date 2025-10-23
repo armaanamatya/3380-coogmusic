@@ -198,7 +198,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
   }
 
   // Get all music/songs
-  if (requestPath === '/api/music' && method === 'GET') {
+  if (requestPath === '/api/song' && method === 'GET') {
     try {
       const db = await createConnection();
       const { page = '1', limit = '50', artistId, genreId, albumId } = parsedUrl.query;
@@ -237,7 +237,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
   }
 
   // Get specific song
-  if (requestPath?.match(/^\/api\/music\/\d+$/) && method === 'GET') {
+  if (requestPath?.match(/^\/api\/song\/\d+$/) && method === 'GET') {
     try {
       const songId = parseInt(requestPath.split('/').pop() || '0');
       const db = await createConnection();
@@ -261,7 +261,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
   }
 
   // Update song
-  if (requestPath?.match(/^\/api\/music\/\d+$/) && method === 'PUT') {
+  if (requestPath?.match(/^\/api\/song\/\d+$/) && method === 'PUT') {
     let body = '';
     
     req.on('data', (chunk) => {
@@ -290,7 +290,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
   }
 
   // Delete song
-  if (requestPath?.match(/^\/api\/music\/\d+$/) && method === 'DELETE') {
+  if (requestPath?.match(/^\/api\/song\/\d+$/) && method === 'DELETE') {
     try {
       const songId = parseInt(requestPath.split('/').pop() || '0');
       const db = await createConnection();
@@ -453,8 +453,33 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
   }
 
   // Music Upload Endpoint
-  if (requestPath === '/api/music/upload' && method === 'POST') {
+  if (requestPath === '/api/song/upload' && method === 'POST') {
     try {
+      const multer = require('multer');
+      const uploadDir = path.join(__dirname, '../uploads');
+      const musicUploadDir = path.join(uploadDir, 'music');
+      const albumCoverUploadDir = path.join(uploadDir, 'album-covers');
+      
+      // Ensure upload directories exist
+      fs.mkdirSync(musicUploadDir, { recursive: true });
+      fs.mkdirSync(albumCoverUploadDir, { recursive: true });
+      
+      const storage = multer.diskStorage({
+        destination: (req: any, file: any, cb: any) => {
+          if (file.fieldname === 'audioFile') {
+            cb(null, musicUploadDir);
+          } else if (file.fieldname === 'albumCover') {
+            cb(null, albumCoverUploadDir);
+          }
+        },
+        filename: (req: any, file: any, cb: any) => {
+          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+          cb(null, uniqueSuffix + path.extname(file.originalname));
+        }
+      });
+      
+      const uploadMusic = multer({ storage });
+      
       uploadMusic.fields([
         { name: 'audioFile', maxCount: 1 },
         { name: 'albumCover', maxCount: 1 }
