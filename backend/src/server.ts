@@ -11,6 +11,11 @@ import * as songController from './controllers/songController.js';
 import * as albumController from './controllers/albumController.js';
 import * as artistController from './controllers/artistController.js';
 import * as genreController from './controllers/genreController.js';
+import * as playlistController from './controllers/playlistController.js';
+import * as userController from './controllers/userController.js';
+import * as likeController from './controllers/likeController.js';
+import * as followController from './controllers/followController.js';
+import * as historyController from './controllers/historyController.js';
 import { RegisterUserData, LoginCredentials, UploadMusicData, CreateAlbumData } from './types/index.js';
 
 dotenv.config();
@@ -567,31 +572,6 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
   if (requestPath === '/api/song/upload' && method === 'POST') {
     console.log('  🎵 Processing music upload...');
     try {
-      const multer = require('multer');
-      const uploadDir = path.join(__dirname, '../uploads');
-      const musicUploadDir = path.join(uploadDir, 'music');
-      const albumCoverUploadDir = path.join(uploadDir, 'album-covers');
-      
-      // Ensure upload directories exist
-      fs.mkdirSync(musicUploadDir, { recursive: true });
-      fs.mkdirSync(albumCoverUploadDir, { recursive: true });
-      
-      const storage = multer.diskStorage({
-        destination: (req: any, file: any, cb: any) => {
-          if (file.fieldname === 'audioFile') {
-            cb(null, musicUploadDir);
-          } else if (file.fieldname === 'albumCover') {
-            cb(null, albumCoverUploadDir);
-          }
-        },
-        filename: (req: any, file: any, cb: any) => {
-          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-          cb(null, uniqueSuffix + path.extname(file.originalname));
-        }
-      });
-      
-      const uploadMusic = multer({ storage });
-      
       uploadMusic.fields([
         { name: 'audioFile', maxCount: 1 },
         { name: 'albumCover', maxCount: 1 }
@@ -655,6 +635,547 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
       logError(error);
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Internal server error' }));
+    }
+    return;
+  }
+
+  // ==================== USER ROUTES ====================
+  
+  // Get user by ID
+  if (requestPath?.match(/^\/api\/users\/\d+$/) && method === 'GET') {
+    const userId = parseInt(requestPath.split('/').pop() || '0');
+    try {
+      const db = await createConnection();
+      const user = userController.getUserById(db, userId);
+      
+      if (!user) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'User not found' }));
+        return;
+      }
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ user }));
+    } catch (error: any) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
+    }
+    return;
+  }
+
+  // Update user
+  if (requestPath?.match(/^\/api\/users\/\d+$/) && method === 'PUT') {
+    let body = '';
+    req.on('data', (chunk) => { body += chunk.toString(); });
+    req.on('end', async () => {
+      try {
+        const userId = parseInt(requestPath.split('/').pop() || '0');
+        const updateData = JSON.parse(body);
+        const db = await createConnection();
+        
+        userController.updateUser(db, userId, updateData);
+        
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ message: 'User updated successfully' }));
+      } catch (error: any) {
+        const statusCode = error.message.includes('not found') ? 404 : 500;
+        res.writeHead(statusCode, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
+      }
+    });
+    return;
+  }
+
+  // Search users
+  if (requestPath === '/api/users/search' && method === 'GET') {
+    try {
+      const { query } = parsedUrl.query;
+      const db = await createConnection();
+      const users = userController.searchUsers(db, query as string || '');
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ users }));
+    } catch (error: any) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
+    }
+    return;
+  }
+
+  // ==================== PLAYLIST ROUTES ====================
+  
+  // Get all playlists or public playlists
+  if (requestPath === '/api/playlists' && method === 'GET') {
+    try {
+      const { userId, page = '1', limit = '50' } = parsedUrl.query;
+      const db = await createConnection();
+      
+      let playlists;
+      if (userId) {
+        playlists = playlistController.getPlaylistsByUser(db, parseInt(userId as string));
+      } else {
+        playlists = playlistController.getPublicPlaylists(db, {
+          page: parseInt(page as string),
+          limit: parseInt(limit as string)
+        });
+      }
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ playlists }));
+    } catch (error: any) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
+    }
+    return;
+  }
+
+  // Create new playlist
+  if (requestPath === '/api/playlists' && method === 'POST') {
+    let body = '';
+    req.on('data', (chunk) => { body += chunk.toString(); });
+    req.on('end', async () => {
+      try {
+        const playlistData = JSON.parse(body);
+        const db = await createConnection();
+        
+        const result = playlistController.createPlaylist(db, playlistData);
+        
+        res.writeHead(201, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ 
+          message: 'Playlist created successfully', 
+          playlistId: result.playlistId 
+        }));
+      } catch (error: any) {
+        const statusCode = error.message.includes('not found') ? 400 : 500;
+        res.writeHead(statusCode, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
+      }
+    });
+    return;
+  }
+
+  // Get playlist by ID
+  if (requestPath?.match(/^\/api\/playlists\/\d+$/) && method === 'GET') {
+    const playlistId = parseInt(requestPath.split('/').pop() || '0');
+    try {
+      const db = await createConnection();
+      const playlist = playlistController.getPlaylistById(db, playlistId);
+      
+      if (!playlist) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Playlist not found' }));
+        return;
+      }
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ playlist }));
+    } catch (error: any) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
+    }
+    return;
+  }
+
+  // Update playlist
+  if (requestPath?.match(/^\/api\/playlists\/\d+$/) && method === 'PUT') {
+    let body = '';
+    req.on('data', (chunk) => { body += chunk.toString(); });
+    req.on('end', async () => {
+      try {
+        const playlistId = parseInt(requestPath.split('/').pop() || '0');
+        const updateData = JSON.parse(body);
+        const db = await createConnection();
+        
+        playlistController.updatePlaylist(db, playlistId, updateData);
+        
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ message: 'Playlist updated successfully' }));
+      } catch (error: any) {
+        const statusCode = error.message.includes('not found') ? 404 : 500;
+        res.writeHead(statusCode, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
+      }
+    });
+    return;
+  }
+
+  // Delete playlist
+  if (requestPath?.match(/^\/api\/playlists\/\d+$/) && method === 'DELETE') {
+    try {
+      const playlistId = parseInt(requestPath.split('/').pop() || '0');
+      const db = await createConnection();
+      
+      playlistController.deletePlaylist(db, playlistId);
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ message: 'Playlist deleted successfully' }));
+    } catch (error: any) {
+      const statusCode = error.message.includes('not found') ? 404 : 500;
+      res.writeHead(statusCode, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
+    }
+    return;
+  }
+
+  // Get playlist songs
+  if (requestPath?.match(/^\/api\/playlists\/\d+\/songs$/) && method === 'GET') {
+    const playlistId = parseInt(requestPath.split('/')[3]);
+    try {
+      const db = await createConnection();
+      const songs = playlistController.getPlaylistSongs(db, playlistId);
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ songs }));
+    } catch (error: any) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
+    }
+    return;
+  }
+
+  // Add song to playlist
+  if (requestPath?.match(/^\/api\/playlists\/\d+\/songs$/) && method === 'POST') {
+    let body = '';
+    req.on('data', (chunk) => { body += chunk.toString(); });
+    req.on('end', async () => {
+      try {
+        const playlistId = parseInt(requestPath.split('/')[3]);
+        const { songId } = JSON.parse(body);
+        const db = await createConnection();
+        
+        playlistController.addSongToPlaylist(db, playlistId, songId);
+        
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ message: 'Song added to playlist' }));
+      } catch (error: any) {
+        const statusCode = error.message.includes('not found') ? 404 : 
+                          error.message.includes('already exists') ? 400 : 500;
+        res.writeHead(statusCode, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
+      }
+    });
+    return;
+  }
+
+  // Remove song from playlist
+  if (requestPath?.match(/^\/api\/playlists\/\d+\/songs\/\d+$/) && method === 'DELETE') {
+    try {
+      const parts = requestPath.split('/');
+      const playlistId = parseInt(parts[3]);
+      const songId = parseInt(parts[5]);
+      const db = await createConnection();
+      
+      playlistController.removeSongFromPlaylist(db, playlistId, songId);
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ message: 'Song removed from playlist' }));
+    } catch (error: any) {
+      const statusCode = error.message.includes('not found') ? 404 : 500;
+      res.writeHead(statusCode, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
+    }
+    return;
+  }
+
+  // ==================== LIKE ROUTES ====================
+  
+  // Like a song
+  if (requestPath === '/api/likes/songs' && method === 'POST') {
+    let body = '';
+    req.on('data', (chunk) => { body += chunk.toString(); });
+    req.on('end', async () => {
+      try {
+        const { userId, songId } = JSON.parse(body);
+        const db = await createConnection();
+        
+        likeController.likeSong(db, userId, songId);
+        
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ message: 'Song liked successfully' }));
+      } catch (error: any) {
+        const statusCode = error.message.includes('not found') ? 404 :
+                          error.message.includes('already liked') ? 400 : 500;
+        res.writeHead(statusCode, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
+      }
+    });
+    return;
+  }
+
+  // Unlike a song
+  if (requestPath === '/api/likes/songs' && method === 'DELETE') {
+    let body = '';
+    req.on('data', (chunk) => { body += chunk.toString(); });
+    req.on('end', async () => {
+      try {
+        const { userId, songId } = JSON.parse(body);
+        const db = await createConnection();
+        
+        likeController.unlikeSong(db, userId, songId);
+        
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ message: 'Song unliked successfully' }));
+      } catch (error: any) {
+        const statusCode = error.message.includes('not found') ? 404 : 500;
+        res.writeHead(statusCode, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
+      }
+    });
+    return;
+  }
+
+  // Get user's liked songs
+  if (requestPath?.match(/^\/api\/users\/\d+\/liked-songs$/) && method === 'GET') {
+    const userId = parseInt(requestPath.split('/')[3]);
+    try {
+      const db = await createConnection();
+      const songs = likeController.getUserLikedSongs(db, userId);
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ songs }));
+    } catch (error: any) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
+    }
+    return;
+  }
+
+  // Like an album
+  if (requestPath === '/api/likes/albums' && method === 'POST') {
+    let body = '';
+    req.on('data', (chunk) => { body += chunk.toString(); });
+    req.on('end', async () => {
+      try {
+        const { userId, albumId } = JSON.parse(body);
+        const db = await createConnection();
+        
+        likeController.likeAlbum(db, userId, albumId);
+        
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ message: 'Album liked successfully' }));
+      } catch (error: any) {
+        const statusCode = error.message.includes('not found') ? 404 :
+                          error.message.includes('already liked') ? 400 : 500;
+        res.writeHead(statusCode, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
+      }
+    });
+    return;
+  }
+
+  // Unlike an album
+  if (requestPath === '/api/likes/albums' && method === 'DELETE') {
+    let body = '';
+    req.on('data', (chunk) => { body += chunk.toString(); });
+    req.on('end', async () => {
+      try {
+        const { userId, albumId } = JSON.parse(body);
+        const db = await createConnection();
+        
+        likeController.unlikeAlbum(db, userId, albumId);
+        
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ message: 'Album unliked successfully' }));
+      } catch (error: any) {
+        const statusCode = error.message.includes('not found') ? 404 : 500;
+        res.writeHead(statusCode, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
+      }
+    });
+    return;
+  }
+
+  // Like a playlist
+  if (requestPath === '/api/likes/playlists' && method === 'POST') {
+    let body = '';
+    req.on('data', (chunk) => { body += chunk.toString(); });
+    req.on('end', async () => {
+      try {
+        const { userId, playlistId } = JSON.parse(body);
+        const db = await createConnection();
+        
+        likeController.likePlaylist(db, userId, playlistId);
+        
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ message: 'Playlist liked successfully' }));
+      } catch (error: any) {
+        const statusCode = error.message.includes('not found') ? 404 :
+                          error.message.includes('already liked') ? 400 : 500;
+        res.writeHead(statusCode, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
+      }
+    });
+    return;
+  }
+
+  // Unlike a playlist
+  if (requestPath === '/api/likes/playlists' && method === 'DELETE') {
+    let body = '';
+    req.on('data', (chunk) => { body += chunk.toString(); });
+    req.on('end', async () => {
+      try {
+        const { userId, playlistId } = JSON.parse(body);
+        const db = await createConnection();
+        
+        likeController.unlikePlaylist(db, userId, playlistId);
+        
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ message: 'Playlist unliked successfully' }));
+      } catch (error: any) {
+        const statusCode = error.message.includes('not found') ? 404 : 500;
+        res.writeHead(statusCode, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
+      }
+    });
+    return;
+  }
+
+  // ==================== FOLLOW ROUTES ====================
+  
+  // Follow an artist
+  if (requestPath === '/api/follows' && method === 'POST') {
+    let body = '';
+    req.on('data', (chunk) => { body += chunk.toString(); });
+    req.on('end', async () => {
+      try {
+        const { userId, artistId } = JSON.parse(body);
+        const db = await createConnection();
+        
+        followController.followArtist(db, userId, artistId);
+        
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ message: 'Artist followed successfully' }));
+      } catch (error: any) {
+        const statusCode = error.message.includes('not found') ? 404 :
+                          error.message.includes('already following') ? 400 : 500;
+        res.writeHead(statusCode, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
+      }
+    });
+    return;
+  }
+
+  // Unfollow an artist
+  if (requestPath === '/api/follows' && method === 'DELETE') {
+    let body = '';
+    req.on('data', (chunk) => { body += chunk.toString(); });
+    req.on('end', async () => {
+      try {
+        const { userId, artistId } = JSON.parse(body);
+        const db = await createConnection();
+        
+        followController.unfollowArtist(db, userId, artistId);
+        
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ message: 'Artist unfollowed successfully' }));
+      } catch (error: any) {
+        const statusCode = error.message.includes('not found') ? 404 : 500;
+        res.writeHead(statusCode, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
+      }
+    });
+    return;
+  }
+
+  // Get user's following list
+  if (requestPath?.match(/^\/api\/users\/\d+\/following$/) && method === 'GET') {
+    const userId = parseInt(requestPath.split('/')[3]);
+    try {
+      const { page = '1', limit = '50' } = parsedUrl.query;
+      const db = await createConnection();
+      const artists = followController.getUserFollowing(db, userId, {
+        page: parseInt(page as string),
+        limit: parseInt(limit as string)
+      });
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ artists }));
+    } catch (error: any) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
+    }
+    return;
+  }
+
+  // Get artist's followers
+  if (requestPath?.match(/^\/api\/artists\/\d+\/followers$/) && method === 'GET') {
+    const artistId = parseInt(requestPath.split('/')[3]);
+    try {
+      const { page = '1', limit = '50' } = parsedUrl.query;
+      const db = await createConnection();
+      const followers = followController.getArtistFollowers(db, artistId, {
+        page: parseInt(page as string),
+        limit: parseInt(limit as string)
+      });
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ followers }));
+    } catch (error: any) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
+    }
+    return;
+  }
+
+  // ==================== LISTENING HISTORY ROUTES ====================
+  
+  // Add listening history
+  if (requestPath === '/api/history' && method === 'POST') {
+    let body = '';
+    req.on('data', (chunk) => { body += chunk.toString(); });
+    req.on('end', async () => {
+      try {
+        const historyData = JSON.parse(body);
+        const db = await createConnection();
+        
+        const result = historyController.addListeningHistory(db, historyData);
+        
+        res.writeHead(201, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ 
+          message: 'Listening history added', 
+          historyId: result.historyId 
+        }));
+      } catch (error: any) {
+        const statusCode = error.message.includes('not found') ? 404 : 500;
+        res.writeHead(statusCode, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
+      }
+    });
+    return;
+  }
+
+  // Get user's listening history
+  if (requestPath?.match(/^\/api\/users\/\d+\/history$/) && method === 'GET') {
+    const userId = parseInt(requestPath.split('/')[3]);
+    try {
+      const { page = '1', limit = '50' } = parsedUrl.query;
+      const db = await createConnection();
+      const history = historyController.getUserListeningHistory(db, userId, {
+        page: parseInt(page as string),
+        limit: parseInt(limit as string)
+      });
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ history }));
+    } catch (error: any) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
+    }
+    return;
+  }
+
+  // Get trending songs
+  if (requestPath === '/api/trending' && method === 'GET') {
+    try {
+      const { days = '7', limit = '20' } = parsedUrl.query;
+      const db = await createConnection();
+      const songs = historyController.getTrendingSongs(db, parseInt(days as string), parseInt(limit as string));
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ songs }));
+    } catch (error: any) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
     }
     return;
   }
