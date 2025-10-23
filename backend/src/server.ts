@@ -46,10 +46,31 @@ const upload = multer({
   }
 });
 
+// Request logging helper
+function logRequest(method: string, path: string, query?: any) {
+  const timestamp = new Date().toISOString();
+  const queryString = query && Object.keys(query).length > 0 ? JSON.stringify(query) : '';
+  console.log(`\n[${timestamp}] ${method} ${path}${queryString ? ' Query: ' + queryString : ''}`);
+}
+
+function logResponse(status: number, message: string) {
+  console.log(`  Response: ${status} - ${message}`);
+}
+
+function logError(error: any) {
+  console.error(`  ❌ Error:`, error.message || error);
+}
+
 const server = createServer(async (req: IncomingMessage, res: ServerResponse) => {
   const parsedUrl = parse(req.url || '', true);
   const requestPath = parsedUrl.pathname;
   const method = req.method;
+  const startTime = Date.now();
+
+  // Log incoming request
+  if (requestPath !== '/api/health' && !requestPath?.startsWith('/uploads/')) {
+    logRequest(method || 'UNKNOWN', requestPath || '/', parsedUrl.query);
+  }
 
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
@@ -60,6 +81,16 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     res.end();
     return;
   }
+
+  // Add response logging wrapper
+  const originalEnd = res.end.bind(res);
+  res.end = function(chunk?: any, encoding?: any, callback?: any): any {
+    const duration = Date.now() - startTime;
+    if (requestPath !== '/api/health' && !requestPath?.startsWith('/uploads/')) {
+      console.log(`  ⏱️  Duration: ${duration}ms\n`);
+    }
+    return originalEnd(chunk, encoding, callback);
+  } as any;
 
   if (requestPath === '/api/health' && method === 'GET') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -123,11 +154,12 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
 
   // User Registration Endpoint
   if (requestPath === '/api/auth/register' && method === 'POST') {
+    console.log('  📝 Processing registration request...');
     try {
       // Use multer to handle multipart/form-data
       upload.single('profilePicture')(req as any, res as any, async (err: any) => {
         if (err) {
-          console.error('Upload error:', err);
+          logError(err);
           res.writeHead(400, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: err.message }));
           return;
@@ -136,6 +168,9 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
         try {
           const userData = (req as any).body as RegisterUserData;
           const profilePicture = (req as any).file;
+          console.log(`  👤 User: ${userData.username} (${userData.email})`);
+          console.log(`  📷 Profile Picture: ${profilePicture ? profilePicture.filename : 'None'}`);
+          
           const db = await createConnection();
 
           // Prepare profile picture path
@@ -144,20 +179,22 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
           // Register user using controller
           const result = await authController.registerUser(db, userData, profilePicturePath);
 
+          console.log(`  ✅ User registered successfully (ID: ${result.userId})`);
+          logResponse(201, 'User registered successfully');
           res.writeHead(201, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ 
             message: 'User registered successfully', 
             userId: result.userId 
           }));
         } catch (error: any) {
-          console.error('Registration error:', error);
+          logError(error);
           const statusCode = error.message.includes('already exists') ? 400 : 500;
           res.writeHead(statusCode, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
         }
       });
     } catch (error) {
-      console.error('Registration error:', error);
+      logError(error);
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Internal server error' }));
     }
@@ -167,6 +204,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
 
   // User Login Endpoint
   if (requestPath === '/api/auth/login' && method === 'POST') {
+    console.log('  🔐 Processing login request...');
     let body = '';
     
     req.on('data', (chunk) => {
@@ -176,18 +214,21 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     req.on('end', async () => {
       try {
         const credentials = JSON.parse(body) as LoginCredentials;
+        console.log(`  👤 User: ${credentials.username}`);
         const db = await createConnection();
 
         // Authenticate user using controller
         const userData = await authController.authenticateUser(db, credentials);
 
+        console.log(`  ✅ Login successful (ID: ${userData.userId}, Type: ${userData.userType})`);
+        logResponse(200, 'Login successful');
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ 
           message: 'Login successful',
           ...userData
         }));
       } catch (error: any) {
-        console.error('Login error:', error);
+        logError(error);
         const statusCode = error.message.includes('Invalid') ? 401 : 500;
         res.writeHead(statusCode, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
@@ -199,6 +240,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
 
   // Get all music/songs
   if (requestPath === '/api/song' && method === 'GET') {
+    console.log('  🎵 Fetching songs...');
     try {
       const db = await createConnection();
       const { page = '1', limit = '50', artistId, genreId, albumId } = parsedUrl.query;
@@ -216,20 +258,25 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
       
       if (artistId) {
         filters.artistId = parseInt(artistId as string);
+        console.log(`  🎤 Filter by Artist ID: ${artistId}`);
       }
       if (genreId) {
         filters.genreId = parseInt(genreId as string);
+        console.log(`  🎸 Filter by Genre ID: ${genreId}`);
       }
       if (albumId) {
         filters.albumId = parseInt(albumId as string);
+        console.log(`  💿 Filter by Album ID: ${albumId}`);
       }
       
       const songs = songController.getAllSongs(db, filters);
+      console.log(`  ✅ Found ${songs.length} songs`);
+      logResponse(200, `Returned ${songs.length} songs`);
       
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ songs }));
     } catch (error) {
-      console.error('Get music error:', error);
+      logError(error);
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Internal server error' }));
     }
@@ -238,22 +285,27 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
 
   // Get specific song
   if (requestPath?.match(/^\/api\/song\/\d+$/) && method === 'GET') {
+    const songId = parseInt(requestPath.split('/').pop() || '0');
+    console.log(`  🎵 Fetching song ID: ${songId}`);
     try {
-      const songId = parseInt(requestPath.split('/').pop() || '0');
       const db = await createConnection();
       
       const song = songController.getSongById(db, songId);
       
       if (!song) {
+        console.log(`  ❌ Song not found`);
+        logResponse(404, 'Song not found');
         res.writeHead(404, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'Song not found' }));
         return;
       }
       
+      console.log(`  ✅ Found: ${(song as any).SongName}`);
+      logResponse(200, 'Song retrieved');
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ song }));
     } catch (error) {
-      console.error('Get song error:', error);
+      logError(error);
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Internal server error' }));
     }
@@ -454,6 +506,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
 
   // Music Upload Endpoint
   if (requestPath === '/api/song/upload' && method === 'POST') {
+    console.log('  🎵 Processing music upload...');
     try {
       const multer = require('multer');
       const uploadDir = path.join(__dirname, '../uploads');
@@ -485,7 +538,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
         { name: 'albumCover', maxCount: 1 }
       ])(req as any, res as any, async (err: any) => {
         if (err) {
-          console.error('Music upload error:', err);
+          logError(err);
           res.writeHead(400, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: err.message }));
           return;
@@ -497,7 +550,12 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
           const audioFile = files?.audioFile?.[0];
           const albumCover = files?.albumCover?.[0];
 
+          console.log(`  🎵 Song: ${musicData.songName}`);
+          console.log(`  📁 Audio File: ${audioFile ? audioFile.filename + ' (' + (audioFile.size / 1024 / 1024).toFixed(2) + ' MB)' : 'Missing'}`);
+          console.log(`  🖼️  Album Cover: ${albumCover ? albumCover.filename : 'None'}`);
+
           if (!audioFile) {
+            console.log(`  ❌ Audio file is required`);
             res.writeHead(400, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'Audio file is required' }));
             return;
@@ -511,12 +569,15 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
 
           // Create song using controller
           const result = songController.createSong(db, musicData, audioFilePath, audioFile.size);
+          console.log(`  ✅ Song created (ID: ${result.songId})`);
 
           // If album cover provided and albumId exists, update album cover
           if (albumCover && musicData.albumId && albumCoverPath) {
             albumController.updateAlbumCover(db, musicData.albumId, albumCoverPath);
+            console.log(`  🖼️  Album cover updated for Album ID: ${musicData.albumId}`);
           }
 
+          logResponse(201, 'Music uploaded successfully');
           res.writeHead(201, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ 
             message: 'Music uploaded successfully', 
@@ -525,14 +586,14 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
             albumCoverPath
           }));
         } catch (error: any) {
-          console.error('Music upload error:', error);
+          logError(error);
           const statusCode = error.message.includes('not found') ? 400 : 500;
           res.writeHead(statusCode, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
         }
       });
     } catch (error) {
-      console.error('Music upload error:', error);
+      logError(error);
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Internal server error' }));
     }
@@ -546,14 +607,29 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
 // Initialize database and start server
 const startServer = async () => {
   try {
+    console.log('\n🚀 Starting CoogMusic Backend Server...\n');
+    
     await initializeDatabase();
     await testConnection();
     
     server.listen(PORT, () => {
-      console.log(`Server running on http://localhost:${PORT}`);
+      console.log('═'.repeat(60));
+      console.log(`✅ Server running on http://localhost:${PORT}`);
+      console.log('═'.repeat(60));
+      console.log('\n📋 Available Endpoints:');
+      console.log('  🔐 Auth:       POST /api/auth/register, /api/auth/login');
+      console.log('  🎵 Songs:      GET|PUT|DELETE /api/song/:id, POST /api/song/upload');
+      console.log('  💿 Albums:     GET|POST /api/albums, PUT|DELETE /api/albums/:id');
+      console.log('  🎤 Artists:    GET /api/artists');
+      console.log('  🎸 Genres:     GET /api/genres');
+      console.log('  📁 Files:      GET /uploads/*');
+      console.log('  ❤️  Health:     GET /api/health, /api/test, /api/test-db');
+      console.log('\n📝 Request logging is enabled');
+      console.log('═'.repeat(60));
+      console.log('\n⏳ Waiting for requests...\n');
     });
   } catch (error) {
-    console.error('Failed to start server:', error);
+    console.error('\n❌ Failed to start server:', error);
     process.exit(1);
   }
 };
