@@ -1,3 +1,4 @@
+// Express removed — now using Node HTTP server
 import express from "express";
 import cors from "cors";
 import { z } from "zod";
