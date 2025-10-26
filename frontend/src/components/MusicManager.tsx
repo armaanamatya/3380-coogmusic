@@ -45,7 +45,7 @@ const MusicManager: React.FC = () => {
     setRefreshTrigger(prev => prev + 1);
   };
 
-  const handleDeleteSong = () => {
+  const handleDeleteSong = (_songId: number) => {
     setRefreshTrigger(prev => prev + 1);
   };
 

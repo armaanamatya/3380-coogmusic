@@ -643,8 +643,9 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
   
   // Get user by ID
   if (requestPath?.match(/^\/api\/users\/\d+$/) && method === 'GET') {
-    const userId = parseInt(requestPath.split('/').pop() || '0');
     try {
+      const pathParts = requestPath?.split('/') || [];
+      const userId = parseInt(pathParts[3] || '0');
       const db = await createConnection();
       const user = userController.getUserById(db, userId);
       
@@ -657,28 +658,49 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ user }));
     } catch (error: any) {
+      logError(error);
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
     }
     return;
   }
 
-  // Update user
+  // Update user profile
   if (requestPath?.match(/^\/api\/users\/\d+$/) && method === 'PUT') {
     let body = '';
-    req.on('data', (chunk) => { body += chunk.toString(); });
+    req.on('data', chunk => { body += chunk.toString(); });
     req.on('end', async () => {
       try {
-        const userId = parseInt(requestPath.split('/').pop() || '0');
+        const pathParts = requestPath?.split('/') || [];
+        const userId = parseInt(pathParts[3] || '0');
         const updateData = JSON.parse(body);
+        
+        console.log(`  📝 Updating user ${userId} with data:`, updateData);
+        
         const db = await createConnection();
         
+        // Update the user
         userController.updateUser(db, userId, updateData);
+        console.log(`  ✅ User updated successfully`);
         
+        // Fetch the updated user
+        const updatedUser = userController.getUserById(db, userId);
+        console.log(`  👤 Fetched updated user:`, updatedUser ? 'Success' : 'Failed');
+        
+        if (!updatedUser) {
+          throw new Error('Failed to retrieve updated user');
+        }
+        
+        logResponse(200, 'User updated successfully');
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ message: 'User updated successfully' }));
+        res.end(JSON.stringify({ 
+          message: 'User updated successfully',
+          user: updatedUser 
+        }));
       } catch (error: any) {
-        const statusCode = error.message.includes('not found') ? 404 : 500;
+        logError(error);
+        const statusCode = error.message.includes('not found') ? 404 : 
+                          error.message.includes('already exists') ? 409 : 500;
         res.writeHead(statusCode, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
       }
@@ -686,15 +708,83 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     return;
   }
 
+  // Get user's liked songs
+  if (requestPath?.match(/^\/api\/users\/\d+\/liked-songs$/) && method === 'GET') {
+    try {
+      const pathParts = requestPath?.split('/') || [];
+      const userId = parseInt(pathParts[3] || '0');
+      const { page = '1', limit = '50' } = parsedUrl.query;
+      const db = await createConnection();
+      const likedSongs = likeController.getUserLikedSongs(db, userId, {
+        page: parseInt(page as string),
+        limit: parseInt(limit as string)
+      });
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ likedSongs }));
+    } catch (error: any) {
+      logError(error);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
+    }
+    return;
+  }
+
+  // Get user's following list
+  if (requestPath?.match(/^\/api\/users\/\d+\/following$/) && method === 'GET') {
+    try {
+      const pathParts = requestPath?.split('/') || [];
+      const userId = parseInt(pathParts[3] || '0');
+      const { page = '1', limit = '50' } = parsedUrl.query;
+      const db = await createConnection();
+      
+      const following = followController.getUserFollowing(db, userId, {
+        page: parseInt(page as string),
+        limit: parseInt(limit as string)
+      });
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ following }));
+    } catch (error: any) {
+      logError(error);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
+    }
+    return;
+  }
+
+  // Get user's listening history
+  if (requestPath?.match(/^\/api\/users\/\d+\/history$/) && method === 'GET') {
+    try {
+      const pathParts = requestPath?.split('/') || [];
+      const userId = parseInt(pathParts[3] || '0');
+      const { page = '1', limit = '50' } = parsedUrl.query;
+      const db = await createConnection();
+      
+      const history = historyController.getUserListeningHistory(db, userId, {
+        page: parseInt(page as string),
+        limit: parseInt(limit as string)
+      });
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ history }));
+    } catch (error: any) {
+      logError(error);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
+    }
+    return;
+  }
+
   // Search users
   if (requestPath === '/api/users/search' && method === 'GET') {
     try {
-      const { query, page, limit } = parsedUrl.query;
+      const { query, page = '1', limit = '50' } = parsedUrl.query;
       const db = await createConnection();
-      const filters: { page?: number; limit?: number } = {};
-      if (page) filters.page = parseInt(page as string);
-      if (limit) filters.limit = parseInt(limit as string);
-      const users = userController.searchUsers(db, query as string || '', filters);
+      const users = userController.searchUsers(db, (query as string) || '', {
+        page: parseInt(page as string),
+        limit: parseInt(limit as string)
+      });
       
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ users }));
@@ -822,7 +912,8 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
 
   // Get playlist songs
   if (requestPath?.match(/^\/api\/playlists\/\d+\/songs$/) && method === 'GET') {
-    const playlistId = parseInt(requestPath.split('/')[3]!);
+    const pathParts = requestPath?.split('/') || [];
+    const playlistId = parseInt(pathParts[3] || '0');
     try {
       const db = await createConnection();
       const songs = playlistController.getPlaylistSongs(db, playlistId);
@@ -842,7 +933,8 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     req.on('data', (chunk) => { body += chunk.toString(); });
     req.on('end', async () => {
       try {
-        const playlistId = parseInt(requestPath.split('/')[3]!);
+        const pathParts = requestPath?.split('/') || [];
+        const playlistId = parseInt(pathParts[3] || '0');
         const { songId } = JSON.parse(body);
         const db = await createConnection();
         
@@ -863,9 +955,9 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
   // Remove song from playlist
   if (requestPath?.match(/^\/api\/playlists\/\d+\/songs\/\d+$/) && method === 'DELETE') {
     try {
-      const parts = requestPath.split('/');
-      const playlistId = parseInt(parts[3]!);
-      const songId = parseInt(parts[5]!);
+      const pathParts = requestPath?.split('/') || [];
+      const playlistId = parseInt(pathParts[3] || '0');
+      const songId = parseInt(pathParts[5] || '0');
       const db = await createConnection();
       
       playlistController.removeSongFromPlaylist(db, playlistId, songId);
@@ -924,26 +1016,6 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
         res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
       }
     });
-    return;
-  }
-
-  // Get user's liked songs
-  if (requestPath?.match(/^\/api\/users\/\d+\/liked-songs$/) && method === 'GET') {
-    const userId = parseInt(requestPath.split('/')[3]!);
-    try {
-      const { page = '1', limit = '50' } = parsedUrl.query;
-      const db = await createConnection();
-      const songs = likeController.getUserLikedSongs(db, userId, {
-        page: parseInt(page as string),
-        limit: parseInt(limit as string)
-      });
-      
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ songs }));
-    } catch (error: any) {
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
-    }
     return;
   }
 
@@ -1084,29 +1156,10 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     return;
   }
 
-  // Get user's following list
-  if (requestPath?.match(/^\/api\/users\/\d+\/following$/) && method === 'GET') {
-    const userId = parseInt(requestPath.split('/')[3]!);
-    try {
-      const { page = '1', limit = '50' } = parsedUrl.query;
-      const db = await createConnection();
-      const artists = followController.getUserFollowing(db, userId, {
-        page: parseInt(page as string),
-        limit: parseInt(limit as string)
-      });
-      
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ artists }));
-    } catch (error: any) {
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
-    }
-    return;
-  }
-
   // Get artist's followers
   if (requestPath?.match(/^\/api\/artists\/\d+\/followers$/) && method === 'GET') {
-    const artistId = parseInt(requestPath.split('/')[3]!);
+    const pathParts = requestPath?.split('/') || [];
+    const artistId = parseInt(pathParts[3] || '0');
     try {
       const { page = '1', limit = '50' } = parsedUrl.query;
       const db = await createConnection();
@@ -1148,26 +1201,6 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
         res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
       }
     });
-    return;
-  }
-
-  // Get user's listening history
-  if (requestPath?.match(/^\/api\/users\/\d+\/history$/) && method === 'GET') {
-    const userId = parseInt(requestPath.split('/')[3]!);
-    try {
-      const { page = '1', limit = '50' } = parsedUrl.query;
-      const db = await createConnection();
-      const history = historyController.getUserListeningHistory(db, userId, {
-        page: parseInt(page as string),
-        limit: parseInt(limit as string)
-      });
-      
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ history }));
-    } catch (error: any) {
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
-    }
     return;
   }
 
