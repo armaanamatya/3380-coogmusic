@@ -82,11 +82,9 @@ jspm_packages/
 # TernJS port file
 .tern-port
 
-# Claude.md file
-claude.md
-
-# Requirements file
-requirements.md
+# Documentation markdown files
+*.md
+!README.md
 
 # IDE
 .vscode/
@@ -102,7 +100,3 @@ Thumbs.db
 *.db
 *.sqlite
 *.sqlite3
-
-# Requirements and documentation
-requirements.md
-auth.md
