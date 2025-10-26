@@ -129,7 +129,7 @@ export const updateGenre = async (genreId: number, updates: UpdateGenre) => {
 export const deleteGenre = async (genreId: number) => {
   // Check if genre is being used by any songs
   const checkSql = `SELECT COUNT(*) as count FROM song WHERE GenreID = ?`;
-  const checkRows = pool.prepare(checkSql).all(genreId);
+  const checkRows = pool.prepare(checkSql).all(genreId) as any[];
   const count = checkRows[0].count;
 
   if (count > 0) {
@@ -166,7 +166,7 @@ export const getGenresWithSongCount = async () => {
   return rows;
 };
 
-export const getSongsByGenre = async (genreId: number) => {
+export const getGenreSongs = async (genreId: number) => {
   const sql = `
     SELECT s.*, u.Username, u.FirstName, u.LastName, a.AlbumName
     FROM song s

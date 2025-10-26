@@ -62,10 +62,10 @@ export const createPlaylist = async (playlist: NewPlaylist) => {
   ];
 
   try {
-    const [result] = await pool.query(sql, values);
+    const result = pool.prepare(sql).run(...(values));
     return result;
   } catch (error: any) {
-    if (error.code === 'ER_NO_REFERENCED_ROW_2') {
+    if (error.code === error.message && error.message.includes('FOREIGN KEY constraint failed')) {
       throw new Error('User does not exist');
     }
     throw error;
@@ -79,7 +79,7 @@ export const getPlaylistById = async (playlistId: number) => {
     JOIN userprofile u ON p.UserID = u.UserID
     WHERE p.PlaylistID = ?;
   `;
-  const [rows] = await pool.query(sql, [playlistId]);
+  const rows = pool.prepare(sql).all(playlistId);
   return (rows as any[])[0];
 };
 
@@ -89,7 +89,7 @@ export const getPlaylistsByUser = async (userId: number) => {
     WHERE p.UserID = ?
     ORDER BY p.CreatedAt DESC;
   `;
-  const [rows] = await pool.query(sql, [userId]);
+  const rows = pool.prepare(sql).all(userId);
   return rows;
 };
 
@@ -109,7 +109,7 @@ export const getPublicPlaylists = async (limit?: number, offset?: number) => {
     }
   }
   
-  const [rows] = await pool.query(sql);
+  const rows = pool.prepare(sql).all();
   return rows;
 };
 
@@ -146,13 +146,13 @@ export const updatePlaylist = async (playlistId: number, updates: UpdatePlaylist
 
   const sql = `UPDATE playlist SET ${setClauses.join(', ')} WHERE PlaylistID = ?`;
 
-  const [result] = await pool.query(sql, params);
+  const result = pool.prepare(sql).run(...(params));
   return result;
 };
 
 export const deletePlaylist = async (playlistId: number) => {
   const sql = `DELETE FROM playlist WHERE PlaylistID = ?`;
-  const [result] = await pool.query(sql, [playlistId]);
+  const result = pool.prepare(sql).run(...([playlistId]));
   return result;
 };
 
@@ -171,7 +171,7 @@ export const searchPlaylists = async (query: string, includePrivate: boolean = f
   sql += ` ORDER BY p.CreatedAt DESC`;
   
   const searchTerm = `%${query}%`;
-  const [rows] = await pool.query(sql, [searchTerm, searchTerm, searchTerm]);
+  const rows = pool.prepare(sql).all(searchTerm, searchTerm, searchTerm);
   return rows;
 };
 
@@ -179,8 +179,8 @@ export const addSongToPlaylist = async (playlistId: number, songId: number, posi
   // Get the next position if not provided
   if (position === undefined) {
     const positionSql = `SELECT MAX(Position) as maxPos FROM playlist_song WHERE PlaylistID = ?`;
-    const [posRows] = await pool.query(positionSql, [playlistId]);
-    position = ((posRows as any[])[0].maxPos || 0) + 1;
+    const posRows = pool.prepare(positionSql).get(playlistId) as any;
+    position = (posRows?.maxPos || 0) + 1;
   }
 
   const sql = `
@@ -189,13 +189,13 @@ export const addSongToPlaylist = async (playlistId: number, songId: number, posi
   `;
   
   try {
-    const [result] = await pool.query(sql, [playlistId, songId, position]);
+    const result = pool.prepare(sql).run(...([playlistId, songId, position]));
     return result;
   } catch (error: any) {
-    if (error.code === 'ER_DUP_ENTRY') {
+    if (error.code === error.message && error.message.includes('UNIQUE constraint failed')) {
       throw new Error('Song already exists in playlist');
     }
-    if (error.code === 'ER_NO_REFERENCED_ROW_2') {
+    if (error.code === error.message && error.message.includes('FOREIGN KEY constraint failed')) {
       throw new Error('Playlist or song does not exist');
     }
     throw error;
@@ -204,7 +204,7 @@ export const addSongToPlaylist = async (playlistId: number, songId: number, posi
 
 export const removeSongFromPlaylist = async (playlistId: number, songId: number) => {
   const sql = `DELETE FROM playlist_song WHERE PlaylistID = ? AND SongID = ?`;
-  const [result] = await pool.query(sql, [playlistId, songId]);
+  const result = pool.prepare(sql).run(...([playlistId, songId]));
   return result;
 };
 
@@ -220,7 +220,7 @@ export const getPlaylistSongs = async (playlistId: number) => {
     ORDER BY ps.Position;
   `;
   
-  const [rows] = await pool.query(sql, [playlistId]);
+  const rows = pool.prepare(sql).all(playlistId);
   return rows;
 };
 
@@ -231,7 +231,7 @@ export const reorderPlaylistSongs = async (playlistId: number, songId: number, n
     WHERE PlaylistID = ? AND SongID = ?
   `;
   
-  const [result] = await pool.query(sql, [newPosition, playlistId, songId]);
+  const result = pool.prepare(sql).run(...([newPosition, playlistId, songId]));
   return result;
 };
 
@@ -254,10 +254,9 @@ export const getPlaylistWithSongs = async (playlistId: number) => {
     ORDER BY ps.Position;
   `;
   
-  const [playlistRows] = await pool.query(playlistSql, [playlistId]);
-  const [songRows] = await pool.query(songsSql, [playlistId]);
+  const playlist = pool.prepare(playlistSql).get(playlistId) as any;
+  const songRows = pool.prepare(songsSql).all(playlistId);
   
-  const playlist = (playlistRows as any[])[0];
   if (playlist) {
     playlist.songs = songRows;
   }

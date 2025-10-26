@@ -689,9 +689,12 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
   // Search users
   if (requestPath === '/api/users/search' && method === 'GET') {
     try {
-      const { query } = parsedUrl.query;
+      const { query, page, limit } = parsedUrl.query;
       const db = await createConnection();
-      const users = userController.searchUsers(db, query as string || '');
+      const filters: { page?: number; limit?: number } = {};
+      if (page) filters.page = parseInt(page as string);
+      if (limit) filters.limit = parseInt(limit as string);
+      const users = userController.searchUsers(db, query as string || '', filters);
       
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ users }));
@@ -819,7 +822,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
 
   // Get playlist songs
   if (requestPath?.match(/^\/api\/playlists\/\d+\/songs$/) && method === 'GET') {
-    const playlistId = parseInt(requestPath.split('/')[3]);
+    const playlistId = parseInt(requestPath.split('/')[3]!);
     try {
       const db = await createConnection();
       const songs = playlistController.getPlaylistSongs(db, playlistId);
@@ -839,7 +842,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     req.on('data', (chunk) => { body += chunk.toString(); });
     req.on('end', async () => {
       try {
-        const playlistId = parseInt(requestPath.split('/')[3]);
+        const playlistId = parseInt(requestPath.split('/')[3]!);
         const { songId } = JSON.parse(body);
         const db = await createConnection();
         
@@ -861,8 +864,8 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
   if (requestPath?.match(/^\/api\/playlists\/\d+\/songs\/\d+$/) && method === 'DELETE') {
     try {
       const parts = requestPath.split('/');
-      const playlistId = parseInt(parts[3]);
-      const songId = parseInt(parts[5]);
+      const playlistId = parseInt(parts[3]!);
+      const songId = parseInt(parts[5]!);
       const db = await createConnection();
       
       playlistController.removeSongFromPlaylist(db, playlistId, songId);
@@ -926,10 +929,14 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
 
   // Get user's liked songs
   if (requestPath?.match(/^\/api\/users\/\d+\/liked-songs$/) && method === 'GET') {
-    const userId = parseInt(requestPath.split('/')[3]);
+    const userId = parseInt(requestPath.split('/')[3]!);
     try {
+      const { page = '1', limit = '50' } = parsedUrl.query;
       const db = await createConnection();
-      const songs = likeController.getUserLikedSongs(db, userId);
+      const songs = likeController.getUserLikedSongs(db, userId, {
+        page: parseInt(page as string),
+        limit: parseInt(limit as string)
+      });
       
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ songs }));
@@ -1079,7 +1086,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
 
   // Get user's following list
   if (requestPath?.match(/^\/api\/users\/\d+\/following$/) && method === 'GET') {
-    const userId = parseInt(requestPath.split('/')[3]);
+    const userId = parseInt(requestPath.split('/')[3]!);
     try {
       const { page = '1', limit = '50' } = parsedUrl.query;
       const db = await createConnection();
@@ -1099,7 +1106,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
 
   // Get artist's followers
   if (requestPath?.match(/^\/api\/artists\/\d+\/followers$/) && method === 'GET') {
-    const artistId = parseInt(requestPath.split('/')[3]);
+    const artistId = parseInt(requestPath.split('/')[3]!);
     try {
       const { page = '1', limit = '50' } = parsedUrl.query;
       const db = await createConnection();
@@ -1146,7 +1153,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
 
   // Get user's listening history
   if (requestPath?.match(/^\/api\/users\/\d+\/history$/) && method === 'GET') {
-    const userId = parseInt(requestPath.split('/')[3]);
+    const userId = parseInt(requestPath.split('/')[3]!);
     try {
       const { page = '1', limit = '50' } = parsedUrl.query;
       const db = await createConnection();
