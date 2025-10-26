@@ -42,7 +42,9 @@ export const createConnection = async (): Promise<Database.Database> => {
   }
 };
 
-export const createPool = (): Database.Database => {
+// Legacy function - not used in current implementation (controllers use createConnection)
+// Kept for backward compatibility but not exported to avoid TypeScript naming issues
+const createPool = (): InstanceType<typeof Database> => {
   try {
     const database = new Database(dbConfig.path);
     database.pragma('foreign_keys = ON');

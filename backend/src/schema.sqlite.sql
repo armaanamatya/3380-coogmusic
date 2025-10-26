@@ -3,7 +3,7 @@
 
 -- User Profile Table
 CREATE TABLE userprofile (
-    UserID INTEGER PRIMARY KEY AUTOINCREMENT,
+    UserID INTEGER PRIMARY KEY AUTOINCREMENimage.pngT,
     Username TEXT NOT NULL UNIQUE,
     UserPassword TEXT NOT NULL,
     FirstName TEXT NOT NULL,

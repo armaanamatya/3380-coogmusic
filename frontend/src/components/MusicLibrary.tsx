@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { songApi, getFileUrl } from '../services/api';
 
 interface Song {
@@ -30,12 +30,13 @@ const MusicLibrary: React.FC<MusicLibraryProps> = ({ onEditSong, onDeleteSong, r
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [filters] = useState({
+    artistId: '',
+    genreId: '',
+    albumId: ''
+  });
 
-  useEffect(() => {
-    fetchSongs();
-  }, [currentPage, refreshTrigger]);
-
-  const fetchSongs = async () => {
+  const fetchSongs = useCallback(async () => {
     setLoading(true);
     setError('');
 
@@ -57,7 +58,11 @@ const MusicLibrary: React.FC<MusicLibraryProps> = ({ onEditSong, onDeleteSong, r
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentPage, filters]);
+
+  useEffect(() => {
+    fetchSongs();
+  }, [fetchSongs, refreshTrigger]);
 
   const handleDelete = async (songId: number) => {
     if (!confirm('Are you sure you want to delete this song? This action cannot be undone.')) {

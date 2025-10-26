@@ -111,6 +111,9 @@ export function updateUser(
     throw new Error('No valid fields to update');
   }
 
+  // Add UpdatedAt timestamp
+  updates.push(`UpdatedAt = DATETIME('now')`);
+  
   values.push(userId);
   const updateQuery = `UPDATE userprofile SET ${updates.join(', ')} WHERE UserID = ?`;
 

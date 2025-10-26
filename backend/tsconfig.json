@@ -27,6 +27,11 @@
     "isolatedModules": true,
     "skipLibCheck": true,
   },
+  "exclude": [
+    "src/models",
+    "node_modules",
+    "dist"
+  ],
   "ts-node": {
     "esm": true
   }
