@@ -29,7 +29,7 @@ interface Album {
 
 interface MusicEditFormProps {
   song: Song;
-  onUpdateSuccess?: (songId: number) => void;
+  onUpdateSuccess?: () => void;
   onCancel?: () => void;
 }
 
@@ -118,7 +118,7 @@ const MusicEditForm: React.FC<MusicEditFormProps> = ({ song, onUpdateSuccess, on
 
       if (response.ok) {
         if (onUpdateSuccess) {
-          onUpdateSuccess(song.SongID);
+          onUpdateSuccess();
         }
       } else {
         setError(result.error || 'Update failed');

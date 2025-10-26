@@ -63,10 +63,10 @@ export const createArtistProfile = async (artist: NewArtist) => {
   ];
 
   try {
-    const [result] = await pool.query(sql, values);
+    const result = pool.prepare(sql).run(...(values));
     return result;
   } catch (error: any) {
-    if (error.code === 'ER_DUP_ENTRY') {
+    if (error.code === error.message && error.message.includes('UNIQUE constraint failed')) {
       throw new Error('Artist profile already exists for this user');
     }
     throw error;
@@ -81,7 +81,7 @@ export const getArtistById = async (artistId: number) => {
     JOIN userprofile u ON a.ArtistID = u.UserID
     WHERE a.ArtistID = ?;
   `;
-  const [rows] = await pool.query(sql, [artistId]);
+  const rows = pool.prepare(sql).all(artistId);
   return (rows as any[])[0];
 };
 
@@ -102,7 +102,7 @@ export const getAllArtists = async (includeUnverified = true) => {
         ORDER BY u.Username;
       `;
   
-  const [rows] = await pool.query(sql);
+  const rows = pool.prepare(sql).all();
   return rows;
 };
 
@@ -135,7 +135,7 @@ export const updateArtistProfile = async (artistId: number, updates: UpdateArtis
 
   const sql = `UPDATE artist SET ${setClauses.join(', ')} WHERE ArtistID = ?`;
 
-  const [result] = await pool.query(sql, params);
+  const result = pool.prepare(sql).run(...(params));
   return result;
 };
 
@@ -147,7 +147,7 @@ export const verifyArtist = async (artistId: number, adminId: number) => {
     WHERE ArtistID = ?;
   `;
   
-  const [result] = await pool.query(sql, [adminId, artistId]);
+  const result = pool.prepare(sql).run(...([adminId, artistId]));
   return result;
 };
 
@@ -159,14 +159,14 @@ export const unverifyArtist = async (artistId: number) => {
     WHERE ArtistID = ?;
   `;
   
-  const [result] = await pool.query(sql, [artistId]);
+  const result = pool.prepare(sql).run(...([artistId]));
   return result;
 };
 
 // Delete artist profile (doesn't delete the user)
 export const deleteArtistProfile = async (artistId: number) => {
   const sql = `DELETE FROM artist WHERE ArtistID = ?`;
-  const [result] = await pool.query(sql, [artistId]);
+  const result = pool.prepare(sql).run(...([artistId]));
   return result;
 };
 
@@ -180,7 +180,7 @@ export const getArtistsByVerificationStatus = async (verified: boolean) => {
     ORDER BY u.Username;
   `;
   
-  const [rows] = await pool.query(sql, [verified ? 1 : 0]);
+  const rows = pool.prepare(sql).all(verified ? 1 : 0);
   return rows;
 };
 
@@ -195,7 +195,7 @@ export const searchArtists = async (query: string) => {
   `;
   
   const searchTerm = `%${query}%`;
-  const [rows] = await pool.query(sql, [searchTerm, searchTerm, searchTerm, searchTerm]);
+  const rows = pool.prepare(sql).all(searchTerm, searchTerm, searchTerm, searchTerm);
   return rows;
 };
 

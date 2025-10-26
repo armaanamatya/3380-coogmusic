@@ -15,7 +15,7 @@ interface Album {
 }
 
 interface MusicUploadFormProps {
-  onUploadSuccess?: (songId: number) => void;
+  onUploadSuccess?: () => void;
   onCancel?: () => void;
 }
 
@@ -156,7 +156,7 @@ const MusicUploadForm: React.FC<MusicUploadFormProps> = ({ onUploadSuccess, onCa
 
       if (response.ok) {
         if (onUploadSuccess) {
-          onUploadSuccess(result.songId);
+          onUploadSuccess();
         }
         
         setFormData({

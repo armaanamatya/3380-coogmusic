@@ -78,10 +78,10 @@ export const createAlbum = async (album: NewAlbum) => {
   ];
 
   try {
-    const [result] = await pool.query(sql, values);
+    const result = pool.prepare(sql).run(...values);
     return result;
   } catch (error: any) {
-    if (error.code === 'ER_NO_REFERENCED_ROW_2') {
+    if (error.message && error.message.includes('FOREIGN KEY constraint failed')) {
       throw new Error('Artist does not exist');
     }
     throw error;
@@ -96,8 +96,8 @@ export const getAlbumById = async (albumId: number) => {
     JOIN userprofile u ON ar.ArtistID = u.UserID
     WHERE a.AlbumID = ?;
   `;
-  const [rows] = await pool.query(sql, [albumId]);
-  return (rows as any[])[0];
+  const row = pool.prepare(sql).get(albumId);
+  return row;
 };
 
 export const getAlbumByName = async (albumName: string) => {
@@ -108,8 +108,8 @@ export const getAlbumByName = async (albumName: string) => {
       JOIN userprofile u ON ar.ArtistID = u.UserID
       WHERE a.AlbumName = ?;
     `;
-    const [rows] = await pool.query(sql, [albumName]);
-    return (rows as any[])[0];
+    const row = pool.prepare(sql).get(albumName);
+    return row;
   };
 
 export const getAlbumsByArtist = async (artistId: number) => {
@@ -121,7 +121,7 @@ export const getAlbumsByArtist = async (artistId: number) => {
     WHERE a.ArtistID = ?
     ORDER BY a.ReleaseDate DESC;
   `;
-  const [rows] = await pool.query(sql, [artistId]);
+  const rows = pool.prepare(sql).all(artistId);
   return rows;
 };
 
@@ -141,7 +141,7 @@ export const getAllAlbums = async (limit?: number, offset?: number) => {
     }
   }
   
-  const [rows] = await pool.query(sql);
+  const rows = pool.prepare(sql).all();
   return rows;
 };
 
@@ -183,13 +183,13 @@ export const updateAlbum = async (albumId: number, updates: UpdateAlbum) => {
 
   const sql = `UPDATE album SET ${setClauses.join(', ')} WHERE AlbumID = ?`;
 
-  const [result] = await pool.query(sql, params);
+  const result = pool.prepare(sql).run(...params);
   return result;
 };
 
 export const deleteAlbum = async (albumId: number) => {
   const sql = `DELETE FROM album WHERE AlbumID = ?`;
-  const [result] = await pool.query(sql, [albumId]);
+  const result = pool.prepare(sql).run(albumId);
   return result;
 };
 
@@ -204,7 +204,7 @@ export const searchAlbums = async (query: string) => {
   `;
   
   const searchTerm = `%${query}%`;
-  const [rows] = await pool.query(sql, [searchTerm, searchTerm, searchTerm]);
+  const rows = pool.prepare(sql).all(searchTerm, searchTerm, searchTerm);
   return rows;
 };
 
@@ -223,10 +223,9 @@ export const getAlbumWithSongs = async (albumId: number) => {
     ORDER BY s.SongName;
   `;
   
-  const [albumRows] = await pool.query(albumSql, [albumId]);
-  const [songRows] = await pool.query(songsSql, [albumId]);
+  const album = pool.prepare(albumSql).get(albumId) as any;
+  const songRows = pool.prepare(songsSql).all(albumId);
   
-  const album = (albumRows as any[])[0];
   if (album) {
     album.songs = songRows;
   }

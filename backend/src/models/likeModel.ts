@@ -26,13 +26,13 @@ export const likeSong = async (userId: number, songId: number) => {
   `;
   
   try {
-    const [result] = await pool.query(sql, [userId, songId]);
+    const result = pool.prepare(sql).run(...([userId, songId]));
     return result;
   } catch (error: any) {
-    if (error.code === 'ER_DUP_ENTRY') {
+    if (error.code === error.message && error.message.includes('UNIQUE constraint failed')) {
       throw new Error('User has already liked this song');
     }
-    if (error.code === 'ER_NO_REFERENCED_ROW_2') {
+    if (error.code === error.message && error.message.includes('FOREIGN KEY constraint failed')) {
       throw new Error('User or song does not exist');
     }
     throw error;
@@ -41,7 +41,7 @@ export const likeSong = async (userId: number, songId: number) => {
 
 export const unlikeSong = async (userId: number, songId: number) => {
   const sql = `DELETE FROM user_likes_song WHERE UserID = ? AND SongID = ?`;
-  const [result] = await pool.query(sql, [userId, songId]);
+  const result = pool.prepare(sql).run(...([userId, songId]));
   return result;
 };
 
@@ -52,13 +52,13 @@ export const likeAlbum = async (userId: number, albumId: number) => {
   `;
   
   try {
-    const [result] = await pool.query(sql, [userId, albumId]);
+    const result = pool.prepare(sql).run(...([userId, albumId]));
     return result;
   } catch (error: any) {
-    if (error.code === 'ER_DUP_ENTRY') {
+    if (error.code === error.message && error.message.includes('UNIQUE constraint failed')) {
       throw new Error('User has already liked this album');
     }
-    if (error.code === 'ER_NO_REFERENCED_ROW_2') {
+    if (error.code === error.message && error.message.includes('FOREIGN KEY constraint failed')) {
       throw new Error('User or album does not exist');
     }
     throw error;
@@ -67,7 +67,7 @@ export const likeAlbum = async (userId: number, albumId: number) => {
 
 export const unlikeAlbum = async (userId: number, albumId: number) => {
   const sql = `DELETE FROM user_likes_album WHERE UserID = ? AND AlbumID = ?`;
-  const [result] = await pool.query(sql, [userId, albumId]);
+  const result = pool.prepare(sql).run(...([userId, albumId]));
   return result;
 };
 
@@ -78,13 +78,13 @@ export const likePlaylist = async (userId: number, playlistId: number) => {
   `;
   
   try {
-    const [result] = await pool.query(sql, [userId, playlistId]);
+    const result = pool.prepare(sql).run(...([userId, playlistId]));
     return result;
   } catch (error: any) {
-    if (error.code === 'ER_DUP_ENTRY') {
+    if (error.code === error.message && error.message.includes('UNIQUE constraint failed')) {
       throw new Error('User has already liked this playlist');
     }
-    if (error.code === 'ER_NO_REFERENCED_ROW_2') {
+    if (error.code === error.message && error.message.includes('FOREIGN KEY constraint failed')) {
       throw new Error('User or playlist does not exist');
     }
     throw error;
@@ -93,7 +93,7 @@ export const likePlaylist = async (userId: number, playlistId: number) => {
 
 export const unlikePlaylist = async (userId: number, playlistId: number) => {
   const sql = `DELETE FROM user_likes_playlist WHERE UserID = ? AND PlaylistID = ?`;
-  const [result] = await pool.query(sql, [userId, playlistId]);
+  const result = pool.prepare(sql).run(...([userId, playlistId]));
   return result;
 };
 
@@ -109,7 +109,7 @@ export const getUserLikedSongs = async (userId: number) => {
     ORDER BY uls.LikedAt DESC;
   `;
   
-  const [rows] = await pool.query(sql, [userId]);
+  const rows = pool.prepare(sql).all(userId);
   return rows;
 };
 
@@ -124,7 +124,7 @@ export const getUserLikedAlbums = async (userId: number) => {
     ORDER BY ula.LikedAt DESC;
   `;
   
-  const [rows] = await pool.query(sql, [userId]);
+  const rows = pool.prepare(sql).all(userId);
   return rows;
 };
 
@@ -138,43 +138,43 @@ export const getUserLikedPlaylists = async (userId: number) => {
     ORDER BY ulp.LikedAt DESC;
   `;
   
-  const [rows] = await pool.query(sql, [userId]);
+  const rows = pool.prepare(sql).all(userId);
   return rows;
 };
 
 export const isSongLiked = async (userId: number, songId: number): Promise<boolean> => {
   const sql = `SELECT 1 FROM user_likes_song WHERE UserID = ? AND SongID = ?`;
-  const [rows] = await pool.query(sql, [userId, songId]);
+  const rows = pool.prepare(sql).all(userId, songId);
   return (rows as any[]).length > 0;
 };
 
 export const isAlbumLiked = async (userId: number, albumId: number): Promise<boolean> => {
   const sql = `SELECT 1 FROM user_likes_album WHERE UserID = ? AND AlbumID = ?`;
-  const [rows] = await pool.query(sql, [userId, albumId]);
+  const rows = pool.prepare(sql).all(userId, albumId);
   return (rows as any[]).length > 0;
 };
 
 export const isPlaylistLiked = async (userId: number, playlistId: number): Promise<boolean> => {
   const sql = `SELECT 1 FROM user_likes_playlist WHERE UserID = ? AND PlaylistID = ?`;
-  const [rows] = await pool.query(sql, [userId, playlistId]);
+  const rows = pool.prepare(sql).all(userId, playlistId);
   return (rows as any[]).length > 0;
 };
 
 export const getSongLikeCount = async (songId: number): Promise<number> => {
   const sql = `SELECT COUNT(*) as count FROM user_likes_song WHERE SongID = ?`;
-  const [rows] = await pool.query(sql, [songId]);
+  const rows = pool.prepare(sql).all(songId);
   return (rows as any[])[0].count;
 };
 
 export const getAlbumLikeCount = async (albumId: number): Promise<number> => {
   const sql = `SELECT COUNT(*) as count FROM user_likes_album WHERE AlbumID = ?`;
-  const [rows] = await pool.query(sql, [albumId]);
+  const rows = pool.prepare(sql).all(albumId);
   return (rows as any[])[0].count;
 };
 
 export const getPlaylistLikeCount = async (playlistId: number): Promise<number> => {
   const sql = `SELECT COUNT(*) as count FROM user_likes_playlist WHERE PlaylistID = ?`;
-  const [rows] = await pool.query(sql, [playlistId]);
+  const rows = pool.prepare(sql).all(playlistId);
   return (rows as any[])[0].count;
 };
 

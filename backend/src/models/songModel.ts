@@ -103,10 +103,10 @@ export const createSong = async (song: NewSong) => {
   ];
 
   try {
-    const [result] = await pool.query(sql, values);
+    const result = pool.prepare(sql).run(...(values));
     return result;
   } catch (error: any) {
-    if (error.code === 'ER_NO_REFERENCED_ROW_2') {
+    if (error.code === error.message && error.message.includes('FOREIGN KEY constraint failed')) {
       throw new Error('Artist or album does not exist');
     }
     throw error;
@@ -123,7 +123,7 @@ export const getSongById = async (songId: number) => {
     LEFT JOIN genre g ON s.GenreID = g.GenreID
     WHERE s.SongID = ?;
   `;
-  const [rows] = await pool.query(sql, [songId]);
+  const rows = pool.prepare(sql).all(songId);
   return (rows as any[])[0];
 };
 
@@ -136,7 +136,7 @@ export const getSongsByArtist = async (artistId: number) => {
     WHERE s.ArtistID = ?
     ORDER BY s.ReleaseDate DESC;
   `;
-  const [rows] = await pool.query(sql, [artistId]);
+  const rows = pool.prepare(sql).all(artistId);
   return rows;
 };
 
@@ -148,7 +148,7 @@ export const getSongsByAlbum = async (albumId: number) => {
     WHERE s.AlbumID = ?
     ORDER BY s.SongName;
   `;
-  const [rows] = await pool.query(sql, [albumId]);
+  const rows = pool.prepare(sql).all(albumId);
   return rows;
 };
 
@@ -170,7 +170,7 @@ export const getAllSongs = async (limit?: number, offset?: number) => {
     }
   }
   
-  const [rows] = await pool.query(sql);
+  const rows = pool.prepare(sql).all();
   return rows;
 };
 
@@ -227,13 +227,13 @@ export const updateSong = async (songId: number, updates: UpdateSong) => {
 
   const sql = `UPDATE song SET ${setClauses.join(', ')} WHERE SongID = ?`;
 
-  const [result] = await pool.query(sql, params);
+  const result = pool.prepare(sql).run(...(params));
   return result;
 };
 
 export const deleteSong = async (songId: number) => {
   const sql = `DELETE FROM song WHERE SongID = ?`;
-  const [result] = await pool.query(sql, [songId]);
+  const result = pool.prepare(sql).run(...([songId]));
   return result;
 };
 
@@ -250,7 +250,7 @@ export const searchSongs = async (query: string) => {
   `;
   
   const searchTerm = `%${query}%`;
-  const [rows] = await pool.query(sql, [searchTerm, searchTerm, searchTerm, searchTerm]);
+  const rows = pool.prepare(sql).all(searchTerm, searchTerm, searchTerm, searchTerm);
   return rows;
 };
 
@@ -265,7 +265,7 @@ export const getSongWithGenre = async (songId: number) => {
     WHERE s.SongID = ?;
   `;
   
-  const [rows] = await pool.query(sql, [songId]);
+  const rows = pool.prepare(sql).all(songId);
   return (rows as any[])[0];
 };
 
@@ -281,13 +281,13 @@ export const getSongsByGenre = async (genreId: number) => {
     ORDER BY s.ReleaseDate DESC;
   `;
   
-  const [rows] = await pool.query(sql, [genreId]);
+  const rows = pool.prepare(sql).all(genreId);
   return rows;
 };
 
 export const incrementListenCount = async (songId: number) => {
   const sql = `UPDATE song SET ListenCount = ListenCount + 1 WHERE SongID = ?`;
-  const [result] = await pool.query(sql, [songId]);
+  const result = pool.prepare(sql).run(...([songId]));
   return result;
 };
 
@@ -306,6 +306,6 @@ export const getPopularSongs = async (limit: number = 10) => {
     LIMIT ?;
   `;
   
-  const [rows] = await pool.query(sql, [limit]);
+  const rows = pool.prepare(sql).all(limit);
   return rows;
 };

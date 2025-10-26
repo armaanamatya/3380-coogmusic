@@ -15,13 +15,13 @@ export const followArtist = async (userId: number, artistId: number) => {
   `;
   
   try {
-    const [result] = await pool.query(sql, [userId, artistId]);
+    const result = pool.prepare(sql).run(...([userId, artistId]));
     return result;
   } catch (error: any) {
-    if (error.code === 'ER_DUP_ENTRY') {
+    if (error.code === error.message && error.message.includes('UNIQUE constraint failed')) {
       throw new Error('User is already following this artist');
     }
-    if (error.code === 'ER_NO_REFERENCED_ROW_2') {
+    if (error.code === error.message && error.message.includes('FOREIGN KEY constraint failed')) {
       throw new Error('User or artist does not exist');
     }
     throw error;
@@ -30,7 +30,7 @@ export const followArtist = async (userId: number, artistId: number) => {
 
 export const unfollowArtist = async (userId: number, artistId: number) => {
   const sql = `DELETE FROM user_follows_artist WHERE UserID = ? AND ArtistID = ?`;
-  const [result] = await pool.query(sql, [userId, artistId]);
+  const result = pool.prepare(sql).run(...([userId, artistId]));
   return result;
 };
 
@@ -44,7 +44,7 @@ export const getUserFollowing = async (userId: number) => {
     ORDER BY ufa.FollowedAt DESC;
   `;
   
-  const [rows] = await pool.query(sql, [userId]);
+  const rows = pool.prepare(sql).all(userId);
   return rows;
 };
 
@@ -57,25 +57,25 @@ export const getArtistFollowers = async (artistId: number) => {
     ORDER BY ufa.FollowedAt DESC;
   `;
   
-  const [rows] = await pool.query(sql, [artistId]);
+  const rows = pool.prepare(sql).all(artistId);
   return rows;
 };
 
 export const isFollowingArtist = async (userId: number, artistId: number): Promise<boolean> => {
   const sql = `SELECT 1 FROM user_follows_artist WHERE UserID = ? AND ArtistID = ?`;
-  const [rows] = await pool.query(sql, [userId, artistId]);
+  const rows = pool.prepare(sql).all(userId, artistId);
   return (rows as any[]).length > 0;
 };
 
 export const getFollowerCount = async (artistId: number): Promise<number> => {
   const sql = `SELECT COUNT(*) as count FROM user_follows_artist WHERE ArtistID = ?`;
-  const [rows] = await pool.query(sql, [artistId]);
+  const rows = pool.prepare(sql).all(artistId);
   return (rows as any[])[0].count;
 };
 
 export const getFollowingCount = async (userId: number): Promise<number> => {
   const sql = `SELECT COUNT(*) as count FROM user_follows_artist WHERE UserID = ?`;
-  const [rows] = await pool.query(sql, [userId]);
+  const rows = pool.prepare(sql).all(userId);
   return (rows as any[])[0].count;
 };
 
@@ -90,7 +90,7 @@ export const getMutualFollows = async (userId1: number, userId2: number) => {
     ORDER BY u.Username;
   `;
   
-  const [rows] = await pool.query(sql, [userId1, userId2]);
+  const rows = pool.prepare(sql).all(userId1, userId2);
   return rows;
 };
 

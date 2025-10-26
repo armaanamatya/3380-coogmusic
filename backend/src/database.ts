@@ -42,7 +42,7 @@ export const createConnection = async (): Promise<Database.Database> => {
   }
 };
 
-export const createPool = () => {
+export const createPool = (): Database.Database => {
   try {
     const database = new Database(dbConfig.path);
     database.pragma('foreign_keys = ON');

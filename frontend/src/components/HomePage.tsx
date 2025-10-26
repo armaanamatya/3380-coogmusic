@@ -44,18 +44,18 @@ function HomePage() {
     setMusicSubTab('edit');
   };
 
-  const handleUploadSuccess = (songId: number) => {
+  const handleUploadSuccess = () => {
     setMusicSubTab('library');
     setRefreshTrigger(prev => prev + 1);
   };
 
-  const handleUpdateSuccess = (songId: number) => {
+  const handleUpdateSuccess = () => {
     setEditingSong(null);
     setMusicSubTab('library');
     setRefreshTrigger(prev => prev + 1);
   };
 
-  const handleDeleteSong = (songId: number) => {
+  const handleDeleteSong = () => {
     setRefreshTrigger(prev => prev + 1);
   };
 

@@ -37,7 +37,7 @@ export const insertUser = async (user: NewUser) => {
     user.city || null
   ];
 
-  const [result] = await pool.query(sql, values);
+  const result = pool.prepare(sql).run(...(values));
   return result;
 };
 
@@ -104,21 +104,21 @@ export const validateUserInput = (user: NewUser): string[] => {
 
 export const getUserById = async (userId: number) => {
   const sql = `SELECT * FROM userprofile WHERE UserID = ?`;
-  const [rows] = await pool.query(sql, [userId]);
+  const rows = pool.prepare(sql).all(userId);
   return rows;
 };
 
 
 export const getUserByUsername = async (username: string) => {
   const sql = `SELECT * FROM userprofile WHERE Username = ?`;
-  const [rows] = await pool.query(sql, [username]);
+  const rows = pool.prepare(sql).all(username);
   return rows;
 };
 
 
 export const getAllUsers = async () => {
   const sql = `SELECT * FROM userprofile`;
-  const [rows] = await pool.query(sql);
+  const rows = pool.prepare(sql).all();
   return rows;
 };
 
@@ -179,7 +179,7 @@ export const updateUser = async (userId: number, updatedFields: Partial<NewUser>
   const sql = `UPDATE userprofile SET ${setClauses.join(', ')} WHERE UserID = ?`;
 
   try {
-    const [result] = await pool.query(sql, params);
+    const result = pool.prepare(sql).run(...(params));
     return result;
   } catch (error: any) {
     if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
@@ -201,41 +201,41 @@ export const updateType = async (userId: number, newType: string) => {
   }
 
   const sql = `UPDATE userprofile SET UserType = ? WHERE UserID = ?`;
-  const [result] = await pool.query(sql, [newType, userId]);
+  const result = pool.prepare(sql).run(...([newType, userId]));
   return result;
 };
 
 
 export const updateOnlineStatus = async (userId: number, isOnline: boolean) => {
   const sql = `UPDATE userprofile SET IsOnline = ? WHERE UserID = ?`;
-  const [result] = await pool.query(sql, [isOnline, userId]);
+  const result = pool.prepare(sql).run(...([isOnline, userId]));
   return result;
 };
 
 
 export const activateUser = async (userId: number) => {
   const sql = `UPDATE userprofile SET AccountStatus = 'Active' WHERE UserID = ?`;
-  const [result] = await pool.query(sql, [userId]);
+  const result = pool.prepare(sql).run(...([userId]));
   return result;
 };
 
 
 export const deactivateUser = async (userId: number) => {
   const sql = `UPDATE userprofile SET AccountStatus = 'Suspended' WHERE UserID = ?`;
-  const [result] = await pool.query(sql, [userId]);
+  const result = pool.prepare(sql).run(...([userId]));
   return result;
 };
 
 
 export const banUser = async (userId: number) => {
   const sql = `UPDATE userprofile SET AccountStatus = 'Banned' WHERE UserID = ?`;
-  const [result] = await pool.query(sql, [userId]);
+  const result = pool.prepare(sql).run(...([userId]));
   return result;
 };
 
 
 export const deleteUser = async (userId: number) => {
   const sql = `DELETE FROM userprofile WHERE UserID = ?`;
-  const [result] = await pool.query(sql, [userId]);
+  const result = pool.prepare(sql).run(...([userId]));
   return result;
 };

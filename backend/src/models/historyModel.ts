@@ -23,10 +23,10 @@ export const addListeningHistory = async (history: NewListeningHistory) => {
   `;
   
   try {
-    const [result] = await pool.query(sql, [history.userId, history.songId, history.duration || null]);
+    const result = pool.prepare(sql).run(...([history.userId, history.songId, history.duration || null]));
     return result;
   } catch (error: any) {
-    if (error.code === 'ER_NO_REFERENCED_ROW_2') {
+    if (error.code === error.message && error.message.includes('FOREIGN KEY constraint failed')) {
       throw new Error('User or song does not exist');
     }
     throw error;
@@ -50,7 +50,7 @@ export const getUserListeningHistory = async (userId: number, limit?: number) =>
     sql += ` LIMIT ${limit}`;
   }
   
-  const [rows] = await pool.query(sql, [userId]);
+  const rows = pool.prepare(sql).all(userId);
   return rows;
 };
 
@@ -67,7 +67,7 @@ export const getSongListeningHistory = async (songId: number, limit?: number) =>
     sql += ` LIMIT ${limit}`;
   }
   
-  const [rows] = await pool.query(sql, [songId]);
+  const rows = pool.prepare(sql).all(songId);
   return rows;
 };
 
@@ -88,7 +88,7 @@ export const getRecentListeningHistory = async (userId: number, hours: number = 
     sql += ` LIMIT ${limit}`;
   }
   
-  const [rows] = await pool.query(sql, [userId, hours]);
+  const rows = pool.prepare(sql).all(userId, hours);
   return rows;
 };
 
@@ -108,7 +108,7 @@ export const getUserMostPlayedSongs = async (userId: number, limit: number = 10)
     LIMIT ?;
   `;
   
-  const [rows] = await pool.query(sql, [userId, limit]);
+  const rows = pool.prepare(sql).all(userId, limit);
   return rows;
 };
 
@@ -127,7 +127,7 @@ export const getUserMostPlayedArtists = async (userId: number, limit: number = 1
     LIMIT ?;
   `;
   
-  const [rows] = await pool.query(sql, [userId, limit]);
+  const rows = pool.prepare(sql).all(userId, limit);
   return rows;
 };
 
@@ -146,19 +146,19 @@ export const getGlobalMostPlayedSongs = async (limit: number = 10) => {
     LIMIT ?;
   `;
   
-  const [rows] = await pool.query(sql, [limit]);
+  const rows = pool.prepare(sql).all(limit);
   return rows;
 };
 
 export const deleteUserListeningHistory = async (userId: number) => {
   const sql = `DELETE FROM listening_history WHERE UserID = ?`;
-  const [result] = await pool.query(sql, [userId]);
+  const result = pool.prepare(sql).run(...([userId]));
   return result;
 };
 
 export const deleteSongListeningHistory = async (songId: number) => {
   const sql = `DELETE FROM listening_history WHERE SongID = ?`;
-  const [result] = await pool.query(sql, [songId]);
+  const result = pool.prepare(sql).run(...([songId]));
   return result;
 };
 
@@ -175,7 +175,7 @@ export const getListeningStats = async (userId: number) => {
     WHERE lh.UserID = ?;
   `;
   
-  const [rows] = await pool.query(sql, [userId]);
+  const rows = pool.prepare(sql).all(userId);
   return (rows as any[])[0];
 };
 

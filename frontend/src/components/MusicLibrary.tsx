@@ -4,9 +4,12 @@ import { songApi, getFileUrl } from '../services/api';
 interface Song {
   SongID: number;
   SongName: string;
+  ArtistID: number;
   ArtistFirstName: string;
   ArtistLastName: string;
+  AlbumID?: number;
   AlbumName?: string;
+  GenreID?: number;
   GenreName?: string;
   Duration: number;
   ListenCount: number;
@@ -26,38 +29,20 @@ const MusicLibrary: React.FC<MusicLibraryProps> = ({ onEditSong, onDeleteSong, r
   const [songs, setSongs] = useState<Song[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [selectedSong, setSelectedSong] = useState<number | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [filters, setFilters] = useState({
-    artistId: '',
-    genreId: '',
-    albumId: ''
-  });
 
   useEffect(() => {
     fetchSongs();
-  }, [currentPage, filters, refreshTrigger]);
+  }, [currentPage, refreshTrigger]);
 
   const fetchSongs = async () => {
     setLoading(true);
     setError('');
 
     try {
-      const queryParams = new URLSearchParams({
-        page: currentPage.toString(),
-        limit: '20'
-      });
-
-      if (filters.artistId) queryParams.append('artistId', filters.artistId);
-      if (filters.genreId) queryParams.append('genreId', filters.genreId);
-      if (filters.albumId) queryParams.append('albumId', filters.albumId);
-
       const response = await songApi.getAll({
         page: currentPage,
-        limit: 20,
-        ...(filters.artistId && { artistId: parseInt(filters.artistId) }),
-        ...(filters.genreId && { genreId: parseInt(filters.genreId) }),
-        ...(filters.albumId && { albumId: parseInt(filters.albumId) })
+        limit: 20
       });
       const data = await response.json();
 
