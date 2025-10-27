@@ -56,7 +56,9 @@ async function seedDatabase(): Promise<void> {
             const trimmedLine = line.trim();
             return trimmedLine.length > 0 && !trimmedLine.startsWith('--');
           });
-        return lines.join('\n').trim();
+        const cleanedStmt = lines.join('\n').trim();
+        // Add semicolon back if statement is not empty
+        return cleanedStmt.length > 0 ? cleanedStmt + ';' : '';
       })
       .filter(stmt => stmt.length > 0);
     
