@@ -51,7 +51,8 @@ async function seedDatabase(): Promise<void> {
     const statements = seedData
       .split(';')
       .map(stmt => stmt.trim())
-      .filter(stmt => stmt.length > 0);
+      .filter(stmt => stmt.length > 0)
+      .map(stmt => stmt + ';');  // Add semicolons back!
     
     console.log(`📝 Executing ${statements.length} SQL statements...\n`);
     console.log(`🔍 First statement preview: ${statements[0]?.substring(0, 100)}...\n`);
