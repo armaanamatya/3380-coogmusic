@@ -4,7 +4,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "nodemon --exec \"tsx src/server.ts\"",
-    "build": "tsc",
+    "build": "tsc && node copy-build-files.cjs",
     "start": "node dist/server.js",
     "migrate": "tsx src/migrate-to-sqlite.ts",
     "test": "echo \"Error: no test specified\" && exit 1"

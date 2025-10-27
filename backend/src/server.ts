@@ -127,7 +127,24 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     logRequest(method || 'UNKNOWN', requestPath || '/', parsedUrl.query);
   }
 
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  // CORS configuration - allow specific origins
+  const allowedOrigins = [
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'https://3380-coogmusic.vercel.app',
+    'https://3380-coogmusic-git-main-armaa-amatyas-projects.vercel.app',
+    'https://3380-coogmusic-git-extradata-armaa-amatyas-projects.vercel.app'
+  ];
+  
+  const origin = req.headers.origin;
+  if (origin && allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+  } else {
+    // Fallback to wildcard for other origins
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  }
+  
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
@@ -1311,6 +1328,15 @@ const startServer = async () => {
     
     await initializeDatabase();
     await testConnection();
+    
+    // Always seed database on startup (for ephemeral storage on free tier)
+    try {
+      const { seedDatabase } = await import('./seed-database.js');
+      await seedDatabase();
+    } catch (seedError) {
+      console.warn('⚠️  Database seeding skipped or failed:', (seedError as Error).message);
+      console.log('📝 Continuing with empty database...\n');
+    }
     
     server.listen(PORT, () => {
       console.log('═'.repeat(60));
