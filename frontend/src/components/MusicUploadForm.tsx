@@ -57,8 +57,10 @@ const MusicUploadForm: React.FC<MusicUploadFormProps> = ({ onUploadSuccess, onCa
   };
 
   const fetchAlbums = async () => {
+    if (!user?.userId) return;
+    
     try {
-      const response = await albumApi.getAll();
+      const response = await albumApi.getAll(user.userId);
       const data = await response.json();
       setAlbums(data.albums || []);
     } catch (error) {

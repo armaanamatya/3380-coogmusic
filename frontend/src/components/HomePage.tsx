@@ -7,6 +7,7 @@ import MusicUploadForm from './MusicUploadForm'
 import MusicLibrary from './MusicLibrary'
 import MusicEditForm from './MusicEditForm'
 import AlbumManager from './AlbumManager'
+import Settings from './Settings'
 
 
 interface Song {
@@ -782,11 +783,7 @@ function HomePage() {
           )}
 
           {activeTab === 'settings' && (
-            <div className="mb-8">
-              <h2 className="text-2xl font-bold text-red-700 mb-4">Settings</h2>
-              <p className="text-gray-600">Manage your account settings and preferences.</p>
-              {/* Add settings content here */}
-            </div>
+            <Settings />
           )}
         </div>
       </main>

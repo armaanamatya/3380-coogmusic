@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { songApi, getFileUrl } from '../services/api';
+import { useAuth } from '../hooks/useAuth';
 
 interface Song {
   SongID: number;
@@ -26,24 +27,26 @@ interface MusicLibraryProps {
 }
 
 const MusicLibrary: React.FC<MusicLibraryProps> = ({ onEditSong, onDeleteSong, refreshTrigger }) => {
+  const { user } = useAuth();
   const [songs, setSongs] = useState<Song[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [filters] = useState({
-    artistId: '',
-    genreId: '',
-    albumId: ''
-  });
 
   const fetchSongs = useCallback(async () => {
+    if (!user?.userId) {
+      setError('User not authenticated');
+      return;
+    }
+
     setLoading(true);
     setError('');
 
     try {
       const response = await songApi.getAll({
         page: currentPage,
-        limit: 20
+        limit: 20,
+        artistId: user.userId
       });
       const data = await response.json();
 
@@ -58,7 +61,7 @@ const MusicLibrary: React.FC<MusicLibraryProps> = ({ onEditSong, onDeleteSong, r
     } finally {
       setLoading(false);
     }
-  }, [currentPage, filters]);
+  }, [currentPage, user?.userId]);
 
   useEffect(() => {
     fetchSongs();
