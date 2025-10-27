@@ -13,7 +13,6 @@ interface BaseCardProps {
 export const BaseCard: React.FC<BaseCardProps> = ({
   title,
   imageUrl,
-  type,
   artist,
   listenCount,
   onClick
