@@ -63,17 +63,29 @@ async function seedDatabase(): Promise<void> {
     console.log(`📝 Executing ${statements.length} SQL statements...\n`);
     console.log(`🔍 First statement preview: ${statements[0]?.substring(0, 100)}...\n`);
     
+    let successCount = 0;
+    let errorCount = 0;
+    
     for (const statement of statements) {
       try {
         db.exec(statement);
+        successCount++;
       } catch (error: any) {
+        errorCount++;
         // Skip errors for statements that are just comments or already exist
         if (!error.message.includes('UNIQUE constraint') && !error.message.includes('already exists')) {
-          console.error('Error executing statement:', statement.substring(0, 100));
+          console.error('\n❌ Error executing statement:');
+          console.error('First 200 chars:', statement.substring(0, 200));
+          console.error('Last 200 chars:', statement.substring(Math.max(0, statement.length - 200)));
+          console.error('Statement length:', statement.length, 'characters');
           console.error('Error:', error.message);
+          console.error('');
         }
       }
     }
+    
+    console.log(`\n✅ Successfully executed: ${successCount} statements`);
+    console.log(`❌ Failed: ${errorCount} statements\n`);
     
     console.log('\n✅ Database seeding completed successfully!\n');
     
