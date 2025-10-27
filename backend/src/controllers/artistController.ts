@@ -81,3 +81,24 @@ export function getArtistSongs(db: Database, artistId: number): any[] {
   `).all(artistId);
 }
 
+// Get top artists by follower count
+export function getTopArtistsByFollowers(db: Database, limit: number = 10): any[] {
+  return db.prepare(`
+    SELECT 
+      a.ArtistID,
+      u.FirstName,
+      u.LastName,
+      u.Username,
+      u.ProfilePicture,
+      a.ArtistBio,
+      a.VerifiedStatus,
+      COUNT(ufa.UserID) as followerCount
+    FROM artist a
+    JOIN userprofile u ON a.ArtistID = u.UserID
+    LEFT JOIN user_follows_artist ufa ON a.ArtistID = ufa.ArtistID
+    GROUP BY a.ArtistID, u.FirstName, u.LastName, u.Username, u.ProfilePicture, a.ArtistBio, a.VerifiedStatus
+    ORDER BY followerCount DESC
+    LIMIT ?
+  `).all(limit);
+}
+

@@ -4,8 +4,9 @@ interface BaseCardProps {
   id: string
   title: string
   imageUrl?: string
-  type: 'song' | 'artist' | 'playlist' | 'album'
+  type: 'song' | 'artist' | 'playlist' | 'album' | 'genre'
   artist?: string
+  listenCount?: number
   onClick?: () => void
 }
 
@@ -15,6 +16,7 @@ const getTypeColor = (type: string) => {
     case 'artist': return 'bg-green-100 text-green-800'
     case 'playlist': return 'bg-purple-100 text-purple-800'
     case 'album': return 'bg-orange-100 text-orange-800'
+    case 'genre': return 'bg-pink-100 text-pink-800'
     default: return 'bg-gray-100 text-gray-800'
   }
 }
@@ -24,6 +26,7 @@ export const BaseCard: React.FC<BaseCardProps> = ({
   imageUrl,
   type,
   artist,
+  listenCount,
   onClick
 }) => {
   return (
@@ -47,6 +50,11 @@ export const BaseCard: React.FC<BaseCardProps> = ({
         <h3 className="font-semibold text-gray-800 truncate text-sm">{title}</h3>
         {artist && (
           <p className="text-sm text-gray-500 mt-1 truncate">{artist}</p>
+        )}
+        {listenCount !== undefined && (
+          <p className="text-xs text-gray-600 mt-1">
+            {listenCount.toLocaleString()} listens
+          </p>
         )}
       </div>
     </div>

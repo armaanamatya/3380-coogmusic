@@ -1,11 +1,12 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import { ArtistCard, SongCard, AlbumCard, PlaylistCard } from './cards'
+import { GenreCard } from './cards/GenreCard'
+import { genreApi, artistApi, songApi, albumApi, playlistApi, getFileUrl } from '../services/api'
 import MusicUploadForm from './MusicUploadForm'
 import MusicLibrary from './MusicLibrary'
 import MusicEditForm from './MusicEditForm'
 import AlbumManager from './AlbumManager'
-import Settings from './Settings'
 
 
 interface Song {
@@ -26,6 +27,68 @@ interface Song {
   CreatedAt: string;
 }
 
+interface GenreWithListens {
+  GenreID: number
+  GenreName: string
+  Description?: string
+  CreatedAt: string
+  UpdatedAt: string
+  songCount: number
+  totalListens: number
+}
+
+interface TopArtist {
+  ArtistID: number
+  FirstName: string
+  LastName: string
+  Username: string
+  ProfilePicture?: string
+  ArtistBio?: string
+  VerifiedStatus: number
+  followerCount: number
+}
+
+interface TopSong {
+  SongID: number
+  SongName: string
+  ListenCount: number
+  Duration: number
+  ReleaseDate: string
+  FilePath?: string
+  FileSize?: number
+  ArtistFirstName: string
+  ArtistLastName: string
+  ArtistUsername: string
+  AlbumName?: string
+  GenreName?: string
+}
+
+interface TopAlbum {
+  AlbumID: number
+  AlbumName: string
+  ReleaseDate: string
+  AlbumCover?: string
+  Description?: string
+  likeCount: number
+  ArtistFirstName: string
+  ArtistLastName: string
+  ArtistUsername: string
+  songCount: number
+}
+
+interface TopPlaylist {
+  PlaylistID: number
+  PlaylistName: string
+  Description?: string
+  IsPublic: number
+  CreatedAt: string
+  likeCount: number
+  CreatorFirstName: string
+  CreatorLastName: string
+  CreatorUsername: string
+  songCount: number
+}
+
 type MusicSubTab = 'library' | 'upload' | 'albums' | 'edit';
 
 function HomePage() {
@@ -38,6 +101,26 @@ function HomePage() {
   const [musicSubTab, setMusicSubTab] = useState<MusicSubTab>('library')
   const [editingSong, setEditingSong] = useState<Song | null>(null)
   const [refreshTrigger, setRefreshTrigger] = useState(0)
+  
+  // Genres state
+  const [genres, setGenres] = useState<GenreWithListens[]>([])
+  const [genresLoading, setGenresLoading] = useState(true)
+  
+  // Top artists state
+  const [topArtists, setTopArtists] = useState<TopArtist[]>([])
+  const [artistsLoading, setArtistsLoading] = useState(true)
+  
+  // Top songs state
+  const [topSongs, setTopSongs] = useState<TopSong[]>([])
+  const [songsLoading, setSongsLoading] = useState(true)
+  
+  // Top albums state
+  const [topAlbums, setTopAlbums] = useState<TopAlbum[]>([])
+  const [albumsLoading, setAlbumsLoading] = useState(true)
+  
+  // Top playlists state
+  const [topPlaylists, setTopPlaylists] = useState<TopPlaylist[]>([])
+  const [playlistsLoading, setPlaylistsLoading] = useState(true)
 
   // Music management handlers
   const handleEditSong = (song: Song) => {
@@ -56,7 +139,7 @@ function HomePage() {
     setRefreshTrigger(prev => prev + 1);
   };
 
-  const handleDeleteSong = (_songId: number) => {
+  const handleDeleteSong = () => {
     setRefreshTrigger(prev => prev + 1);
   };
 
@@ -64,27 +147,173 @@ function HomePage() {
     setEditingSong(null);
     setMusicSubTab('library');
   };
+
+  // Fetch top 10 genres with listen counts
+  useEffect(() => {
+    const fetchGenres = async () => {
+      try {
+        setGenresLoading(true)
+        const response = await genreApi.getAllWithListens()
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch genres')
+        }
+        
+        const data = await response.json()
+        // Limit to top 10 genres
+        setGenres((data.genres || []).slice(0, 10))
+      } catch (error) {
+        console.error('Error fetching genres:', error)
+        setGenres([])
+      } finally {
+        setGenresLoading(false)
+      }
+    }
+
+    fetchGenres()
+  }, [])
+
+  // Fetch top 10 artists by followers
+  useEffect(() => {
+    const fetchTopArtists = async () => {
+      try {
+        setArtistsLoading(true)
+        const response = await artistApi.getTop()
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch top artists')
+        }
+        
+        const data = await response.json()
+        setTopArtists(data.artists || [])
+      } catch (error) {
+        console.error('Error fetching top artists:', error)
+        setTopArtists([])
+      } finally {
+        setArtistsLoading(false)
+      }
+    }
+
+    fetchTopArtists()
+  }, [])
+
+  // Fetch top 10 songs by listen count
+  useEffect(() => {
+    const fetchTopSongs = async () => {
+      try {
+        setSongsLoading(true)
+        const response = await songApi.getTop()
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch top songs')
+        }
+        
+        const data = await response.json()
+        setTopSongs(data.songs || [])
+      } catch (error) {
+        console.error('Error fetching top songs:', error)
+        setTopSongs([])
+      } finally {
+        setSongsLoading(false)
+      }
+    }
+
+    fetchTopSongs()
+  }, [])
+
+  // Fetch top 10 albums by like count
+  useEffect(() => {
+    const fetchTopAlbums = async () => {
+      try {
+        setAlbumsLoading(true)
+        const response = await albumApi.getTop()
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch top albums')
+        }
+        
+        const data = await response.json()
+        setTopAlbums(data.albums || [])
+      } catch (error) {
+        console.error('Error fetching top albums:', error)
+        setTopAlbums([])
+      } finally {
+        setAlbumsLoading(false)
+      }
+    }
+
+    fetchTopAlbums()
+  }, [])
+
+  // Fetch top 10 playlists by like count (only public playlists)
+  useEffect(() => {
+    const fetchTopPlaylists = async () => {
+      try {
+        setPlaylistsLoading(true)
+        const response = await playlistApi.getTop()
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch top playlists')
+        }
+        
+        const data = await response.json()
+        setTopPlaylists(data.playlists || [])
+      } catch (error) {
+        console.error('Error fetching top playlists:', error)
+        setTopPlaylists([])
+      } finally {
+        setPlaylistsLoading(false)
+      }
+    }
+
+    fetchTopPlaylists()
+  }, [])
+
+  // Helper function to get genre image URL
+  const getGenreImageUrl = (genreName: string) => {
+    const genreImageMap: { [key: string]: string } = {
+      'Pop': 'pop.png',
+      'Rock': 'rock.jpg',
+      'Hip-Hop': 'hiphop.png',
+      'Electronic': 'electronic.avif',
+      'Dance': 'dance.jpg',
+      'House': 'house.jpg',
+      'Dubstep': 'dubstep.jpg',
+      'Jazz': 'jazz.jpg',
+      'Blues': 'blues.jpg',
+      'Classical': 'classical.jpg',
+      'Country': 'country.jpg',
+      'R&B/Soul': 'r&b.jpg',
+      'Alternative': 'alternative.png',
+      'Folk': 'folk.jpg',
+      'Ambient': 'ambient.jpg',
+      'Metal': 'metal.jpg',
+      'Reggae': 'reggae.jpg'
+    }
+
+    const imageName = genreImageMap[genreName] || 'default.jpg'
+    return getFileUrl(`genre-imgs/${imageName}`)
+  }
   
-  // Separate data by type - replace with actual API calls later
-  const artists = [
-    { id: '2', name: 'The Weeknd', imageUrl: '/api/placeholder/200/200' },
-    { id: '6', name: 'Taylor Swift', imageUrl: '/api/placeholder/200/200' },
-  ]
+  // Helper function to get artist image URL
+  const getArtistImageUrl = () => {
+    return getFileUrl('profile-pictures/default.jpg')
+  }
 
-  const songs = [
-    { id: '3', title: 'Blinding Lights', artist: 'The Weeknd', imageUrl: '/api/placeholder/200/200' },
-    { id: '7', title: 'Anti-Hero', artist: 'Taylor Swift', imageUrl: '/api/placeholder/200/200' },
-  ]
+  // Helper function to format duration
+  const formatDuration = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60)
+    const remainingSeconds = seconds % 60
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`
+  }
 
-  const albums = [
-    { id: '4', title: 'After Hours', artist: 'The Weeknd', imageUrl: '/api/placeholder/200/200' },
-    { id: '8', title: 'Midnights', artist: 'Taylor Swift', imageUrl: '/api/placeholder/200/200' },
-  ]
+  // Helper function to get album cover URL
+  const getAlbumCoverUrl = () => {
+    return getFileUrl('profile-pictures/default.jpg')
+  }
 
-  const playlists = [
-    { id: '1', title: 'Summer Vibes', imageUrl: '/api/placeholder/200/200' },
-    { id: '5', title: 'Chill Beats', imageUrl: '/api/placeholder/200/200' },
-  ]
+
+
 
 
   return (
@@ -231,100 +460,221 @@ function HomePage() {
         <div className="space-y-8">
           {activeTab === 'home' && (
             <>
-              {/* Artists Section */}
+              {/* Top Artists Section */}
               <div className="mb-8">
-                <h2 className="text-2xl font-bold text-red-700 mb-4">Artists</h2>
-                <div className="flex gap-4 overflow-x-auto pb-2">
-                  {artists.map((artist) => (
-                    <ArtistCard
-                      key={artist.id}
-                      id={artist.id}
-                      name={artist.name}
-                      imageUrl={artist.imageUrl}
-                    />
-                  ))}
-                </div>
+                <h2 className="text-2xl font-bold text-red-700 mb-4">Top Artists</h2>
+                {artistsLoading ? (
+                  <div className="flex justify-center items-center py-8">
+                    <div className="text-gray-600">Loading top artists...</div>
+                  </div>
+                ) : (
+                  <div className="flex gap-4 overflow-x-auto pb-2">
+                    {topArtists.map((artist) => (
+                      <div key={artist.ArtistID} className="flex-shrink-0">
+                        <ArtistCard
+                          id={artist.ArtistID.toString()}
+                          name={`${artist.FirstName} ${artist.LastName}`}
+                          imageUrl={getArtistImageUrl()}
+                        />
+                        <div className="text-center mt-2">
+                          <p className="text-xs text-gray-600">
+                            {artist.followerCount} followers
+                          </p>
+                          {artist.VerifiedStatus && (
+                            <span className="inline-block text-blue-500 text-xs">✓ Verified</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
-              {/* Songs Section */}
+              {/* Top Songs Section */}
               <div className="mb-8">
-                <h2 className="text-2xl font-bold text-red-700 mb-4">Songs</h2>
-                <div className="flex gap-4 overflow-x-auto pb-2">
-                  {songs.map((song) => (
-                    <SongCard
-                      key={song.id}
-                      id={song.id}
-                      title={song.title}
-                      artist={song.artist}
-                      imageUrl={song.imageUrl}
-                    />
-                  ))}
-                </div>
+                <h2 className="text-2xl font-bold text-red-700 mb-4">Top Songs</h2>
+                {songsLoading ? (
+                  <div className="flex justify-center items-center py-8">
+                    <div className="text-gray-600">Loading top songs...</div>
+                  </div>
+                ) : (
+                  <div className="flex gap-4 overflow-x-auto pb-2">
+                    {topSongs.map((song) => (
+                      <div key={song.SongID} className="flex-shrink-0">
+                        <SongCard
+                          id={song.SongID.toString()}
+                          title={song.SongName}
+                          artist={`${song.ArtistFirstName} ${song.ArtistLastName}`}
+                          imageUrl={getFileUrl('profile-pictures/default.jpg')}
+                        />
+                        <div className="text-center mt-2">
+                          <p className="text-xs text-gray-600">
+                            {song.ListenCount?.toLocaleString() || 0} listens
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {formatDuration(song.Duration)} • {song.GenreName || 'Unknown'}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
-              {/* Albums Section */}
+              {/* Top Albums Section */}
               <div className="mb-8">
-                <h2 className="text-2xl font-bold text-red-700 mb-4">Albums</h2>
-                <div className="flex gap-4 overflow-x-auto pb-2">
-                  {albums.map((album) => (
-                    <AlbumCard
-                      key={album.id}
-                      id={album.id}
-                      title={album.title}
-                      artist={album.artist}
-                      imageUrl={album.imageUrl}
-                    />
-                  ))}
-                </div>
+                <h2 className="text-2xl font-bold text-red-700 mb-4">Top Albums</h2>
+                {albumsLoading ? (
+                  <div className="flex justify-center items-center py-8">
+                    <div className="text-gray-600">Loading top albums...</div>
+                  </div>
+                ) : (
+                  <div className="flex gap-4 overflow-x-auto pb-2">
+                    {topAlbums.map((album) => (
+                      <div key={album.AlbumID} className="flex-shrink-0">
+                        <AlbumCard
+                          id={album.AlbumID.toString()}
+                          title={album.AlbumName}
+                          artist={`${album.ArtistFirstName} ${album.ArtistLastName}`}
+                          imageUrl={getAlbumCoverUrl()}
+                        />
+                        <div className="text-center mt-2">
+                          <p className="text-xs text-gray-600">
+                            {album.likeCount} likes
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {album.songCount} songs • {new Date(album.ReleaseDate).getFullYear()}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
-              {/* Playlists Section */}
+              {/* Top Playlists Section */}
               <div className="mb-8">
-                <h2 className="text-2xl font-bold text-red-700 mb-4">Playlists</h2>
-                <div className="flex gap-4 overflow-x-auto pb-2">
-                  {playlists.map((playlist) => (
-                    <PlaylistCard
-                      key={playlist.id}
-                      id={playlist.id}
-                      title={playlist.title}
-                      imageUrl={playlist.imageUrl}
-                    />
-                  ))}
-                </div>
+                <h2 className="text-2xl font-bold text-red-700 mb-4">Top Playlists</h2>
+                {playlistsLoading ? (
+                  <div className="flex justify-center items-center py-8">
+                    <div className="text-gray-600">Loading top playlists...</div>
+                  </div>
+                ) : (
+                  <div className="flex gap-4 overflow-x-auto pb-2">
+                    {topPlaylists.map((playlist) => (
+                      <div key={playlist.PlaylistID} className="flex-shrink-0">
+                        <PlaylistCard
+                          id={playlist.PlaylistID.toString()}
+                          title={playlist.PlaylistName}
+                          imageUrl={getFileUrl('profile-pictures/default.jpg')}
+                        />
+                        <div className="text-center mt-2">
+                          <p className="text-xs text-gray-600">
+                            {playlist.likeCount} likes
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            by @{playlist.CreatorUsername}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {playlist.songCount} songs
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Genres Section */}
+              <div className="mb-8">
+                <h2 className="text-2xl font-bold text-red-700 mb-4">Genres</h2>
+                {genresLoading ? (
+                  <div className="flex justify-center items-center py-8">
+                    <div className="text-gray-600">Loading genres...</div>
+                  </div>
+                ) : (
+                  <div className="flex gap-4 overflow-x-auto pb-2">
+                    {genres.map((genre) => (
+                      <GenreCard
+                        key={genre.GenreID}
+                        id={genre.GenreID.toString()}
+                        name={genre.GenreName}
+                        imageUrl={getGenreImageUrl(genre.GenreName)}
+                        listenCount={genre.totalListens}
+                        onClick={() => console.log(`Clicked on genre: ${genre.GenreName}`)}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
             </>
+
+            
           )}
 
           {activeTab === 'library' && (
             <>
-              {/* Your Library - Playlists Section */}
+              {/* Your Library - Top Playlists Section */}
               <div className="mb-8">
-                <h2 className="text-2xl font-bold text-red-700 mb-4">Your Playlists</h2>
-                <div className="flex gap-4 overflow-x-auto pb-2">
-                  {playlists.map((playlist) => (
-                    <PlaylistCard
-                      key={playlist.id}
-                      id={playlist.id}
-                      title={playlist.title}
-                      imageUrl={playlist.imageUrl}
-                    />
-                  ))}
-                </div>
+                <h2 className="text-2xl font-bold text-red-700 mb-4">Top Playlists</h2>
+                {playlistsLoading ? (
+                  <div className="flex justify-center items-center py-8">
+                    <div className="text-gray-600">Loading top playlists...</div>
+                  </div>
+                ) : (
+                  <div className="flex gap-4 overflow-x-auto pb-2">
+                    {topPlaylists.map((playlist) => (
+                      <div key={playlist.PlaylistID} className="flex-shrink-0">
+                        <PlaylistCard
+                          id={playlist.PlaylistID.toString()}
+                          title={playlist.PlaylistName}
+                          imageUrl={getFileUrl('profile-pictures/default.jpg')}
+                        />
+                        <div className="text-center mt-2">
+                          <p className="text-xs text-gray-600">
+                            {playlist.likeCount} likes
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            by @{playlist.CreatorUsername}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {playlist.songCount} songs
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
-              {/* Your Library - Artists Section */}
+              {/* Your Library - Top Artists Section */}
               <div className="mb-8">
-                <h2 className="text-2xl font-bold text-red-700 mb-4">Your Artists</h2>
-                <div className="flex gap-4 overflow-x-auto pb-2">
-                  {artists.map((artist) => (
-                    <ArtistCard
-                      key={artist.id}
-                      id={artist.id}
-                      name={artist.name}
-                      imageUrl={artist.imageUrl}
-                    />
-                  ))}
-                </div>
+                <h2 className="text-2xl font-bold text-red-700 mb-4">Top Artists</h2>
+                {artistsLoading ? (
+                  <div className="flex justify-center items-center py-8">
+                    <div className="text-gray-600">Loading top artists...</div>
+                  </div>
+                ) : (
+                  <div className="flex gap-4 overflow-x-auto pb-2">
+                    {topArtists.map((artist) => (
+                      <div key={artist.ArtistID} className="flex-shrink-0">
+                        <ArtistCard
+                          id={artist.ArtistID.toString()}
+                          name={`${artist.FirstName} ${artist.LastName}`}
+                          imageUrl={getArtistImageUrl()}
+                        />
+                        <div className="text-center mt-2">
+                          <p className="text-xs text-gray-600">
+                            {artist.followerCount} followers
+                          </p>
+                          {artist.VerifiedStatus && (
+                            <span className="inline-block text-blue-500 text-xs">✓ Verified</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </>
           )}
@@ -432,7 +782,11 @@ function HomePage() {
           )}
 
           {activeTab === 'settings' && (
-            <Settings />
+            <div className="mb-8">
+              <h2 className="text-2xl font-bold text-red-700 mb-4">Settings</h2>
+              <p className="text-gray-600">Manage your account settings and preferences.</p>
+              {/* Add settings content here */}
+            </div>
           )}
         </div>
       </main>

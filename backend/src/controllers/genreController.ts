@@ -100,3 +100,21 @@ export function getSongsByGenre(db: Database, genreId: number): any[] {
   `).all(genreId);
 }
 
+// Get genres with listen counts
+export function getGenresWithListenCount(db: Database): any[] {
+  return db.prepare(`
+    SELECT 
+      g.GenreID,
+      g.GenreName,
+      g.Description,
+      g.CreatedAt,
+      g.UpdatedAt,
+      COUNT(DISTINCT s.SongID) as songCount,
+      COALESCE(SUM(s.ListenCount), 0) as totalListens
+    FROM genre g
+    LEFT JOIN song s ON g.GenreID = s.GenreID
+    GROUP BY g.GenreID, g.GenreName, g.Description, g.CreatedAt, g.UpdatedAt
+    ORDER BY totalListens DESC, songCount DESC, g.GenreName
+  `).all();
+}
+

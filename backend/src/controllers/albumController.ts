@@ -147,3 +147,28 @@ export function deleteFileFromDisk(filePath: string): void {
   }
 }
 
+// Get top albums by like count
+export function getTopAlbumsByLikes(db: Database, limit: number = 10): any[] {
+  return db.prepare(`
+    SELECT 
+      al.AlbumID,
+      al.AlbumName,
+      al.ReleaseDate,
+      al.AlbumCover,
+      al.Description,
+      COUNT(ula.UserID) as likeCount,
+      u.FirstName AS ArtistFirstName,
+      u.LastName AS ArtistLastName,
+      u.Username AS ArtistUsername,
+      COUNT(DISTINCT s.SongID) as songCount
+    FROM album al
+    JOIN artist a ON al.ArtistID = a.ArtistID
+    JOIN userprofile u ON a.ArtistID = u.UserID
+    LEFT JOIN user_likes_album ula ON al.AlbumID = ula.AlbumID
+    LEFT JOIN song s ON al.AlbumID = s.AlbumID
+    GROUP BY al.AlbumID, al.AlbumName, al.ReleaseDate, al.AlbumCover, al.Description, u.FirstName, u.LastName, u.Username
+    ORDER BY likeCount DESC
+    LIMIT ?
+  `).all(limit);
+}
+

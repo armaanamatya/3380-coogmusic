@@ -180,3 +180,24 @@ export const getGenreSongs = async (genreId: number) => {
   const rows = pool.prepare(sql).all(genreId);
   return rows;
 };
+
+export const getGenresWithListenCount = async () => {
+  const sql = `
+    SELECT 
+      g.GenreID,
+      g.GenreName,
+      g.Description,
+      g.CreatedAt,
+      g.UpdatedAt,
+      COUNT(DISTINCT s.SongID) as songCount,
+      COALESCE(COUNT(lh.HistoryID), 0) as totalListens
+    FROM genre g
+    LEFT JOIN song s ON g.GenreID = s.GenreID
+    LEFT JOIN listening_history lh ON s.SongID = lh.SongID
+    GROUP BY g.GenreID, g.GenreName, g.Description, g.CreatedAt, g.UpdatedAt
+    ORDER BY totalListens DESC, songCount DESC, g.GenreName
+  `;
+  
+  const rows = pool.prepare(sql).all();
+  return rows;
+};

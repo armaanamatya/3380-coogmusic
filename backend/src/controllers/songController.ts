@@ -163,3 +163,29 @@ export function deleteFileFromDisk(filePath: string): void {
   }
 }
 
+// Get top songs by listen count
+export function getTopSongsByListenCount(db: Database, limit: number = 10): any[] {
+  return db.prepare(`
+    SELECT 
+      s.SongID,
+      s.SongName,
+      s.ListenCount,
+      s.Duration,
+      s.ReleaseDate,
+      s.FilePath,
+      s.FileSize,
+      u.FirstName AS ArtistFirstName,
+      u.LastName AS ArtistLastName,
+      u.Username AS ArtistUsername,
+      al.AlbumName,
+      g.GenreName
+    FROM song s
+    JOIN artist a ON s.ArtistID = a.ArtistID
+    JOIN userprofile u ON a.ArtistID = u.UserID
+    LEFT JOIN album al ON s.AlbumID = al.AlbumID
+    LEFT JOIN genre g ON s.GenreID = g.GenreID
+    ORDER BY s.ListenCount DESC
+    LIMIT ?
+  `).all(limit);
+}
+
