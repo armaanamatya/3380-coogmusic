@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { albumApi, artistApi } from '../services/api';
+import React, { useState, useEffect, useCallback } from 'react';
+import { albumApi } from '../services/api';
+import { useAuth } from '../hooks/useAuth';
 
 interface Album {
   AlbumID: number;
@@ -14,20 +15,13 @@ interface Album {
   UpdatedAt: string;
 }
 
-interface Artist {
-  ArtistID: number;
-  FirstName: string;
-  LastName: string;
-  Username: string;
-}
-
 interface AlbumManagerProps {
   refreshTrigger?: number;
 }
 
 const AlbumManager: React.FC<AlbumManagerProps> = ({ refreshTrigger }) => {
+  const { user } = useAuth();
   const [albums, setAlbums] = useState<Album[]>([]);
-  const [artists, setArtists] = useState<Artist[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -35,22 +29,22 @@ const AlbumManager: React.FC<AlbumManagerProps> = ({ refreshTrigger }) => {
   
   const [formData, setFormData] = useState({
     albumName: '',
-    artistId: '',
+    artistId: user?.userId?.toString() || '',
     releaseDate: new Date().toISOString().split('T')[0],
     description: ''
   });
 
-  useEffect(() => {
-    fetchAlbums();
-    fetchArtists();
-  }, [refreshTrigger]);
+  const fetchAlbums = useCallback(async () => {
+    if (!user?.userId) {
+      setError('User not authenticated');
+      return;
+    }
 
-  const fetchAlbums = async () => {
     setLoading(true);
     setError('');
 
     try {
-      const response = await albumApi.getAll();
+      const response = await albumApi.getAll(user.userId);
       const data = await response.json();
 
       if (response.ok) {
@@ -64,17 +58,12 @@ const AlbumManager: React.FC<AlbumManagerProps> = ({ refreshTrigger }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.userId]);
 
-  const fetchArtists = async () => {
-    try {
-      const response = await artistApi.getAll();
-      const data = await response.json();
-      setArtists(data.artists || []);
-    } catch (error) {
-      console.error('Error fetching artists:', error);
-    }
-  };
+  useEffect(() => {
+    fetchAlbums();
+  }, [fetchAlbums, refreshTrigger]);
+
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -110,7 +99,7 @@ const AlbumManager: React.FC<AlbumManagerProps> = ({ refreshTrigger }) => {
         setShowCreateForm(false);
         setFormData({
           albumName: '',
-          artistId: '',
+          artistId: user?.userId?.toString() || '',
           releaseDate: new Date().toISOString().split('T')[0],
           description: ''
         });
@@ -150,7 +139,7 @@ const AlbumManager: React.FC<AlbumManagerProps> = ({ refreshTrigger }) => {
         setEditingAlbum(null);
         setFormData({
           albumName: '',
-          artistId: '',
+          artistId: user?.userId?.toString() || '',
           releaseDate: new Date().toISOString().split('T')[0],
           description: ''
         });
@@ -200,7 +189,7 @@ const AlbumManager: React.FC<AlbumManagerProps> = ({ refreshTrigger }) => {
     setEditingAlbum(null);
     setFormData({
       albumName: '',
-      artistId: '',
+      artistId: user?.userId?.toString() || '',
       releaseDate: new Date().toISOString().split('T')[0],
       description: ''
     });
@@ -271,29 +260,6 @@ const AlbumManager: React.FC<AlbumManagerProps> = ({ refreshTrigger }) => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
-
-              {!editingAlbum && (
-                <div>
-                  <label htmlFor="artistId" className="block text-sm font-medium text-gray-700 mb-1">
-                    Artist *
-                  </label>
-                  <select
-                    id="artistId"
-                    name="artistId"
-                    value={formData.artistId}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Select an artist</option>
-                    {artists.map(artist => (
-                      <option key={artist.ArtistID} value={artist.ArtistID}>
-                        {artist.FirstName} {artist.LastName} ({artist.Username})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
 
               <div>
                 <label htmlFor="releaseDate" className="block text-sm font-medium text-gray-700 mb-1">

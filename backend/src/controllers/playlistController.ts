@@ -224,3 +224,28 @@ export function reorderPlaylistSong(
   }
 }
 
+// Get top playlists by like count (only public playlists)
+export function getTopPlaylistsByLikes(db: Database, limit: number = 10): any[] {
+  return db.prepare(`
+    SELECT 
+      p.PlaylistID,
+      p.PlaylistName,
+      p.Description,
+      p.IsPublic,
+      p.CreatedAt,
+      COUNT(ulp.UserID) as likeCount,
+      u.FirstName AS CreatorFirstName,
+      u.LastName AS CreatorLastName,
+      u.Username AS CreatorUsername,
+      COUNT(DISTINCT ps.SongID) as songCount
+    FROM playlist p
+    JOIN userprofile u ON p.UserID = u.UserID
+    LEFT JOIN user_likes_playlist ulp ON p.PlaylistID = ulp.PlaylistID
+    LEFT JOIN playlist_song ps ON p.PlaylistID = ps.PlaylistID
+    WHERE p.IsPublic = 1
+    GROUP BY p.PlaylistID, p.PlaylistName, p.Description, p.IsPublic, p.CreatedAt, u.FirstName, u.LastName, u.Username
+    ORDER BY likeCount DESC
+    LIMIT ?
+  `).all(limit);
+}
+

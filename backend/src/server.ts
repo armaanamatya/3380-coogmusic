@@ -347,6 +347,22 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     return;
   }
 
+  // Get top songs by listen count
+  if (requestPath === '/api/song/top' && method === 'GET') {
+    try {
+      const db = await createConnection();
+      const songs = songController.getTopSongsByListenCount(db, 10);
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ songs }));
+    } catch (error) {
+      console.error('Get top songs error:', error);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Internal server error' }));
+    }
+    return;
+  }
+
   // Get specific song
   if (requestPath?.match(/^\/api\/song\/\d+$/) && method === 'GET') {
     const songId = parseInt(requestPath.split('/').pop() || '0');
@@ -445,6 +461,22 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     return;
   }
 
+  // Get genres with listen counts
+  if (requestPath === '/api/genres/with-listens' && method === 'GET') {
+    try {
+      const db = await createConnection();
+      const genres = genreController.getGenresWithListenCount(db);
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ genres }));
+    } catch (error) {
+      console.error('Get genres with listen counts error:', error);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Internal server error' }));
+    }
+    return;
+  }
+
   // Get all albums
   if (requestPath === '/api/albums' && method === 'GET') {
     try {
@@ -462,6 +494,22 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
       res.end(JSON.stringify({ albums }));
     } catch (error) {
       console.error('Get albums error:', error);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Internal server error' }));
+    }
+    return;
+  }
+
+  // Get top albums by like count
+  if (requestPath === '/api/albums/top' && method === 'GET') {
+    try {
+      const db = await createConnection();
+      const albums = albumController.getTopAlbumsByLikes(db, 10);
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ albums }));
+    } catch (error) {
+      console.error('Get top albums error:', error);
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Internal server error' }));
     }
@@ -562,6 +610,22 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
       res.end(JSON.stringify({ artists }));
     } catch (error) {
       console.error('Get artists error:', error);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Internal server error' }));
+    }
+    return;
+  }
+
+  // Get top artists by followers
+  if (requestPath === '/api/artists/top' && method === 'GET') {
+    try {
+      const db = await createConnection();
+      const artists = artistController.getTopArtistsByFollowers(db, 10);
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ artists }));
+    } catch (error) {
+      console.error('Get top artists error:', error);
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Internal server error' }));
     }
@@ -818,6 +882,22 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     } catch (error: any) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
+    }
+    return;
+  }
+
+  // Get top playlists by like count (only public playlists)
+  if (requestPath === '/api/playlists/top' && method === 'GET') {
+    try {
+      const db = await createConnection();
+      const playlists = playlistController.getTopPlaylistsByLikes(db, 10);
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ playlists }));
+    } catch (error) {
+      console.error('Get top playlists error:', error);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Internal server error' }));
     }
     return;
   }

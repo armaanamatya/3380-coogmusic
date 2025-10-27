@@ -46,6 +46,9 @@ export const songApi = {
   getById: (id: number) => 
     fetch(`${API_BASE}/api/song/${id}`),
 
+  getTop: () => 
+    fetch(`${API_BASE}/api/song/top`),
+
   upload: (formData: FormData) =>
     fetch(`${API_BASE}/api/song/upload`, {
       method: 'POST',
@@ -97,19 +100,26 @@ export const albumApi = {
   delete: (id: number) =>
     fetch(`${API_BASE}/api/albums/${id}`, {
       method: 'DELETE'
-    })
+    }),
+
+  getTop: () => 
+    fetch(`${API_BASE}/api/albums/top`)
 };
 
 // Artist endpoints
 export const artistApi = {
   getAll: () => 
-    fetch(`${API_BASE}/api/artists`)
+    fetch(`${API_BASE}/api/artists`),
+  getTop: () => 
+    fetch(`${API_BASE}/api/artists/top`)
 };
 
 // Genre endpoints
 export const genreApi = {
   getAll: () => 
-    fetch(`${API_BASE}/api/genres`)
+    fetch(`${API_BASE}/api/genres`),
+  getAllWithListens: () => 
+    fetch(`${API_BASE}/api/genres/with-listens`)
 };
 
 // Health check endpoints
@@ -127,7 +137,11 @@ export const healthApi = {
 // File serving
 export const getFileUrl = (path: string): string => {
   if (!path) return '';
-  return path.startsWith('http') ? path : `${API_BASE}${path}`;
+  if (path.startsWith('http')) return path;
+  // Ensure path starts with /uploads/ for proper URL construction
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  const uploadsPath = normalizedPath.startsWith('/uploads/') ? normalizedPath : `/uploads${normalizedPath}`;
+  return `${API_BASE}${uploadsPath}`;
 };
 
 // User endpoints
@@ -218,7 +232,10 @@ export const playlistApi = {
   removeSong: (playlistId: number, songId: number) =>
     fetch(`${API_BASE}/api/playlists/${playlistId}/songs/${songId}`, {
       method: 'DELETE'
-    })
+    }),
+
+  getTop: () => 
+    fetch(`${API_BASE}/api/playlists/top`)
 };
 
 // Like endpoints

@@ -101,3 +101,6 @@ Thumbs.db
 *.db
 *.sqlite
 *.sqlite3
+
+# Database backup files
+*.db.backup.*
