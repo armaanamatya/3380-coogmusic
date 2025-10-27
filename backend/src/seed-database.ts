@@ -44,6 +44,7 @@ async function seedDatabase(): Promise<void> {
     
     const seedData = fs.readFileSync(seedDataPath, 'utf8');
     console.log('📄 Seed data file loaded\n');
+    console.log(`📏 File size: ${seedData.length} characters\n`);
     
     // Split by semicolons and execute each statement
     const statements = seedData
@@ -52,6 +53,7 @@ async function seedDatabase(): Promise<void> {
       .filter(stmt => stmt.length > 0 && !stmt.startsWith('--'));
     
     console.log(`📝 Executing ${statements.length} SQL statements...\n`);
+    console.log(`🔍 First statement preview: ${statements[0]?.substring(0, 100)}...\n`);
     
     for (const statement of statements) {
       try {
