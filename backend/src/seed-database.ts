@@ -49,8 +49,16 @@ async function seedDatabase(): Promise<void> {
     // Split by semicolons and execute each statement
     const statements = seedData
       .split(';')
-      .map(stmt => stmt.trim())
-      .filter(stmt => stmt.length > 0 && !stmt.startsWith('--'));
+      .map(stmt => {
+        // Remove comment lines from each statement
+        const lines = stmt.split('\n')
+          .filter(line => {
+            const trimmedLine = line.trim();
+            return trimmedLine.length > 0 && !trimmedLine.startsWith('--');
+          });
+        return lines.join('\n').trim();
+      })
+      .filter(stmt => stmt.length > 0);
     
     console.log(`📝 Executing ${statements.length} SQL statements...\n`);
     console.log(`🔍 First statement preview: ${statements[0]?.substring(0, 100)}...\n`);
