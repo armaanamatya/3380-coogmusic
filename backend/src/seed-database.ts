@@ -46,25 +46,11 @@ async function seedDatabase(): Promise<void> {
     console.log('📄 Seed data file loaded\n');
     console.log(`📏 File size: ${seedData.length} characters\n`);
     
-    // Split by semicolons and execute each statement
+    // Split by semicolons and execute each statement  
+    // (seed file now has all comments pre-stripped)
     const statements = seedData
       .split(';')
-      .map(stmt => {
-        // Remove comment lines and inline comments from each statement
-        const lines = stmt.split('\n')
-          .map(line => {
-            // Remove inline comments (everything after --)
-            const commentIndex = line.indexOf('--');
-            if (commentIndex !== -1) {
-              line = line.substring(0, commentIndex);
-            }
-            return line.trim();
-          })
-          .filter(line => line.length > 0);
-        const cleanedStmt = lines.join('\n').trim();
-        // Add semicolon back if statement is not empty
-        return cleanedStmt.length > 0 ? cleanedStmt + ';' : '';
-      })
+      .map(stmt => stmt.trim())
       .filter(stmt => stmt.length > 0);
     
     console.log(`📝 Executing ${statements.length} SQL statements...\n`);
