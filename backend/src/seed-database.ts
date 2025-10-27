@@ -34,7 +34,7 @@ async function seedDatabase(): Promise<void> {
     }
     
     // Read seed data file
-    const seedDataPath = path.join(__dirname, '../seedData/seed_data.sql');
+    const seedDataPath = path.join(__dirname, 'seedData/seed_data.sql');
     
     if (!fs.existsSync(seedDataPath)) {
       console.warn('⚠️  Seed data file not found at:', seedDataPath);
