@@ -442,53 +442,6 @@ function Settings() {
               </div>
             </div>
 
-            {/* Read-only Information Section */}
-            <div>
-              <h4 className="text-lg font-semibold text-gray-900 mb-4">Account Details</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Account Status
-                  </label>
-                  <div className="px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg">
-                    <span className={`font-medium ${
-                      profile?.AccountStatus === 'Active' ? 'text-green-600' :
-                      profile?.AccountStatus === 'Suspended' ? 'text-yellow-600' :
-                      'text-red-600'
-                    }`}>
-                      {profile?.AccountStatus}
-                    </span>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Member Since
-                  </label>
-                  <div className="px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg text-gray-900">
-                    {profile?.DateJoined ? new Date(profile.DateJoined).toLocaleDateString() : 'N/A'}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Last Login
-                  </label>
-                  <div className="px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg text-gray-900">
-                    {profile?.LastLogin ? new Date(profile.LastLogin).toLocaleString() : 'N/A'}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    User ID
-                  </label>
-                  <div className="px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg text-gray-900">
-                    {profile?.UserID}
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
 
           {/* Action Buttons */}
