@@ -50,7 +50,10 @@ async function seedDatabase(): Promise<void> {
     // (seed file now has all comments pre-stripped)
     const statements = seedData
       .split(';')
-      .map(stmt => stmt.trim())
+      .map(stmt => {
+        // Replace all newlines/whitespace with single spaces for clean SQL
+        return stmt.replace(/\s+/g, ' ').trim();
+      })
       .filter(stmt => stmt.length > 0)
       .map(stmt => stmt + ';');  // Add semicolons back!
     
