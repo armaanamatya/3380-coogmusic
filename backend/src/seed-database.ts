@@ -65,8 +65,41 @@ async function seedDatabase(): Promise<void> {
     
     for (const statement of statements) {
       try {
-        db.exec(statement);
-        successCount++;
+        // Check if this is a large INSERT VALUES statement that might exceed SQLite's 999 parameter limit
+        if (statement.includes('INSERT INTO') && statement.includes('VALUES') && statement.length > 10000) {
+          // Split into smaller batches (max 100 rows per batch to stay under 999 param limit)
+          const match = statement.match(/INSERT INTO (\w+) \([^)]+\) VALUES (.+);$/);
+          if (match && match[1] && match[2]) {
+            const tableName = match[1];
+            const valuesSection = match[2];
+            const columnMatch = statement.match(/INSERT INTO \w+ \(([^)]+)\)/);
+            const columns = columnMatch ? columnMatch[1] : '';
+            
+            // Split by '), (' to separate individual rows
+            const rows = valuesSection.split(/\),\s*\(/);
+            const batchSize = 100;
+            
+            console.log(`📦 Splitting large INSERT into ${Math.ceil(rows.length / batchSize)} batches (${rows.length} rows)...`);
+            
+            for (let i = 0; i < rows.length; i += batchSize) {
+              const batch = rows.slice(i, i + batchSize);
+              // Clean up the first and last rows (they might have extra parens)
+              if (batch[0]) batch[0] = batch[0].replace(/^\(/, '');
+              const lastIdx = batch.length - 1;
+              if (batch[lastIdx]) batch[lastIdx] = batch[lastIdx].replace(/\);?$/, '');
+              
+              const batchStatement = `INSERT INTO ${tableName} (${columns}) VALUES (${batch.join('), (')});`;
+              db.exec(batchStatement);
+            }
+            successCount++;
+          } else {
+            db.exec(statement);
+            successCount++;
+          }
+        } else {
+          db.exec(statement);
+          successCount++;
+        }
       } catch (error: any) {
         errorCount++;
         // Skip errors for statements that are just comments or already exist
