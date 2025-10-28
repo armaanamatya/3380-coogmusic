@@ -212,13 +212,17 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
   if (requestPath === '/api/test-db' && method === 'GET') {
     try {
       const pool = await getPool();
-      const songCount = pool.prepare("SELECT COUNT(*) as count FROM song").get() as { count: number };
-      const albumCount = pool.prepare("SELECT COUNT(*) as count FROM album").get() as { count: number };
-      const artistCount = pool.prepare("SELECT COUNT(*) as count FROM artist").get() as { count: number };
+      const [songRows] = await pool.query<any[]>("SELECT COUNT(*) as count FROM song");
+      const [albumRows] = await pool.query<any[]>("SELECT COUNT(*) as count FROM album");
+      const [artistRows] = await pool.query<any[]>("SELECT COUNT(*) as count FROM artist");
+      
+      const songCount = songRows[0];
+      const albumCount = albumRows[0];
+      const artistCount = artistRows[0];
       
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ 
-        message: 'SQLite database connection successful',
+        message: 'MySQL database connection successful',
         counts: {
           songs: songCount.count,
           albums: albumCount.count,
@@ -350,7 +354,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
         console.log(`  💿 Filter by Album ID: ${albumId}`);
       }
       
-      const songs = songController.getAllSongs(pool, filters);
+      const songs = await songController.getAllSongs(pool, filters);
       console.log(`  ✅ Found ${songs.length} songs`);
       logResponse(200, `Returned ${songs.length} songs`);
       
@@ -444,7 +448,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
       const songId = parseInt(requestPath.split('/').pop() || '0');
       const pool = await getPool();
 
-      const result = songController.deleteSong(pool, songId);
+      const result = await songController.deleteSong(pool, songId);
 
       // Delete the audio file from disk
       if (result.filePath) {
@@ -466,7 +470,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
   if (requestPath === '/api/genres' && method === 'GET') {
     try {
       const pool = await getPool();
-      const genres = genreController.getAllGenres(pool);
+      const genres = await genreController.getAllGenres(pool);
       
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ genres }));
@@ -546,7 +550,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
         const albumData = JSON.parse(body) as CreateAlbumData;
         const pool = await getPool();
 
-        const result = albumController.createAlbum(pool, albumData);
+        const result = await albumController.createAlbum(pool, albumData);
 
         res.writeHead(201, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ 
@@ -598,7 +602,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
       const albumId = parseInt(requestPath.split('/').pop() || '0');
       const pool = await getPool();
 
-      const result = albumController.deleteAlbum(pool, albumId);
+      const result = await albumController.deleteAlbum(pool, albumId);
 
       // Delete album cover file if exists
       if (result.albumArtPath) {
@@ -688,7 +692,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
           const albumCoverPath = albumCover ? `/uploads/album-covers/${albumCover.filename}` : null;
 
           // Create song using controller
-          const result = songController.createSong(pool, musicData, audioFilePath, audioFile.size);
+          const result = await songController.createSong(pool, musicData, audioFilePath, audioFile.size);
           console.log(`  ✅ Song created (ID: ${result.songId})`);
 
           // If album cover provided and albumId exists, update album cover
@@ -728,7 +732,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
       const pathParts = requestPath?.split('/') || [];
       const userId = parseInt(pathParts[3] || '0');
       const pool = await getPool();
-      const user = userController.getUserById(pool, userId);
+      const user = await userController.getUserById(pool, userId);
       
       if (!user) {
         res.writeHead(404, { 'Content-Type': 'application/json' });
@@ -761,11 +765,11 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
         const pool = await getPool();
         
         // Update the user
-        userController.updateUser(pool, userId, updateData);
+        await userController.updateUser(pool, userId, updateData);
         console.log(`  ✅ User updated successfully`);
         
         // Fetch the updated user
-        const updatedUser = userController.getUserById(pool, userId);
+        const updatedUser = await userController.getUserById(pool, userId);
         console.log(`  👤 Fetched updated user:`, updatedUser ? 'Success' : 'Failed');
         
         if (!updatedUser) {
@@ -928,7 +932,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
         const playlistData = JSON.parse(body);
         const pool = await getPool();
         
-        const result = playlistController.createPlaylist(pool, playlistData);
+        const result = await playlistController.createPlaylist(pool, playlistData);
         
         res.writeHead(201, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ 
@@ -1013,7 +1017,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     const playlistId = parseInt(pathParts[3] || '0');
     try {
       const pool = await getPool();
-      const songs = await playlistController.getPlaylistSongs(pool, playlistId);
+      const songs = playlistController.getPlaylistSongs(pool, playlistId);
       
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ songs }));
@@ -1285,7 +1289,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
         const historyData = JSON.parse(body);
         const pool = await getPool();
         
-        const result = historyController.addListeningHistory(pool, historyData);
+        const result = await historyController.addListeningHistory(pool, historyData);
         
         res.writeHead(201, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ 

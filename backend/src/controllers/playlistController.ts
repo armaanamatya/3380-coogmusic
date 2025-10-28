@@ -1,4 +1,4 @@
-import { Database } from 'better-sqlite3';
+import { Pool, RowDataPacket, ResultSetHeader } from 'mysql2/promise';
 
 export interface Playlist {
   PlaylistID: number;
@@ -24,83 +24,91 @@ export interface UpdatePlaylistData {
 }
 
 // Create new playlist
-export function createPlaylist(
-  db: Database,
+export async function createPlaylist(
+  pool: Pool,
   playlistData: CreatePlaylistData
-): { playlistId: number } {
+): Promise<{ playlistId: number }> {
   // Verify user exists
-  const user = db.prepare('SELECT UserID FROM userprofile WHERE UserID = ?').get(playlistData.userId);
-  if (!user) {
+  const [users] = await pool.execute<RowDataPacket[]>(
+    'SELECT UserID FROM userprofile WHERE UserID = ?', 
+    [playlistData.userId]
+  );
+  if (users.length === 0) {
     throw new Error('User not found');
   }
 
   // Insert new playlist
-  const stmt = db.prepare(`
+  const [result] = await pool.execute<ResultSetHeader>(`
     INSERT INTO playlist (PlaylistName, UserID, Description, IsPublic)
     VALUES (?, ?, ?, ?)
-  `);
-
-  const result = stmt.run(
+  `, [
     playlistData.playlistName,
     playlistData.userId,
     playlistData.description || null,
     playlistData.isPublic ? 1 : 0
-  );
+  ]);
 
-  return { playlistId: Number(result.lastInsertRowid) };
+  return { playlistId: result.insertId };
 }
 
 // Get playlist by ID
-export function getPlaylistById(db: Database, playlistId: number): Playlist | null {
-  const playlist = db.prepare(`
+export async function getPlaylistById(pool: Pool, playlistId: number): Promise<Playlist | null> {
+  const [rows] = await pool.execute<RowDataPacket[]>(`
     SELECT p.*, u.Username, u.FirstName, u.LastName
     FROM playlist p
     JOIN userprofile u ON p.UserID = u.UserID
     WHERE p.PlaylistID = ?
-  `).get(playlistId) as Playlist | undefined;
+  `, [playlistId]);
 
-  return playlist || null;
+  return rows.length > 0 ? (rows[0] as Playlist) : null;
 }
 
 // Get playlists by user
-export function getPlaylistsByUser(
-  db: Database,
+export async function getPlaylistsByUser(
+  pool: Pool,
   userId: number
-): Playlist[] {
-  return db.prepare(`
+): Promise<Playlist[]> {
+  const [rows] = await pool.execute<RowDataPacket[]>(`
     SELECT p.*
     FROM playlist p
     WHERE p.UserID = ?
     ORDER BY p.CreatedAt DESC
-  `).all(userId) as Playlist[];
+  `, [userId]);
+  
+  return rows as Playlist[];
 }
 
 // Get public playlists
-export function getPublicPlaylists(
-  db: Database,
+export async function getPublicPlaylists(
+  pool: Pool,
   filters: { page?: number; limit?: number }
-): Playlist[] {
+): Promise<Playlist[]> {
   const { page = 1, limit = 50 } = filters;
 
-  return db.prepare(`
+  const [rows] = await pool.execute<RowDataPacket[]>(`
     SELECT p.*, u.Username, u.FirstName, u.LastName
     FROM playlist p
     JOIN userprofile u ON p.UserID = u.UserID
     WHERE p.IsPublic = 1
     ORDER BY p.CreatedAt DESC
     LIMIT ? OFFSET ?
-  `).all(limit, (page - 1) * limit) as Playlist[];
+  `, [limit, (page - 1) * limit]);
+  
+  return rows as Playlist[];
 }
 
 // Update playlist
-export function updatePlaylist(
-  db: Database,
+export async function updatePlaylist(
+  pool: Pool,
   playlistId: number,
   updateData: UpdatePlaylistData
-): void {
+): Promise<void> {
   // Check if playlist exists
-  const existingPlaylist = db.prepare('SELECT * FROM playlist WHERE PlaylistID = ?').get(playlistId);
-  if (!existingPlaylist) {
+  const [existingPlaylists] = await pool.execute<RowDataPacket[]>(
+    'SELECT * FROM playlist WHERE PlaylistID = ?', 
+    [playlistId]
+  );
+  if (existingPlaylists.length === 0) {
     throw new Error('Playlist not found');
   }
 
@@ -123,110 +131,128 @@ export function updatePlaylist(
   values.push(playlistId);
   const updateQuery = `UPDATE playlist SET ${updates.join(', ')} WHERE PlaylistID = ?`;
 
-  db.prepare(updateQuery).run(...values);
+  await pool.execute(updateQuery, values);
 }
 
 // Delete playlist
-export function deletePlaylist(db: Database, playlistId: number): void {
-  const playlist = db.prepare('SELECT * FROM playlist WHERE PlaylistID = ?').get(playlistId);
-  if (!playlist) {
+export async function deletePlaylist(pool: Pool, playlistId: number): Promise<void> {
+  const [playlists] = await pool.execute<RowDataPacket[]>(
+    'SELECT * FROM playlist WHERE PlaylistID = ?', 
+    [playlistId]
+  );
+  if (playlists.length === 0) {
     throw new Error('Playlist not found');
   }
 
-  db.prepare('DELETE FROM playlist WHERE PlaylistID = ?').run(playlistId);
+  await pool.execute('DELETE FROM playlist WHERE PlaylistID = ?', [playlistId]);
 }
 
 // Add song to playlist
-export function addSongToPlaylist(
-  db: Database,
+export async function addSongToPlaylist(
+  pool: Pool,
   playlistId: number,
   songId: number,
   position?: number
-): void {
+): Promise<void> {
   // Verify playlist exists
-  const playlist = db.prepare('SELECT PlaylistID FROM playlist WHERE PlaylistID = ?').get(playlistId);
-  if (!playlist) {
+  const [playlists] = await pool.execute<RowDataPacket[]>(
+    'SELECT PlaylistID FROM playlist WHERE PlaylistID = ?', 
+    [playlistId]
+  );
+  if (playlists.length === 0) {
     throw new Error('Playlist not found');
   }
 
   // Verify song exists
-  const song = db.prepare('SELECT SongID FROM song WHERE SongID = ?').get(songId);
-  if (!song) {
+  const [songs] = await pool.execute<RowDataPacket[]>(
+    'SELECT SongID FROM song WHERE SongID = ?', 
+    [songId]
+  );
+  if (songs.length === 0) {
     throw new Error('Song not found');
   }
 
   // Check if song already in playlist
-  const existingEntry = db.prepare('SELECT * FROM playlist_song WHERE PlaylistID = ? AND SongID = ?')
-    .get(playlistId, songId);
-  if (existingEntry) {
+  const [existingEntries] = await pool.execute<RowDataPacket[]>(
+    'SELECT * FROM playlist_song WHERE PlaylistID = ? AND SongID = ?',
+    [playlistId, songId]
+  );
+  if (existingEntries.length > 0) {
     throw new Error('Song already exists in playlist');
   }
 
   // Get next position if not provided
   if (position === undefined) {
-    const maxPos = db.prepare('SELECT MAX(Position) as maxPos FROM playlist_song WHERE PlaylistID = ?')
-      .get(playlistId) as { maxPos: number | null };
+    const [maxPosRows] = await pool.execute<RowDataPacket[]>(
+      'SELECT MAX(Position) as maxPos FROM playlist_song WHERE PlaylistID = ?',
+      [playlistId]
+    );
+    const maxPos = maxPosRows[0] as { maxPos: number | null };
     position = (maxPos.maxPos || 0) + 1;
   }
 
-  db.prepare(`
+  await pool.execute(`
     INSERT INTO playlist_song (PlaylistID, SongID, Position)
     VALUES (?, ?, ?)
-  `).run(playlistId, songId, position);
+  `, [playlistId, songId, position]);
 }
 
 // Remove song from playlist
-export function removeSongFromPlaylist(
-  db: Database,
+export async function removeSongFromPlaylist(
+  pool: Pool,
   playlistId: number,
   songId: number
-): void {
-  const result = db.prepare('DELETE FROM playlist_song WHERE PlaylistID = ? AND SongID = ?')
-    .run(playlistId, songId);
+): Promise<void> {
+  const [result] = await pool.execute<ResultSetHeader>(
+    'DELETE FROM playlist_song WHERE PlaylistID = ? AND SongID = ?',
+    [playlistId, songId]
+  );
 
-  if (result.changes === 0) {
+  if (result.affectedRows === 0) {
     throw new Error('Song not found in playlist');
   }
 }
 
 // Get songs in playlist
-export function getPlaylistSongs(db: Database, playlistId: number): any[] {
-  return db.prepare(`
+export async function getPlaylistSongs(pool: Pool, playlistId: number): Promise<any[]> {
+  const [rows] = await pool.execute<RowDataPacket[]>(`
     SELECT s.*, ps.Position, ps.AddedAt,
            up.FirstName AS ArtistFirstName, up.LastName AS ArtistLastName,
            al.AlbumName, g.GenreName
     FROM playlist_song ps
     JOIN song s ON ps.SongID = s.SongID
     LEFT JOIN album al ON s.AlbumID = al.AlbumID
-    LEFT JOIN artist a ON al.ArtistID = a.ArtistID
+    LEFT JOIN artist a ON s.ArtistID = a.ArtistID
     LEFT JOIN userprofile up ON a.ArtistID = up.UserID
     LEFT JOIN genre g ON s.GenreID = g.GenreID
     WHERE ps.PlaylistID = ?
     ORDER BY ps.Position
-  `).all(playlistId);
+  `, [playlistId]);
+  
+  return rows;
 }
 
 // Reorder song in playlist
-export function reorderPlaylistSong(
-  db: Database,
+export async function reorderPlaylistSong(
+  pool: Pool,
   playlistId: number,
   songId: number,
   newPosition: number
-): void {
-  const result = db.prepare(`
+): Promise<void> {
+  const [result] = await pool.execute<ResultSetHeader>(`
     UPDATE playlist_song 
     SET Position = ? 
     WHERE PlaylistID = ? AND SongID = ?
-  `).run(newPosition, playlistId, songId);
+  `, [newPosition, playlistId, songId]);
 
-  if (result.changes === 0) {
+  if (result.affectedRows === 0) {
     throw new Error('Song not found in playlist');
   }
 }
 
 // Get top playlists by like count (only public playlists)
-export function getTopPlaylistsByLikes(db: Database, limit: number = 10): any[] {
-  return db.prepare(`
+export async function getTopPlaylistsByLikes(pool: Pool, limit: number = 10): Promise<any[]> {
+  const [rows] = await pool.execute<RowDataPacket[]>(`
     SELECT 
       p.PlaylistID,
       p.PlaylistName,
@@ -246,6 +272,7 @@ export function getTopPlaylistsByLikes(db: Database, limit: number = 10): any[] 
     GROUP BY p.PlaylistID, p.PlaylistName, p.Description, p.IsPublic, p.CreatedAt, u.FirstName, u.LastName, u.Username
     ORDER BY likeCount DESC
     LIMIT ?
-  `).all(limit);
+  `, [limit]);
+  
+  return rows;
 }
-
