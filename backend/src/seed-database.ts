@@ -81,15 +81,22 @@ async function seedDatabase(): Promise<void> {
             
             console.log(`📦 Splitting large INSERT into ${Math.ceil(rows.length / batchSize)} batches (${rows.length} rows)...`);
             
+            let batchNum = 0;
             for (let i = 0; i < rows.length; i += batchSize) {
-              const batch = rows.slice(i, i + batchSize);
-              // Clean up the first and last rows (they might have extra parens)
-              if (batch[0]) batch[0] = batch[0].replace(/^\(/, '');
-              const lastIdx = batch.length - 1;
-              if (batch[lastIdx]) batch[lastIdx] = batch[lastIdx].replace(/\);?$/, '');
-              
-              const batchStatement = `INSERT INTO ${tableName} (${columns}) VALUES (${batch.join('), (')});`;
-              db.exec(batchStatement);
+              batchNum++;
+              try {
+                const batch = rows.slice(i, i + batchSize);
+                // Clean up the first and last rows (they might have extra parens)
+                if (batch[0]) batch[0] = batch[0].replace(/^\(/, '');
+                const lastIdx = batch.length - 1;
+                if (batch[lastIdx]) batch[lastIdx] = batch[lastIdx].replace(/\);?$/, '');
+                
+                const batchStatement = `INSERT INTO ${tableName} (${columns}) VALUES (${batch.join('), (')});`;
+                db.exec(batchStatement);
+                console.log(`  ✅ Batch ${batchNum}/${Math.ceil(rows.length / batchSize)} complete`);
+              } catch (batchError: any) {
+                console.error(`  ❌ Batch ${batchNum} failed:`, batchError.message);
+              }
             }
             successCount++;
           } else {
