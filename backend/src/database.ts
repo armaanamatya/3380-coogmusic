@@ -22,17 +22,12 @@ let db: Database.Database | null = null;
 export const createConnection = async (): Promise<Database.Database> => {
   try {
     if (!db) {
-      // Ensure directory exists
       const dbDir = path.dirname(dbConfig.path);
       if (!fs.existsSync(dbDir)) {
         fs.mkdirSync(dbDir, { recursive: true });
       }
-      
       db = new Database(dbConfig.path);
-      
-      // Enable foreign key constraints
       db.pragma('foreign_keys = ON');
-      
       console.log('Connected to SQLite database');
     }
     return db;
@@ -43,20 +38,6 @@ export const createConnection = async (): Promise<Database.Database> => {
 };
 
 export const getPool = createConnection;
-
-// Legacy function - not used in current implementation (controllers use createConnection)
-// Kept for backward compatibility but not exported to avoid TypeScript naming issues
-const createPool = (): InstanceType<typeof Database> => {
-  try {
-    const database = new Database(dbConfig.path);
-    database.pragma('foreign_keys = ON');
-    console.log('SQLite database pool created');
-    return database;
-  } catch (error) {
-    console.error('Error creating database pool:', error);
-    throw error;
-  }
-};
 
 export const testConnection = async (): Promise<boolean> => {
   try {
@@ -73,17 +54,12 @@ export const testConnection = async (): Promise<boolean> => {
 export const initializeDatabase = async (): Promise<void> => {
   try {
     const database = await createConnection();
-    
-    // Check if tables already exist
-    const tables = database.prepare(`
-      SELECT name FROM sqlite_master 
-      WHERE type='table' AND name='userprofile'
-    `).get();
-    
+    const tables = database.prepare(
+      `SELECT name FROM sqlite_master WHERE type='table' AND name='userprofile'`
+    ).get();
+
     if (!tables) {
-      // Only initialize schema if tables don't exist
       const schemaPath = path.join(__dirname, 'schema.sqlite.sql');
-      
       if (fs.existsSync(schemaPath)) {
         const schema = fs.readFileSync(schemaPath, 'utf8');
         database.exec(schema);

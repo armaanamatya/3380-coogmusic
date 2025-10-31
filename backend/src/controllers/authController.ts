@@ -1,4 +1,4 @@
-import { Database } from 'better-sqlite3';
+import { Pool, RowDataPacket, ResultSetHeader } from 'mysql2/promise';
 import { hash, compare } from 'bcryptjs';
 import { 
   ExtendedRequest, 
@@ -9,16 +9,17 @@ import {
 
 // Register new user
 export async function registerUser(
-  db: Database,
+  pool: Pool,
   userData: RegisterUserData,
   profilePicturePath: string | null
 ): Promise<{ userId: number }> {
   // Check if username or email already exists
-  const existingUser = db.prepare(
-    'SELECT UserID FROM userprofile WHERE Username = ? OR Email = ?'
-  ).get(userData.username, userData.email);
+  const [existingUsers] = await pool.execute<RowDataPacket[]>(
+    'SELECT UserID FROM userprofile WHERE Username = ? OR Email = ?',
+    [userData.username, userData.email]
+  );
   
-  if (existingUser) {
+  if (existingUsers.length > 0) {
     throw new Error('Username or email already exists');
   }
 
@@ -29,16 +30,14 @@ export async function registerUser(
   const dateJoined = new Date().toISOString().split('T')[0];
 
   // Insert new user
-  const stmt = db.prepare(`
+  const [result] = await pool.execute<ResultSetHeader>(`
     INSERT INTO userprofile (
       Username, UserPassword, FirstName, LastName, DateOfBirth, 
       Email, UserType, DateJoined, Country, City, IsOnline, 
       AccountStatus, ProfilePicture
     )
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-
-  const result = stmt.run(
+  `, [
     userData.username,
     hashedPassword,
     userData.firstName,
@@ -52,14 +51,14 @@ export async function registerUser(
     0, // IsOnline = false
     'Active', // AccountStatus
     profilePicturePath
-  );
+  ]);
 
-  return { userId: Number(result.lastInsertRowid) };
+  return { userId: result.insertId };
 }
 
 // Authenticate user login
 export async function authenticateUser(
-  db: Database,
+  pool: Pool,
   credentials: LoginCredentials
 ): Promise<{
   userId: number;
@@ -70,13 +69,16 @@ export async function authenticateUser(
   profilePicture: string | null;
 }> {
   // Find user by username
-  const user = db.prepare(
-    'SELECT UserID, Username, UserPassword, UserType, FirstName, LastName, ProfilePicture FROM userprofile WHERE Username = ?'
-  ).get(credentials.username) as UserProfile | undefined;
+  const [users] = await pool.execute<RowDataPacket[]>(
+    'SELECT UserID, Username, UserPassword, UserType, FirstName, LastName, ProfilePicture FROM userprofile WHERE Username = ?',
+    [credentials.username]
+  );
   
-  if (!user) {
+  if (users.length === 0) {
     throw new Error('Invalid username or password');
   }
+
+  const user = users[0] as any;
 
   // Check password
   const passwordMatch = await compare(credentials.password, user.UserPassword);
@@ -86,7 +88,7 @@ export async function authenticateUser(
   }
 
   // Update IsOnline status
-  db.prepare('UPDATE userprofile SET IsOnline = 1 WHERE UserID = ?').run(user.UserID);
+  await pool.execute('UPDATE userprofile SET IsOnline = 1 WHERE UserID = ?', [user.UserID]);
 
   return {
     userId: user.UserID,
@@ -99,7 +101,7 @@ export async function authenticateUser(
 }
 
 // Logout user
-export function logoutUser(db: Database, userId: number): void {
-  db.prepare('UPDATE userprofile SET IsOnline = 0 WHERE UserID = ?').run(userId);
+export async function logoutUser(pool: Pool, userId: number): Promise<void> {
+  await pool.execute('UPDATE userprofile SET IsOnline = 0 WHERE UserID = ?', [userId]);
 }
 
