@@ -212,17 +212,13 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
   if (requestPath === '/api/test-db' && method === 'GET') {
     try {
       const pool = await getPool();
-      const [songRows] = await pool.query<any[]>("SELECT COUNT(*) as count FROM song");
-      const [albumRows] = await pool.query<any[]>("SELECT COUNT(*) as count FROM album");
-      const [artistRows] = await pool.query<any[]>("SELECT COUNT(*) as count FROM artist");
-      
-      const songCount = songRows[0];
-      const albumCount = albumRows[0];
-      const artistCount = artistRows[0];
+      const songCount = pool.prepare("SELECT COUNT(*) as count FROM song").get() as { count: number };
+      const albumCount = pool.prepare("SELECT COUNT(*) as count FROM album").get() as { count: number };
+      const artistCount = pool.prepare("SELECT COUNT(*) as count FROM artist").get() as { count: number };
       
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ 
-        message: 'MySQL database connection successful',
+        message: 'SQLite database connection successful',
         counts: {
           songs: songCount.count,
           albums: albumCount.count,
@@ -697,7 +693,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
 
           // If album cover provided and albumId exists, update album cover
           if (albumCover && musicData.albumId && albumCoverPath) {
-            albumController.updateAlbumCover(db, musicData.albumId, albumCoverPath);
+            albumController.updateAlbumCover(pool, musicData.albumId, albumCoverPath);
             console.log(`  🖼️  Album cover updated for Album ID: ${musicData.albumId}`);
           }
 
@@ -1129,7 +1125,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
         const { userId, albumId } = JSON.parse(body);
         const pool = await getPool();
         
-        likeController.likeAlbum(db, userId, albumId);
+        likeController.likeAlbum(pool, userId, albumId);
         
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ message: 'Album liked successfully' }));
@@ -1152,7 +1148,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
         const { userId, albumId } = JSON.parse(body);
         const pool = await getPool();
         
-        likeController.unlikeAlbum(db, userId, albumId);
+        likeController.unlikeAlbum(pool, userId, albumId);
         
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ message: 'Album unliked successfully' }));
@@ -1174,7 +1170,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
         const { userId, playlistId } = JSON.parse(body);
         const pool = await getPool();
         
-        likeController.likePlaylist(db, userId, playlistId);
+        likeController.likePlaylist(pool, userId, playlistId);
         
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ message: 'Playlist liked successfully' }));
@@ -1197,7 +1193,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
         const { userId, playlistId } = JSON.parse(body);
         const pool = await getPool();
         
-        likeController.unlikePlaylist(db, userId, playlistId);
+        likeController.unlikePlaylist(pool, userId, playlistId);
         
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ message: 'Playlist unliked successfully' }));
@@ -1264,7 +1260,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     try {
       const { page = '1', limit = '50' } = parsedUrl.query;
       const pool = await getPool();
-      const followers = followController.getArtistFollowers(db, artistId, {
+      const followers = followController.getArtistFollowers(pool, artistId, {
         page: parseInt(page as string),
         limit: parseInt(limit as string)
       });
@@ -1310,7 +1306,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     try {
       const { days = '7', limit = '20' } = parsedUrl.query;
       const pool = await getPool();
-      const songs = historyController.getTrendingSongs(db, parseInt(days as string), parseInt(limit as string));
+      const songs = historyController.getTrendingSongs(pool, parseInt(days as string), parseInt(limit as string));
       
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ songs }));
