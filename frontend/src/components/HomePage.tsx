@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import { ArtistCard, SongCard, AlbumCard, PlaylistCard } from './cards'
 import { GenreCard } from './cards/GenreCard'
+import { PlaylistExpanded } from './PlaylistExpanded'
 import { genreApi, artistApi, songApi, albumApi, playlistApi, getFileUrl } from '../services/api'
 import MusicUploadForm from './MusicUploadForm'
 import MusicLibrary from './MusicLibrary'
@@ -122,6 +123,12 @@ function HomePage() {
   // Top playlists state
   const [topPlaylists, setTopPlaylists] = useState<TopPlaylist[]>([])
   const [playlistsLoading, setPlaylistsLoading] = useState(true)
+  
+  // Expanded playlist state
+  const [expandedPlaylist, setExpandedPlaylist] = useState<{
+    id: number;
+    name: string;
+  } | null>(null)
 
   // Music management handlers
   const handleEditSong = (song: Song) => {
@@ -568,6 +575,10 @@ function HomePage() {
                           id={playlist.PlaylistID.toString()}
                           title={playlist.PlaylistName}
                           imageUrl={getFileUrl('profile-pictures/default.jpg')}
+                          onClick={() => setExpandedPlaylist({
+                            id: playlist.PlaylistID,
+                            name: playlist.PlaylistName
+                          })}
                         />
                         <div className="text-center mt-2">
                           <p className="text-xs text-gray-600">
@@ -630,6 +641,10 @@ function HomePage() {
                           id={playlist.PlaylistID.toString()}
                           title={playlist.PlaylistName}
                           imageUrl={getFileUrl('profile-pictures/default.jpg')}
+                          onClick={() => setExpandedPlaylist({
+                            id: playlist.PlaylistID,
+                            name: playlist.PlaylistName
+                          })}
                         />
                         <div className="text-center mt-2">
                           <p className="text-xs text-gray-600">
@@ -787,6 +802,15 @@ function HomePage() {
           )}
         </div>
       </main>
+
+      {/* Expanded Playlist Modal */}
+      {expandedPlaylist && (
+        <PlaylistExpanded
+          playlistId={expandedPlaylist.id}
+          playlistName={expandedPlaylist.name}
+          onClose={() => setExpandedPlaylist(null)}
+        />
+      )}
     </div>
   )
 }
