@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { playlistApi, getFileUrl } from '../services/api';
+import { playlistApi } from '../services/api';
 
 interface Song {
   SongID: number;
