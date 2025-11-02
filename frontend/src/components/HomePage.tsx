@@ -168,8 +168,10 @@ function HomePage() {
         }
         
         const data = await response.json()
+        // Ensure data.genres is an array before using slice
+        const genresArray = Array.isArray(data.genres) ? data.genres : (Array.isArray(data) ? data : [])
         // Limit to top 10 genres
-        setGenres((data.genres || []).slice(0, 10))
+        setGenres(genresArray.slice(0, 10))
       } catch (error) {
         console.error('Error fetching genres:', error)
         setGenres([])
@@ -193,7 +195,9 @@ function HomePage() {
         }
         
         const data = await response.json()
-        setTopArtists(data.artists || [])
+        // Ensure data.artists is an array
+        const artistsArray = Array.isArray(data.artists) ? data.artists : (Array.isArray(data) ? data : [])
+        setTopArtists(artistsArray)
       } catch (error) {
         console.error('Error fetching top artists:', error)
         setTopArtists([])
@@ -217,7 +221,9 @@ function HomePage() {
         }
         
         const data = await response.json()
-        setTopSongs(data.songs || [])
+        // Ensure data.songs is an array
+        const songsArray = Array.isArray(data.songs) ? data.songs : (Array.isArray(data) ? data : [])
+        setTopSongs(songsArray)
       } catch (error) {
         console.error('Error fetching top songs:', error)
         setTopSongs([])
@@ -241,7 +247,9 @@ function HomePage() {
         }
         
         const data = await response.json()
-        setTopAlbums(data.albums || [])
+        // Ensure data.albums is an array
+        const albumsArray = Array.isArray(data.albums) ? data.albums : (Array.isArray(data) ? data : [])
+        setTopAlbums(albumsArray)
       } catch (error) {
         console.error('Error fetching top albums:', error)
         setTopAlbums([])
@@ -265,7 +273,9 @@ function HomePage() {
         }
         
         const data = await response.json()
-        setTopPlaylists(data.playlists || [])
+        // Ensure data.playlists is an array
+        const playlistsArray = Array.isArray(data.playlists) ? data.playlists : (Array.isArray(data) ? data : [])
+        setTopPlaylists(playlistsArray)
       } catch (error) {
         console.error('Error fetching top playlists:', error)
         setTopPlaylists([])
@@ -477,7 +487,7 @@ function HomePage() {
                   </div>
                 ) : (
                   <div className="flex gap-4 overflow-x-auto pb-2">
-                    {topArtists.map((artist) => (
+                    {Array.isArray(topArtists) && topArtists.map((artist) => (
                       <div key={artist.ArtistID} className="flex-shrink-0">
                         <ArtistCard
                           id={artist.ArtistID.toString()}
@@ -507,7 +517,7 @@ function HomePage() {
                   </div>
                 ) : (
                   <div className="flex gap-4 overflow-x-auto pb-2">
-                    {topSongs.map((song) => (
+                    {Array.isArray(topSongs) && topSongs.map((song) => (
                       <div key={song.SongID} className="flex-shrink-0">
                         <SongCard
                           id={song.SongID.toString()}
@@ -538,7 +548,7 @@ function HomePage() {
                   </div>
                 ) : (
                   <div className="flex gap-4 overflow-x-auto pb-2">
-                    {topAlbums.map((album) => (
+                    {Array.isArray(topAlbums) && topAlbums.map((album) => (
                       <div key={album.AlbumID} className="flex-shrink-0">
                         <AlbumCard
                           id={album.AlbumID.toString()}
@@ -569,7 +579,7 @@ function HomePage() {
                   </div>
                 ) : (
                   <div className="flex gap-4 overflow-x-auto pb-2">
-                    {topPlaylists.map((playlist) => (
+                    {Array.isArray(topPlaylists) && topPlaylists.map((playlist) => (
                       <div key={playlist.PlaylistID} className="flex-shrink-0">
                         <PlaylistCard
                           id={playlist.PlaylistID.toString()}
@@ -606,7 +616,7 @@ function HomePage() {
                   </div>
                 ) : (
                   <div className="flex gap-4 overflow-x-auto pb-2">
-                    {genres.map((genre) => (
+                    {Array.isArray(genres) && genres.map((genre) => (
                       <GenreCard
                         key={genre.GenreID}
                         id={genre.GenreID.toString()}
@@ -635,7 +645,7 @@ function HomePage() {
                   </div>
                 ) : (
                   <div className="flex gap-4 overflow-x-auto pb-2">
-                    {topPlaylists.map((playlist) => (
+                    {Array.isArray(topPlaylists) && topPlaylists.map((playlist) => (
                       <div key={playlist.PlaylistID} className="flex-shrink-0">
                         <PlaylistCard
                           id={playlist.PlaylistID.toString()}
@@ -672,7 +682,7 @@ function HomePage() {
                   </div>
                 ) : (
                   <div className="flex gap-4 overflow-x-auto pb-2">
-                    {topArtists.map((artist) => (
+                    {Array.isArray(topArtists) && topArtists.map((artist) => (
                       <div key={artist.ArtistID} className="flex-shrink-0">
                         <ArtistCard
                           id={artist.ArtistID.toString()}

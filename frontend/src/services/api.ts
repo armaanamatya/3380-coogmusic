@@ -1,7 +1,8 @@
 // Centralized API service for CoogMusic
 // All API endpoints are defined here to ensure consistency
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+// Normalize API_BASE by removing trailing slashes
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001').replace(/\/+$/, '');
 
 // Types for API responses
 export interface ApiResponse<T = any> {
