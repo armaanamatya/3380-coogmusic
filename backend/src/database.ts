@@ -82,21 +82,33 @@ export const initializeDatabase = async (): Promise<void> => {
       
       if (fs.existsSync(schemaPath)) {
         const schema = fs.readFileSync(schemaPath, 'utf8');
-        // Split by semicolons and execute each statement
-        const statements = schema
+        
+        // Better statement splitting - handle multi-line statements
+        // Remove comments first
+        const cleanedSchema = schema
+          .replace(/--.*$/gm, '') // Remove single-line comments
+          .replace(/\/\*[\s\S]*?\*\//g, ''); // Remove multi-line comments
+        
+        // Split by semicolons, but keep multi-line statements together
+        const statements = cleanedSchema
           .split(';')
           .map(stmt => stmt.trim())
-          .filter(stmt => stmt.length > 0 && !stmt.startsWith('--'));
+          .filter(stmt => stmt.length > 0);
         
-        for (const statement of statements) {
-          if (statement.trim()) {
+        console.log(`Executing ${statements.length} schema statements...`);
+        
+        for (let i = 0; i < statements.length; i++) {
+          const statement = statements[i].trim();
+          if (statement) {
             try {
               await database.query(statement);
+              console.log(`✅ Statement ${i + 1}/${statements.length} executed`);
             } catch (error: any) {
-              // Skip errors for IF NOT EXISTS statements
-              if (!error.message.includes('already exists')) {
-                console.warn('Schema statement warning:', error.message);
-              }
+              // Log errors properly instead of just warning
+              console.error(`❌ Error in statement ${i + 1}:`, error.message);
+              console.error(`Statement preview: ${statement.substring(0, 200)}...`);
+              // Don't skip - we need to see what's failing
+              throw error; // Re-throw to stop execution
             }
           }
         }
