@@ -47,7 +47,7 @@ export async function getAllSongs(
   }
   
   query += ' ORDER BY s.SongID DESC LIMIT ? OFFSET ?';
-  queryParams.push(limit, (page - 1) * limit);
+  queryParams.push(parseInt(String(limit), 10), parseInt(String((page - 1) * limit), 10));
   
   const [rows] = await pool.execute<RowDataPacket[]>(query, queryParams);
   return rows as Song[];
@@ -175,6 +175,7 @@ export function deleteFileFromDisk(filePath: string): void {
 
 // Get top songs by listen count
 export async function getTopSongsByListenCount(pool: Pool, limit: number = 10): Promise<any[]> {
+  const limitValue = parseInt(String(limit), 10);
   const [rows] = await pool.execute<RowDataPacket[]>(`
     SELECT 
       s.SongID,
@@ -196,7 +197,7 @@ export async function getTopSongsByListenCount(pool: Pool, limit: number = 10): 
     LEFT JOIN genre g ON s.GenreID = g.GenreID
     ORDER BY s.ListenCount DESC
     LIMIT ?
-  `, [limit]);
+  `, [limitValue]);
   
   return rows;
 }

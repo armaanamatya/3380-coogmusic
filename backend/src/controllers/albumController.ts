@@ -163,6 +163,7 @@ export function deleteFileFromDisk(filePath: string): void {
 
 // Get top albums by like count
 export async function getTopAlbumsByLikes(pool: Pool, limit: number = 10): Promise<any[]> {
+  const limitValue = parseInt(String(limit), 10);
   const [rows] = await pool.execute<RowDataPacket[]>(`
     SELECT 
       al.AlbumID,
@@ -183,7 +184,7 @@ export async function getTopAlbumsByLikes(pool: Pool, limit: number = 10): Promi
     GROUP BY al.AlbumID, al.AlbumName, al.ReleaseDate, al.AlbumCover, al.Description, u.FirstName, u.LastName, u.Username
     ORDER BY likeCount DESC
     LIMIT ?
-  `, [limit]);
+  `, [limitValue]);
   
   return rows;
 }

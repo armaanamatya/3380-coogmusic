@@ -64,7 +64,7 @@ export async function getUserListeningHistory(
     WHERE lh.UserID = ?
     ORDER BY lh.ListenedAt DESC
     LIMIT ? OFFSET ?
-  `, [userId, limit, (page - 1) * limit]);
+  `, [userId, parseInt(String(limit), 10), parseInt(String((page - 1) * limit), 10)]);
 
   return rows;
 }
@@ -84,7 +84,7 @@ export async function getSongListeningHistory(
     WHERE lh.SongID = ?
     ORDER BY lh.ListenedAt DESC
     LIMIT ? OFFSET ?
-  `, [songId, limit, (page - 1) * limit]);
+  `, [songId, parseInt(String(limit), 10), parseInt(String((page - 1) * limit), 10)]);
 
   return rows;
 }
@@ -114,7 +114,7 @@ export async function getRecentListeningHistory(
 
   if (limit) {
     query += ` LIMIT ?`;
-    params.push(limit);
+    params.push(parseInt(String(limit), 10));
   }
 
   const [rows] = await pool.execute<RowDataPacket[]>(query, params);
@@ -142,7 +142,7 @@ export async function getUserMostPlayedSongs(
     GROUP BY s.SongID
     ORDER BY playCount DESC, totalListenTime DESC
     LIMIT ?
-  `, [userId, limit]);
+  `, [userId, parseInt(String(limit), 10)]);
 
   return rows;
 }
@@ -166,7 +166,7 @@ export async function getUserMostPlayedArtists(
     GROUP BY a.ArtistID
     ORDER BY playCount DESC, totalListenTime DESC
     LIMIT ?
-  `, [userId, limit]);
+  `, [userId, parseInt(String(limit), 10)]);
 
   return rows;
 }
@@ -187,7 +187,7 @@ export async function getGlobalMostPlayedSongs(pool: Pool, limit: number): Promi
     GROUP BY s.SongID
     ORDER BY playCount DESC, totalListenTime DESC
     LIMIT ?
-  `, [limit]);
+  `, [parseInt(String(limit), 10)]);
 
   return rows;
 }
@@ -235,7 +235,7 @@ export async function getTrendingSongs(pool: Pool, days: number, limit: number):
     GROUP BY s.SongID
     ORDER BY playCount DESC
     LIMIT ?
-  `, [days, limit]);
-
+  `, [days, parseInt(String(limit), 10)]);
+  
   return rows;
 }

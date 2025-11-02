@@ -54,7 +54,7 @@ export async function getUserFollowing(
     WHERE ufa.UserID = ?
     ORDER BY ufa.FollowedAt DESC
     LIMIT ? OFFSET ?
-  `, [userId, limit, (page - 1) * limit]);
+  `, [userId, parseInt(String(limit), 10), parseInt(String((page - 1) * limit), 10)]);
 
   return rows;
 }
@@ -74,7 +74,7 @@ export async function getArtistFollowers(
     WHERE ufa.ArtistID = ?
     ORDER BY ufa.FollowedAt DESC
     LIMIT ? OFFSET ?
-  `, [artistId, limit, (page - 1) * limit]);
+  `, [artistId, parseInt(String(limit), 10), parseInt(String((page - 1) * limit), 10)]);
 
   return rows;
 }

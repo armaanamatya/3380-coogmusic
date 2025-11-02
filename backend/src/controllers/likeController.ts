@@ -135,7 +135,7 @@ export async function getUserLikedSongs(
     WHERE uls.UserID = ?
     ORDER BY uls.LikedAt DESC
     LIMIT ? OFFSET ?
-  `, [userId, limit, (page - 1) * limit]);
+  `, [userId, parseInt(String(limit), 10), parseInt(String((page - 1) * limit), 10)]);
 
   return rows;
 }
@@ -158,7 +158,7 @@ export async function getUserLikedAlbums(
     WHERE ula.UserID = ?
     ORDER BY ula.LikedAt DESC
     LIMIT ? OFFSET ?
-  `, [userId, limit, (page - 1) * limit]);
+  `, [userId, parseInt(String(limit), 10), parseInt(String((page - 1) * limit), 10)]);
 
   return rows;
 }
@@ -180,7 +180,7 @@ export async function getUserLikedPlaylists(
     WHERE ulp.UserID = ?
     ORDER BY ulp.LikedAt DESC
     LIMIT ? OFFSET ?
-  `, [userId, limit, (page - 1) * limit]);
+  `, [userId, parseInt(String(limit), 10), parseInt(String((page - 1) * limit), 10)]);
 
   return rows;
 }

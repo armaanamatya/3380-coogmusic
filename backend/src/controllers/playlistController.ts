@@ -85,6 +85,8 @@ export async function getPublicPlaylists(
 ): Promise<Playlist[]> {
   const { page = 1, limit = 50 } = filters;
 
+  const limitValue = parseInt(String(limit), 10);
+  const offsetValue = parseInt(String((page - 1) * limit), 10);
   const [rows] = await pool.execute<RowDataPacket[]>(`
     SELECT p.*, u.Username, u.FirstName, u.LastName
     FROM playlist p
@@ -92,7 +94,7 @@ export async function getPublicPlaylists(
     WHERE p.IsPublic = 1
     ORDER BY p.CreatedAt DESC
     LIMIT ? OFFSET ?
-  `, [limit, (page - 1) * limit]);
+  `, [limitValue, offsetValue]);
   
   return rows as Playlist[];
 }
@@ -252,6 +254,7 @@ export async function reorderPlaylistSong(
 
 // Get top playlists by like count (only public playlists)
 export async function getTopPlaylistsByLikes(pool: Pool, limit: number = 10): Promise<any[]> {
+  const limitValue = parseInt(String(limit), 10);
   const [rows] = await pool.execute<RowDataPacket[]>(`
     SELECT 
       p.PlaylistID,
@@ -272,7 +275,7 @@ export async function getTopPlaylistsByLikes(pool: Pool, limit: number = 10): Pr
     GROUP BY p.PlaylistID, p.PlaylistName, p.Description, p.IsPublic, p.CreatedAt, u.FirstName, u.LastName, u.Username
     ORDER BY likeCount DESC
     LIMIT ?
-  `, [limit]);
+  `, [limitValue]);
   
   return rows;
 }

@@ -78,7 +78,7 @@ export async function getAllUsers(
   }
 
   query += ' ORDER BY DateJoined DESC LIMIT ? OFFSET ?';
-  params.push(limit, (page - 1) * limit);
+  params.push(parseInt(String(limit), 10), parseInt(String((page - 1) * limit), 10));
 
   const [rows] = await pool.execute<RowDataPacket[]>(query, params);
   return rows as UserProfile[];
@@ -230,7 +230,7 @@ export async function searchUsers(
     WHERE Username LIKE ? OR FirstName LIKE ? OR LastName LIKE ? OR Email LIKE ?
     ORDER BY Username
     LIMIT ? OFFSET ?
-  `, [searchTerm, searchTerm, searchTerm, searchTerm, limit, (page - 1) * limit]);
+  `, [searchTerm, searchTerm, searchTerm, searchTerm, parseInt(String(limit), 10), parseInt(String((page - 1) * limit), 10)]);
   
   return rows as UserProfile[];
 }

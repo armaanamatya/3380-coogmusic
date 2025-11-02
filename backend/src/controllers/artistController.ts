@@ -94,6 +94,7 @@ export async function getArtistSongs(pool: Pool, artistId: number): Promise<any[
 
 // Get top artists by follower count
 export async function getTopArtistsByFollowers(pool: Pool, limit: number = 10): Promise<any[]> {
+  const limitValue = parseInt(String(limit), 10);
   const [rows] = await pool.execute<RowDataPacket[]>(`
     SELECT 
       a.ArtistID,
@@ -110,7 +111,7 @@ export async function getTopArtistsByFollowers(pool: Pool, limit: number = 10): 
     GROUP BY a.ArtistID, u.FirstName, u.LastName, u.Username, u.ProfilePicture, a.ArtistBio, a.VerifiedStatus
     ORDER BY followerCount DESC
     LIMIT ?
-  `, [limit]);
+  `, [limitValue]);
   
   return rows;
 }
