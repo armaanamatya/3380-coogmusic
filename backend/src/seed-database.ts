@@ -81,6 +81,7 @@ async function seedDatabase(): Promise<void> {
       }
       
       // Extract table name, columns, and values
+      // Match INSERT INTO with optional whitespace and capture groups
       const insertMatch = statement.match(/INSERT\s+INTO\s+(\w+)\s*\(([^)]+)\)\s*VALUES\s*(.+);?$/is);
       if (!insertMatch || !insertMatch[1] || !insertMatch[2] || !insertMatch[3]) {
         return [statement]; // Can't parse, return as-is
@@ -88,7 +89,12 @@ async function seedDatabase(): Promise<void> {
       
       const tableName = insertMatch[1];
       const columns = insertMatch[2].trim();
-      const valuesPart = insertMatch[3].trim().replace(/;?\s*$/, ''); // Remove trailing semicolon
+      // Remove trailing semicolon and whitespace from values part
+      let valuesPart = insertMatch[3].trim();
+      // Remove trailing semicolon if present
+      if (valuesPart.endsWith(';')) {
+        valuesPart = valuesPart.slice(0, -1).trim();
+      }
       
       // Split values by '),(' pattern while preserving the parentheses
       // Match: (value1, value2, ...), (value3, value4, ...)
@@ -101,25 +107,42 @@ async function seedDatabase(): Promise<void> {
       for (let i = 0; i < valuesPart.length; i++) {
         const char = valuesPart[i];
         const nextChar = valuesPart[i + 1];
+        const prevChar = valuesPart[i - 1];
         
         if (!inString && (char === '"' || char === "'")) {
           inString = true;
           stringChar = char;
           currentGroup += char;
-        } else if (inString && char === stringChar && valuesPart[i - 1] !== '\\') {
+        } else if (inString && char === stringChar && prevChar !== '\\') {
           inString = false;
           currentGroup += char;
         } else if (!inString && char === '(') {
+          if (depth === 0 && currentGroup.trim().length > 0) {
+            // New group starting, but we have content - shouldn't happen, but handle it
+            valueGroups.push(currentGroup.trim());
+            currentGroup = '';
+          }
           depth++;
           currentGroup += char;
         } else if (!inString && char === ')') {
           depth--;
           currentGroup += char;
-          // If depth is 0 and next is comma or end, we have a complete value group
-          if (depth === 0 && (nextChar === ',' || i === valuesPart.length - 1)) {
+          // If depth is 0, we have a complete value group
+          if (depth === 0) {
             valueGroups.push(currentGroup.trim());
             currentGroup = '';
-            if (nextChar === ',') i++; // Skip the comma
+            // Skip whitespace and comma after closing parenthesis
+            if (nextChar === ',' || (nextChar === ' ' && valuesPart[i + 2] === ',')) {
+              // Find and skip the comma
+              let skipIndex = i + 1;
+              while (skipIndex < valuesPart.length && (valuesPart[skipIndex] === ' ' || valuesPart[skipIndex] === ',')) {
+                if (valuesPart[skipIndex] === ',') {
+                  i = skipIndex;
+                  break;
+                }
+                skipIndex++;
+              }
+            }
           }
         } else {
           currentGroup += char;
@@ -142,7 +165,19 @@ async function seedDatabase(): Promise<void> {
       
       for (let i = 0; i < valueGroups.length; i += batchSize) {
         const batch = valueGroups.slice(i, i + batchSize);
-        batches.push(`INSERT INTO ${tableName} (${columns}) VALUES ${batch.join(', ')};`);
+        // Filter out any empty groups and ensure each group starts with '('
+        const validBatch = batch
+          .filter(group => group.trim().length > 0 && group.trim().startsWith('('))
+          .map(group => group.trim());
+        
+        if (validBatch.length > 0) {
+          batches.push(`INSERT INTO ${tableName} (${columns}) VALUES ${validBatch.join(', ')};`);
+        }
+      }
+      
+      // If we couldn't create any valid batches, return original statement
+      if (batches.length === 0) {
+        return [statement];
       }
       
       return batches;

@@ -46,8 +46,10 @@ export async function getAllSongs(
     queryParams.push(albumId);
   }
   
-  query += ' ORDER BY s.SongID DESC LIMIT ? OFFSET ?';
-  queryParams.push(parseInt(String(limit), 10), parseInt(String((page - 1) * limit), 10));
+  // LIMIT and OFFSET must be integers, not placeholders (some MySQL drivers don't support placeholders for LIMIT/OFFSET)
+  const limitValue = parseInt(String(limit), 10);
+  const offsetValue = parseInt(String((page - 1) * limit), 10);
+  query += ` ORDER BY s.SongID DESC LIMIT ${limitValue} OFFSET ${offsetValue}`;
   
   const [rows] = await pool.execute<RowDataPacket[]>(query, queryParams);
   return rows as Song[];
@@ -196,8 +198,8 @@ export async function getTopSongsByListenCount(pool: Pool, limit: number = 10): 
     LEFT JOIN album al ON s.AlbumID = al.AlbumID
     LEFT JOIN genre g ON s.GenreID = g.GenreID
     ORDER BY s.ListenCount DESC
-    LIMIT ?
-  `, [limitValue]);
+    LIMIT ${limitValue}
+  `);
   
   return rows as RowDataPacket[];
 }
