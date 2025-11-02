@@ -67,10 +67,100 @@ async function seedDatabase(): Promise<void> {
     let successCount = 0;
     let errorCount = 0;
     
+    // Helper function to split large INSERT statements into batches
+    const splitLargeInsert = (statement: string): string[] => {
+      // Only process INSERT statements that are too large (>8000 chars to leave buffer)
+      if (!statement.trim().toUpperCase().startsWith('INSERT INTO') || statement.length < 8000) {
+        return [statement];
+      }
+      
+      // Extract table name, columns, and values
+      const insertMatch = statement.match(/INSERT\s+INTO\s+(\w+)\s*\(([^)]+)\)\s*VALUES\s*(.+);?$/is);
+      if (!insertMatch || !insertMatch[1] || !insertMatch[2] || !insertMatch[3]) {
+        return [statement]; // Can't parse, return as-is
+      }
+      
+      const tableName = insertMatch[1];
+      const columns = insertMatch[2].trim();
+      const valuesPart = insertMatch[3].trim().replace(/;?\s*$/, ''); // Remove trailing semicolon
+      
+      // Split values by '),(' pattern while preserving the parentheses
+      // Match: (value1, value2, ...), (value3, value4, ...)
+      const valueGroups: string[] = [];
+      let currentGroup = '';
+      let depth = 0;
+      let inString = false;
+      let stringChar = '';
+      
+      for (let i = 0; i < valuesPart.length; i++) {
+        const char = valuesPart[i];
+        const nextChar = valuesPart[i + 1];
+        
+        if (!inString && (char === '"' || char === "'")) {
+          inString = true;
+          stringChar = char;
+          currentGroup += char;
+        } else if (inString && char === stringChar && valuesPart[i - 1] !== '\\') {
+          inString = false;
+          currentGroup += char;
+        } else if (!inString && char === '(') {
+          depth++;
+          currentGroup += char;
+        } else if (!inString && char === ')') {
+          depth--;
+          currentGroup += char;
+          // If depth is 0 and next is comma or end, we have a complete value group
+          if (depth === 0 && (nextChar === ',' || i === valuesPart.length - 1)) {
+            valueGroups.push(currentGroup.trim());
+            currentGroup = '';
+            if (nextChar === ',') i++; // Skip the comma
+          }
+        } else {
+          currentGroup += char;
+        }
+      }
+      
+      // Add any remaining group
+      if (currentGroup.trim()) {
+        valueGroups.push(currentGroup.trim());
+      }
+      
+      // If we couldn't split properly, return original statement
+      if (valueGroups.length === 0) {
+        return [statement];
+      }
+      
+      // Create batched statements (100 rows per batch)
+      const batchSize = 100;
+      const batches: string[] = [];
+      
+      for (let i = 0; i < valueGroups.length; i += batchSize) {
+        const batch = valueGroups.slice(i, i + batchSize);
+        batches.push(`INSERT INTO ${tableName} (${columns}) VALUES ${batch.join(', ')};`);
+      }
+      
+      return batches;
+    };
+    
     for (const statement of statements) {
       try {
-        // Execute MySQL statements
-        await pool.query(statement);
+        // Split large INSERT statements into batches
+        const batchedStatements = splitLargeInsert(statement);
+        
+        if (batchedStatements.length > 1) {
+          console.log(`📦 Splitting large INSERT into ${batchedStatements.length} batches...`);
+        }
+        
+        for (let batchIdx = 0; batchIdx < batchedStatements.length; batchIdx++) {
+          const batchedStatement = batchedStatements[batchIdx];
+          if (batchedStatement) {
+            await pool.query(batchedStatement);
+            if (batchedStatements.length > 1) {
+              console.log(`  ✅ Batch ${batchIdx + 1}/${batchedStatements.length} complete`);
+            }
+          }
+        }
+        
         successCount++;
       } catch (error: any) {
         errorCount++;

@@ -372,7 +372,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
   if (requestPath === '/api/song/top' && method === 'GET') {
     try {
       const pool = await getPool();
-      const songs = songController.getTopSongsByListenCount(pool, 10);
+      const songs = await songController.getTopSongsByListenCount(pool, 10);
       
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ songs }));
@@ -391,7 +391,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     try {
       const pool = await getPool();
       
-      const song = songController.getSongById(pool, songId);
+      const song = await songController.getSongById(pool, songId);
       
       if (!song) {
         console.log(`  ❌ Song not found`);
@@ -486,7 +486,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
   if (requestPath === '/api/genres/with-listens' && method === 'GET') {
     try {
       const pool = await getPool();
-      const genres = genreController.getGenresWithListenCount(pool);
+      const genres = await genreController.getGenresWithListenCount(pool);
       
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ genres }));
@@ -509,7 +509,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
         filters.artistId = parseInt(artistId as string);
       }
       
-      const albums = albumController.getAllAlbums(pool, filters);
+      const albums = await albumController.getAllAlbums(pool, filters);
       
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ albums }));
@@ -525,7 +525,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
   if (requestPath === '/api/albums/top' && method === 'GET') {
     try {
       const pool = await getPool();
-      const albums = albumController.getTopAlbumsByLikes(pool, 10);
+      const albums = await albumController.getTopAlbumsByLikes(pool, 10);
       
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ albums }));
@@ -625,7 +625,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
   if (requestPath === '/api/artists' && method === 'GET') {
     try {
       const pool = await getPool();
-      const artists = artistController.getAllArtists(pool);
+      const artists = await artistController.getAllArtists(pool);
       
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ artists }));
@@ -641,7 +641,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
   if (requestPath === '/api/artists/top' && method === 'GET') {
     try {
       const pool = await getPool();
-      const artists = artistController.getTopArtistsByFollowers(pool, 10);
+      const artists = await artistController.getTopArtistsByFollowers(pool, 10);
       
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ artists }));
@@ -800,7 +800,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
       const userId = parseInt(pathParts[3] || '0');
       const { page = '1', limit = '50' } = parsedUrl.query;
       const pool = await getPool();
-      const likedSongs = likeController.getUserLikedSongs(pool, userId, {
+      const likedSongs = await likeController.getUserLikedSongs(pool, userId, {
         page: parseInt(page as string),
         limit: parseInt(limit as string)
       });
@@ -823,7 +823,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
       const { page = '1', limit = '50' } = parsedUrl.query;
       const pool = await getPool();
       
-      const following = followController.getUserFollowing(pool, userId, {
+      const following = await followController.getUserFollowing(pool, userId, {
         page: parseInt(page as string),
         limit: parseInt(limit as string)
       });
@@ -846,7 +846,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
       const { page = '1', limit = '50' } = parsedUrl.query;
       const pool = await getPool();
       
-      const history = historyController.getUserListeningHistory(pool, userId, {
+      const history = await historyController.getUserListeningHistory(pool, userId, {
         page: parseInt(page as string),
         limit: parseInt(limit as string)
       });
@@ -866,7 +866,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     try {
       const { query, page = '1', limit = '50' } = parsedUrl.query;
       const pool = await getPool();
-      const users = userController.searchUsers(pool, (query as string) || '', {
+      const users = await userController.searchUsers(pool, (query as string) || '', {
         page: parseInt(page as string),
         limit: parseInt(limit as string)
       });
@@ -890,9 +890,9 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
       
       let playlists;
       if (userId) {
-        playlists = playlistController.getPlaylistsByUser(pool, parseInt(userId as string));
+        playlists = await playlistController.getPlaylistsByUser(pool, parseInt(userId as string));
       } else {
-        playlists = playlistController.getPublicPlaylists(pool, {
+        playlists = await playlistController.getPublicPlaylists(pool, {
           page: parseInt(page as string),
           limit: parseInt(limit as string)
         });
@@ -911,7 +911,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
   if (requestPath === '/api/playlists/top' && method === 'GET') {
     try {
       const pool = await getPool();
-      const playlists = playlistController.getTopPlaylistsByLikes(pool, 10);
+      const playlists = await playlistController.getTopPlaylistsByLikes(pool, 10);
       
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ playlists }));
@@ -953,7 +953,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     const playlistId = parseInt(requestPath.split('/').pop() || '0');
     try {
       const pool = await getPool();
-      const playlist = playlistController.getPlaylistById(pool, playlistId);
+      const playlist = await playlistController.getPlaylistById(pool, playlistId);
       
       if (!playlist) {
         res.writeHead(404, { 'Content-Type': 'application/json' });
@@ -1017,7 +1017,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     const playlistId = parseInt(pathParts[3] || '0');
     try {
       const pool = await getPool();
-      const songs = playlistController.getPlaylistSongs(pool, playlistId);
+      const songs = await playlistController.getPlaylistSongs(pool, playlistId);
       
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ songs }));
@@ -1264,7 +1264,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     try {
       const { page = '1', limit = '50' } = parsedUrl.query;
       const pool = await getPool();
-      const followers = followController.getArtistFollowers(pool, artistId, {
+      const followers = await followController.getArtistFollowers(pool, artistId, {
         page: parseInt(page as string),
         limit: parseInt(limit as string)
       });
@@ -1310,7 +1310,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     try {
       const { days = '7', limit = '20' } = parsedUrl.query;
       const pool = await getPool();
-      const songs = historyController.getTrendingSongs(pool, parseInt(days as string), parseInt(limit as string));
+      const songs = await historyController.getTrendingSongs(pool, parseInt(days as string), parseInt(limit as string));
       
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ songs }));
