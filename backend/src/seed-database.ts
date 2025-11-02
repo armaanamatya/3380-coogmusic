@@ -19,14 +19,15 @@ async function seedDatabase(): Promise<void> {
     // Check if database already has data
     const [userRows] = await pool.query<any[]>("SELECT COUNT(*) as count FROM userprofile");
     const userCount = userRows[0];
+    const [songRows] = await pool.query<any[]>("SELECT COUNT(*) as count FROM song");
+    const songCount = songRows[0];
     
-    if (userCount.count > 0) {
+    // If we have users but no songs, we still need to seed songs
+    if (userCount.count > 0 && songCount.count > 0) {
       console.log('✅ Database already contains data, skipping seed\n');
       console.log('📊 Current Database Statistics:');
-      const [songRows] = await pool.query<any[]>("SELECT COUNT(*) as count FROM song");
       const [albumRows] = await pool.query<any[]>("SELECT COUNT(*) as count FROM album");
       const [artistRows] = await pool.query<any[]>("SELECT COUNT(*) as count FROM artist");
-      const songCount = songRows[0];
       const albumCount = albumRows[0];
       const artistCount = artistRows[0];
       console.log(`   Users: ${userCount.count}`);
@@ -35,6 +36,11 @@ async function seedDatabase(): Promise<void> {
       console.log(`   Artists: ${artistCount.count}`);
       console.log('');
       return;
+    }
+    
+    // If users exist but songs don't, log that we're seeding songs
+    if (userCount.count > 0 && songCount.count === 0) {
+      console.log('⚠️  Database has users but no songs - will seed songs and related data\n');
     }
     
     // Read seed data file

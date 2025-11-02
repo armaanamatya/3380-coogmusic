@@ -30,7 +30,10 @@
   "exclude": [
     "src/models",
     "node_modules",
-    "dist"
+    "dist",
+    "test-api.ts",
+    "*.cjs",
+    "*.sql"
   ],
   "ts-node": {
     "esm": true

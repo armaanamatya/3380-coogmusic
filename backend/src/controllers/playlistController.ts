@@ -255,7 +255,7 @@ export async function reorderPlaylistSong(
 // Get top playlists by like count (only public playlists)
 export async function getTopPlaylistsByLikes(pool: Pool, limit: number = 10): Promise<any[]> {
   const limitValue = parseInt(String(limit), 10);
-  const [rows] = await pool.execute<RowDataPacket[]>(`
+  const [rows] = await pool.query<RowDataPacket[]>(`
     SELECT 
       p.PlaylistID,
       p.PlaylistName,
@@ -277,5 +277,5 @@ export async function getTopPlaylistsByLikes(pool: Pool, limit: number = 10): Pr
     LIMIT ?
   `, [limitValue]);
   
-  return rows;
+  return rows as RowDataPacket[];
 }

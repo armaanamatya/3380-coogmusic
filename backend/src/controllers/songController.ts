@@ -176,7 +176,7 @@ export function deleteFileFromDisk(filePath: string): void {
 // Get top songs by listen count
 export async function getTopSongsByListenCount(pool: Pool, limit: number = 10): Promise<any[]> {
   const limitValue = parseInt(String(limit), 10);
-  const [rows] = await pool.execute<RowDataPacket[]>(`
+  const [rows] = await pool.query<RowDataPacket[]>(`
     SELECT 
       s.SongID,
       s.SongName,
@@ -199,6 +199,6 @@ export async function getTopSongsByListenCount(pool: Pool, limit: number = 10): 
     LIMIT ?
   `, [limitValue]);
   
-  return rows;
+  return rows as RowDataPacket[];
 }
 
