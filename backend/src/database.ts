@@ -97,16 +97,18 @@ export const initializeDatabase = async (): Promise<void> => {
         
         console.log(`Executing ${statements.length} schema statements...`);
         
-        for (let i = 0; i < statements.length; i++) {
-          const statement = statements[i].trim();
-          if (statement) {
+        let statementIndex = 0;
+        for (const statement of statements) {
+          statementIndex++;
+          const trimmedStatement = statement.trim();
+          if (trimmedStatement) {
             try {
-              await database.query(statement);
-              console.log(`✅ Statement ${i + 1}/${statements.length} executed`);
+              await database.query(trimmedStatement);
+              console.log(`✅ Statement ${statementIndex}/${statements.length} executed`);
             } catch (error: any) {
               // Log errors properly instead of just warning
-              console.error(`❌ Error in statement ${i + 1}:`, error.message);
-              console.error(`Statement preview: ${statement.substring(0, 200)}...`);
+              console.error(`❌ Error in statement ${statementIndex}:`, error.message);
+              console.error(`Statement preview: ${trimmedStatement.substring(0, 200)}...`);
               // Don't skip - we need to see what's failing
               throw error; // Re-throw to stop execution
             }
