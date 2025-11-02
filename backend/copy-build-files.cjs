@@ -45,8 +45,8 @@ function copyDirectory(source, dest) {
 console.log('\n📦 Copying build files...\n');
 
 // Copy schema file
-const schemaSource = path.join(__dirname, 'src', 'schema.sqlite.sql');
-const schemaDest = path.join(__dirname, 'dist', 'schema.sqlite.sql');
+const schemaSource = path.join(__dirname, 'src', 'schema.mysql.sql');
+const schemaDest = path.join(__dirname, 'dist', 'schema.mysql.sql');
 copyFile(schemaSource, schemaDest);
 
 // Copy seedData directory from project root
