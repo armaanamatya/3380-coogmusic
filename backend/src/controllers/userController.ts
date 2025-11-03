@@ -1,4 +1,4 @@
-import { Database } from 'better-sqlite3';
+import { Pool, RowDataPacket, ResultSetHeader } from 'mysql2/promise';
 
 export interface UserProfile {
   UserID: number;
@@ -30,36 +30,36 @@ export interface UpdateUserData {
 }
 
 // Get user by ID
-export function getUserById(db: Database, userId: number): UserProfile | null {
-  const user = db.prepare(`
+export async function getUserById(pool: Pool, userId: number): Promise<UserProfile | null> {
+  const [rows] = await pool.execute<RowDataPacket[]>(`
     SELECT UserID, Username, FirstName, LastName, DateOfBirth, Email, 
            UserType, DateJoined, Country, City, AccountStatus, IsOnline, 
            LastLogin, ProfilePicture, CreatedAt, UpdatedAt
     FROM userprofile 
     WHERE UserID = ?
-  `).get(userId) as UserProfile | undefined;
+  `, [userId]);
 
-  return user || null;
+  return rows.length > 0 ? (rows[0] as UserProfile) : null;
 }
 
 // Get user by username
-export function getUserByUsername(db: Database, username: string): UserProfile | null {
-  const user = db.prepare(`
+export async function getUserByUsername(pool: Pool, username: string): Promise<UserProfile | null> {
+  const [rows] = await pool.execute<RowDataPacket[]>(`
     SELECT UserID, Username, FirstName, LastName, DateOfBirth, Email, 
            UserType, DateJoined, Country, City, AccountStatus, IsOnline, 
            LastLogin, ProfilePicture, CreatedAt, UpdatedAt
     FROM userprofile 
     WHERE Username = ?
-  `).get(username) as UserProfile | undefined;
+  `, [username]);
 
-  return user || null;
+  return rows.length > 0 ? (rows[0] as UserProfile) : null;
 }
 
 // Get all users with pagination
-export function getAllUsers(
-  db: Database,
+export async function getAllUsers(
+  pool: Pool,
   filters: { page?: number; limit?: number; userType?: string }
-): UserProfile[] {
+): Promise<UserProfile[]> {
   const { page = 1, limit = 50, userType } = filters;
 
   let query = `
@@ -78,20 +78,24 @@ export function getAllUsers(
   }
 
   query += ' ORDER BY DateJoined DESC LIMIT ? OFFSET ?';
-  params.push(limit, (page - 1) * limit);
+  params.push(parseInt(String(limit), 10), parseInt(String((page - 1) * limit), 10));
 
-  return db.prepare(query).all(...params) as UserProfile[];
+  const [rows] = await pool.execute<RowDataPacket[]>(query, params);
+  return rows as UserProfile[];
 }
 
 // Update user profile
-export function updateUser(
-  db: Database,
+export async function updateUser(
+  pool: Pool,
   userId: number,
   updateData: UpdateUserData
-): void {
+): Promise<void> {
   // Check if user exists
-  const existingUser = db.prepare('SELECT UserID FROM userprofile WHERE UserID = ?').get(userId);
-  if (!existingUser) {
+  const [existingUsers] = await pool.execute<RowDataPacket[]>(
+    'SELECT UserID FROM userprofile WHERE UserID = ?', 
+    [userId]
+  );
+  if (existingUsers.length === 0) {
     throw new Error('User not found');
   }
 
@@ -111,18 +115,16 @@ export function updateUser(
     throw new Error('No valid fields to update');
   }
 
-  // Add UpdatedAt timestamp
-  updates.push(`UpdatedAt = DATETIME('now')`);
-  
+  // UpdatedAt is handled automatically by ON UPDATE CURRENT_TIMESTAMP in MySQL
   values.push(userId);
   const updateQuery = `UPDATE userprofile SET ${updates.join(', ')} WHERE UserID = ?`;
 
   try {
-    db.prepare(updateQuery).run(...values);
+    await pool.execute(updateQuery, values);
   } catch (error: any) {
-    if (error.message.includes('UNIQUE constraint failed: userprofile.Username')) {
+    if (error.code === 'ER_DUP_ENTRY' && error.message.includes('Username')) {
       throw new Error('Username already exists');
-    } else if (error.message.includes('UNIQUE constraint failed: userprofile.Email')) {
+    } else if (error.code === 'ER_DUP_ENTRY' && error.message.includes('Email')) {
       throw new Error('Email already exists');
     }
     throw error;
@@ -130,83 +132,97 @@ export function updateUser(
 }
 
 // Update user type
-export function updateUserType(
-  db: Database,
+export async function updateUserType(
+  pool: Pool,
   userId: number,
   userType: 'Listener' | 'Artist' | 'Administrator' | 'Developer'
-): void {
-  const user = db.prepare('SELECT UserID FROM userprofile WHERE UserID = ?').get(userId);
-  if (!user) {
+): Promise<void> {
+  const [users] = await pool.execute<RowDataPacket[]>(
+    'SELECT UserID FROM userprofile WHERE UserID = ?', 
+    [userId]
+  );
+  if (users.length === 0) {
     throw new Error('User not found');
   }
 
-  db.prepare('UPDATE userprofile SET UserType = ? WHERE UserID = ?').run(userType, userId);
+  await pool.execute('UPDATE userprofile SET UserType = ? WHERE UserID = ?', [userType, userId]);
 }
 
 // Update online status
-export function updateOnlineStatus(db: Database, userId: number, isOnline: boolean): void {
-  const user = db.prepare('SELECT UserID FROM userprofile WHERE UserID = ?').get(userId);
-  if (!user) {
+export async function updateOnlineStatus(pool: Pool, userId: number, isOnline: boolean): Promise<void> {
+  const [users] = await pool.execute<RowDataPacket[]>(
+    'SELECT UserID FROM userprofile WHERE UserID = ?', 
+    [userId]
+  );
+  if (users.length === 0) {
     throw new Error('User not found');
   }
 
-  db.prepare('UPDATE userprofile SET IsOnline = ? WHERE UserID = ?').run(isOnline ? 1 : 0, userId);
+  await pool.execute('UPDATE userprofile SET IsOnline = ? WHERE UserID = ?', [isOnline ? 1 : 0, userId]);
 }
 
 // Update account status
-export function updateAccountStatus(
-  db: Database,
+export async function updateAccountStatus(
+  pool: Pool,
   userId: number,
   status: 'Active' | 'Suspended' | 'Banned'
-): void {
-  const user = db.prepare('SELECT UserID FROM userprofile WHERE UserID = ?').get(userId);
-  if (!user) {
+): Promise<void> {
+  const [users] = await pool.execute<RowDataPacket[]>(
+    'SELECT UserID FROM userprofile WHERE UserID = ?', 
+    [userId]
+  );
+  if (users.length === 0) {
     throw new Error('User not found');
   }
 
-  db.prepare('UPDATE userprofile SET AccountStatus = ? WHERE UserID = ?').run(status, userId);
+  await pool.execute('UPDATE userprofile SET AccountStatus = ? WHERE UserID = ?', [status, userId]);
 }
 
 // Update last login time
-export function updateLastLogin(db: Database, userId: number): void {
-  db.prepare(`
+export async function updateLastLogin(pool: Pool, userId: number): Promise<void> {
+  await pool.execute(`
     UPDATE userprofile 
     SET LastLogin = CURRENT_TIMESTAMP 
     WHERE UserID = ?
-  `).run(userId);
+  `, [userId]);
 }
 
 // Update profile picture
-export function updateProfilePicture(db: Database, userId: number, profilePicturePath: string): void {
-  const user = db.prepare('SELECT UserID FROM userprofile WHERE UserID = ?').get(userId);
-  if (!user) {
+export async function updateProfilePicture(pool: Pool, userId: number, profilePicturePath: string): Promise<void> {
+  const [users] = await pool.execute<RowDataPacket[]>(
+    'SELECT UserID FROM userprofile WHERE UserID = ?', 
+    [userId]
+  );
+  if (users.length === 0) {
     throw new Error('User not found');
   }
 
-  db.prepare('UPDATE userprofile SET ProfilePicture = ? WHERE UserID = ?')
-    .run(profilePicturePath, userId);
+  await pool.execute('UPDATE userprofile SET ProfilePicture = ? WHERE UserID = ?', [profilePicturePath, userId]);
 }
 
 // Delete user
-export function deleteUser(db: Database, userId: number): void {
-  const user = db.prepare('SELECT UserID FROM userprofile WHERE UserID = ?').get(userId);
-  if (!user) {
+export async function deleteUser(pool: Pool, userId: number): Promise<void> {
+  const [users] = await pool.execute<RowDataPacket[]>(
+    'SELECT UserID FROM userprofile WHERE UserID = ?', 
+    [userId]
+  );
+  if (users.length === 0) {
     throw new Error('User not found');
   }
 
-  db.prepare('DELETE FROM userprofile WHERE UserID = ?').run(userId);
+  await pool.execute('DELETE FROM userprofile WHERE UserID = ?', [userId]);
 }
 
 // Search users
-export function searchUsers(
-  db: Database,
+export async function searchUsers(
+  pool: Pool,
   query: string,
   filters: { page?: number; limit?: number }
-): UserProfile[] {
+): Promise<UserProfile[]> {
   const { page = 1, limit = 50 } = filters;
   const searchTerm = `%${query}%`;
 
-  return db.prepare(`
+  const [rows] = await pool.execute<RowDataPacket[]>(`
     SELECT UserID, Username, FirstName, LastName, DateOfBirth, Email, 
            UserType, DateJoined, Country, City, AccountStatus, IsOnline, 
            LastLogin, ProfilePicture, CreatedAt, UpdatedAt
@@ -214,6 +230,8 @@ export function searchUsers(
     WHERE Username LIKE ? OR FirstName LIKE ? OR LastName LIKE ? OR Email LIKE ?
     ORDER BY Username
     LIMIT ? OFFSET ?
-  `).all(searchTerm, searchTerm, searchTerm, searchTerm, limit, (page - 1) * limit) as UserProfile[];
+  `, [searchTerm, searchTerm, searchTerm, searchTerm, parseInt(String(limit), 10), parseInt(String((page - 1) * limit), 10)]);
+  
+  return rows as UserProfile[];
 }
 

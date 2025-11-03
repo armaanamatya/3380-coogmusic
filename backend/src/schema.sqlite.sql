@@ -165,6 +165,104 @@ CREATE INDEX idx_listening_history_user ON listening_history(UserID);
 CREATE INDEX idx_listening_history_song ON listening_history(SongID);
 CREATE INDEX idx_listening_history_date ON listening_history(ListenedAt);
 
+-- Trigger to automatically verify artists when they reach 100 followers
+CREATE TRIGGER verify_artist_on_100_followers
+AFTER INSERT ON user_follows_artist
+BEGIN
+    UPDATE artist
+    SET VerifiedStatus = 1,
+        DateVerified = DATETIME('now'),
+        UpdatedAt = DATETIME('now')
+    WHERE ArtistID = NEW.ArtistID
+        AND VerifiedStatus = 0
+        AND (
+            SELECT COUNT(*)
+            FROM user_follows_artist
+            WHERE ArtistID = NEW.ArtistID
+        ) >= 100;
+END;
+
+-- Trigger to automatically unverify artists when they drop below 100 followers
+CREATE TRIGGER unverify_artist_below_100_followers
+AFTER DELETE ON user_follows_artist
+BEGIN
+    UPDATE artist
+    SET VerifiedStatus = 0,
+        DateVerified = NULL,
+        VerifyingAdminID = NULL,
+        UpdatedAt = DATETIME('now')
+    WHERE ArtistID = OLD.ArtistID
+        AND VerifiedStatus = 1
+        AND (
+            SELECT COUNT(*)
+            FROM user_follows_artist
+            WHERE ArtistID = OLD.ArtistID
+        ) < 100;
+END;
+
+-- Trigger to remove song from playlists and other related tables when deleted
+CREATE TRIGGER remove_song_from_playlists_on_delete
+BEFORE DELETE ON song
+BEGIN
+    -- Remove song from all playlists
+    DELETE FROM playlist_song WHERE SongID = OLD.SongID;
+    
+    -- Remove all likes for this song (additional safety beyond CASCADE)
+    DELETE FROM user_likes_song WHERE SongID = OLD.SongID;
+    
+    -- Remove from listening history (additional safety beyond CASCADE)
+    DELETE FROM listening_history WHERE SongID = OLD.SongID;
+    
+    -- Note: Album relationship is handled automatically - when the song is deleted,
+    -- it's no longer part of any album (since AlbumID is a reference field in the song table)
+END;
+
+-- Trigger to delete all songs in an album when the album is deleted
+CREATE TRIGGER delete_songs_on_album_delete
+BEFORE DELETE ON album
+BEGIN
+    -- Delete all songs that belong to this album
+    -- This trigger will cascade and also trigger the remove_song_from_playlists_on_delete
+    -- for each song, ensuring all related data is cleaned up
+    DELETE FROM song WHERE AlbumID = OLD.AlbumID;
+END;
+
+-- Trigger to add songs to "Hit Songs" playlist when they reach 1 million listens
+CREATE TRIGGER add_to_hit_songs_on_million_listens
+AFTER UPDATE OF ListenCount ON song
+WHEN NEW.ListenCount >= 1000000 AND (OLD.ListenCount IS NULL OR OLD.ListenCount < 1000000)
+BEGIN
+    -- Ensure "Hit Songs" playlist exists
+    -- Create it if it doesn't exist, using an Administrator user or first user
+    INSERT INTO playlist (PlaylistName, UserID, Description, IsPublic, CreatedAt, UpdatedAt)
+    SELECT 
+        'Hit Songs',
+        COALESCE(
+            (SELECT UserID FROM userprofile WHERE UserType = 'Administrator' LIMIT 1),
+            (SELECT UserID FROM userprofile ORDER BY UserID LIMIT 1)
+        ),
+        'Automatically curated playlist of songs with over 1 million listens',
+        1,
+        DATETIME('now'),
+        DATETIME('now')
+    WHERE NOT EXISTS (
+        SELECT 1 FROM playlist 
+        WHERE PlaylistName = 'Hit Songs' AND IsPublic = 1
+    );
+    
+    -- Add the song to the "Hit Songs" playlist if not already there
+    INSERT OR IGNORE INTO playlist_song (PlaylistID, SongID, Position, AddedAt)
+    SELECT 
+        (SELECT PlaylistID FROM playlist WHERE PlaylistName = 'Hit Songs' AND IsPublic = 1 LIMIT 1),
+        NEW.SongID,
+        COALESCE(
+            (SELECT MAX(Position) + 1 FROM playlist_song 
+             WHERE PlaylistID = (SELECT PlaylistID FROM playlist WHERE PlaylistName = 'Hit Songs' AND IsPublic = 1 LIMIT 1)),
+            1
+        ),
+        DATETIME('now');
+END;
+
 -- Insert default genres
 INSERT INTO genre (GenreName, Description) VALUES
 ('Pop', 'Popular music characterized by catchy melodies and broad appeal'),

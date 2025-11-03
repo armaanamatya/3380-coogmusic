@@ -1,15 +1,15 @@
-import { Database } from 'better-sqlite3';
+import { Pool, RowDataPacket, ResultSetHeader } from 'mysql2/promise';
 import { Album, CreateAlbumData, UpdateAlbumData } from '../types/index.js';
 import * as fs from 'fs';
 import * as path from 'path';
 
 // Get all albums with filters
-export function getAllAlbums(
-  db: Database,
+export async function getAllAlbums(
+  pool: Pool,
   filters: {
     artistId?: number;
   }
-): Album[] {
+): Promise<Album[]> {
   const { artistId } = filters;
   
   let query = `
@@ -30,59 +30,64 @@ export function getAllAlbums(
   
   query += ' ORDER BY al.ReleaseDate DESC';
   
-  return db.prepare(query).all(...queryParams) as Album[];
+  const [rows] = await pool.execute<RowDataPacket[]>(query, queryParams);
+  return rows as Album[];
 }
 
 // Get album by ID
-export function getAlbumById(db: Database, albumId: number): Album | null {
-  const album = db.prepare(`
+export async function getAlbumById(pool: Pool, albumId: number): Promise<Album | null> {
+  const [rows] = await pool.execute<RowDataPacket[]>(`
     SELECT al.*, 
            a.ArtistID, up.FirstName AS ArtistFirstName, up.LastName AS ArtistLastName
     FROM album al
     LEFT JOIN artist a ON al.ArtistID = a.ArtistID
     LEFT JOIN userprofile up ON a.ArtistID = up.UserID
     WHERE al.AlbumID = ?
-  `).get(albumId) as Album | undefined;
+  `, [albumId]);
   
-  return album || null;
+  return rows.length > 0 ? (rows[0] as Album) : null;
 }
 
 // Create new album
-export function createAlbum(
-  db: Database,
+export async function createAlbum(
+  pool: Pool,
   albumData: CreateAlbumData
-): { albumId: number } {
+): Promise<{ albumId: number }> {
   // Verify artist exists
-  const artist = db.prepare('SELECT ArtistID FROM artist WHERE ArtistID = ?').get(albumData.artistId);
-  if (!artist) {
+  const [artists] = await pool.execute<RowDataPacket[]>(
+    'SELECT ArtistID FROM artist WHERE ArtistID = ?', 
+    [albumData.artistId]
+  );
+  if (artists.length === 0) {
     throw new Error('Artist not found');
   }
 
   // Insert new album
-  const stmt = db.prepare(`
+  const [result] = await pool.execute<ResultSetHeader>(`
     INSERT INTO album (AlbumName, ArtistID, ReleaseDate, Description)
     VALUES (?, ?, ?, ?)
-  `);
-
-  const result = stmt.run(
+  `, [
     albumData.albumName,
     albumData.artistId,
     albumData.releaseDate || new Date().toISOString().split('T')[0],
     albumData.description || null
-  );
+  ]);
 
-  return { albumId: Number(result.lastInsertRowid) };
+  return { albumId: result.insertId };
 }
 
 // Update album
-export function updateAlbum(
-  db: Database,
+export async function updateAlbum(
+  pool: Pool,
   albumId: number,
   updateData: UpdateAlbumData
-): void {
+): Promise<void> {
   // Check if album exists
-  const existingAlbum = db.prepare('SELECT * FROM album WHERE AlbumID = ?').get(albumId);
-  if (!existingAlbum) {
+  const [existingAlbums] = await pool.execute<RowDataPacket[]>(
+    'SELECT * FROM album WHERE AlbumID = ?', 
+    [albumId]
+  );
+  if (existingAlbums.length === 0) {
     throw new Error('Album not found');
   }
 
@@ -105,34 +110,43 @@ export function updateAlbum(
   values.push(albumId);
   const updateQuery = `UPDATE album SET ${updates.join(', ')} WHERE AlbumID = ?`;
   
-  db.prepare(updateQuery).run(...values);
+  await pool.execute(updateQuery, values);
 }
 
 // Update album cover
-export function updateAlbumCover(
-  db: Database,
+export async function updateAlbumCover(
+  pool: Pool,
   albumId: number,
   albumCoverPath: string
-): void {
-  db.prepare('UPDATE album SET AlbumCover = ? WHERE AlbumID = ?').run(albumCoverPath, albumId);
+): Promise<void> {
+  await pool.execute('UPDATE album SET AlbumCover = ? WHERE AlbumID = ?', [albumCoverPath, albumId]);
 }
 
 // Delete album
-export function deleteAlbum(db: Database, albumId: number): { albumArtPath: string | null } {
+export async function deleteAlbum(pool: Pool, albumId: number): Promise<{ albumArtPath: string | null }> {
   // Check if album exists
-  const album = db.prepare('SELECT * FROM album WHERE AlbumID = ?').get(albumId) as any;
-  if (!album) {
+  const [albums] = await pool.execute<RowDataPacket[]>(
+    'SELECT * FROM album WHERE AlbumID = ?', 
+    [albumId]
+  );
+  if (albums.length === 0) {
     throw new Error('Album not found');
   }
 
+  const album = albums[0] as any;
+
   // Check if album has songs
-  const songsCount = db.prepare('SELECT COUNT(*) as count FROM song WHERE AlbumID = ?').get(albumId) as any;
+  const [songsCounts] = await pool.execute<RowDataPacket[]>(
+    'SELECT COUNT(*) as count FROM song WHERE AlbumID = ?', 
+    [albumId]
+  );
+  const songsCount = songsCounts[0] as any;
   if (songsCount.count > 0) {
     throw new Error('Cannot delete album with existing songs');
   }
 
   // Delete the album from database
-  db.prepare('DELETE FROM album WHERE AlbumID = ?').run(albumId);
+  await pool.execute('DELETE FROM album WHERE AlbumID = ?', [albumId]);
 
   return { albumArtPath: album.AlbumCover || null };
 }
@@ -148,8 +162,9 @@ export function deleteFileFromDisk(filePath: string): void {
 }
 
 // Get top albums by like count
-export function getTopAlbumsByLikes(db: Database, limit: number = 10): any[] {
-  return db.prepare(`
+export async function getTopAlbumsByLikes(pool: Pool, limit: number = 10): Promise<any[]> {
+  const limitValue = parseInt(String(limit), 10);
+  const [rows] = await pool.query<RowDataPacket[]>(`
     SELECT 
       al.AlbumID,
       al.AlbumName,
@@ -169,6 +184,7 @@ export function getTopAlbumsByLikes(db: Database, limit: number = 10): any[] {
     GROUP BY al.AlbumID, al.AlbumName, al.ReleaseDate, al.AlbumCover, al.Description, u.FirstName, u.LastName, u.Username
     ORDER BY likeCount DESC
     LIMIT ?
-  `).all(limit);
+  `, [limitValue]);
+  
+  return rows as RowDataPacket[];
 }
-

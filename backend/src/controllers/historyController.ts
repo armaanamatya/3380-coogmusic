@@ -1,4 +1,4 @@
-import { Database } from 'better-sqlite3';
+import { Pool, RowDataPacket, ResultSetHeader } from 'mysql2/promise';
 
 export interface ListeningHistory {
   HistoryID: number;
@@ -15,85 +15,87 @@ export interface AddListeningHistoryData {
 }
 
 // Add listening history entry
-export function addListeningHistory(
-  db: Database,
+export async function addListeningHistory(
+  pool: Pool,
   historyData: AddListeningHistoryData
-): { historyId: number } {
+): Promise<{ historyId: number }> {
   // Verify user exists
-  const user = db.prepare('SELECT UserID FROM userprofile WHERE UserID = ?').get(historyData.userId);
-  if (!user) {
+  const [users] = await pool.execute<RowDataPacket[]>('SELECT UserID FROM userprofile WHERE UserID = ?', [historyData.userId]);
+  if (users.length === 0) {
     throw new Error('User not found');
   }
 
   // Verify song exists
-  const song = db.prepare('SELECT SongID FROM song WHERE SongID = ?').get(historyData.songId);
-  if (!song) {
+  const [songs] = await pool.execute<RowDataPacket[]>('SELECT SongID FROM song WHERE SongID = ?', [historyData.songId]);
+  if (songs.length === 0) {
     throw new Error('Song not found');
   }
 
-  const stmt = db.prepare(`
+  const [result] = await pool.execute<ResultSetHeader>(`
     INSERT INTO listening_history (UserID, SongID, Duration)
     VALUES (?, ?, ?)
-  `);
-
-  const result = stmt.run(
+  `, [
     historyData.userId,
     historyData.songId,
     historyData.duration || null
-  );
+  ]);
 
-  return { historyId: Number(result.lastInsertRowid) };
+  return { historyId: result.insertId };
 }
 
 // Get user's listening history
-export function getUserListeningHistory(
-  db: Database,
+export async function getUserListeningHistory(
+  pool: Pool,
   userId: number,
   filters: { page?: number; limit?: number }
-): any[] {
+): Promise<any[]> {
   const { page = 1, limit = 50 } = filters;
 
-  return db.prepare(`
+  const [rows] = await pool.execute<RowDataPacket[]>(`
     SELECT lh.*, s.SongName, s.Duration as SongDuration, s.FilePath,
            up.FirstName AS ArtistFirstName, up.LastName AS ArtistLastName,
            al.AlbumName, g.GenreName
     FROM listening_history lh
     JOIN song s ON lh.SongID = s.SongID
     LEFT JOIN album al ON s.AlbumID = al.AlbumID
-    LEFT JOIN artist a ON al.ArtistID = a.ArtistID
+    LEFT JOIN artist a ON s.ArtistID = a.ArtistID
     LEFT JOIN userprofile up ON a.ArtistID = up.UserID
     LEFT JOIN genre g ON s.GenreID = g.GenreID
     WHERE lh.UserID = ?
     ORDER BY lh.ListenedAt DESC
     LIMIT ? OFFSET ?
-  `).all(userId, limit, (page - 1) * limit);
+  `, [userId, parseInt(String(limit), 10), parseInt(String((page - 1) * limit), 10)]);
+
+  return rows;
 }
 
 // Get song's listening history
-export function getSongListeningHistory(
-  db: Database,
+export async function getSongListeningHistory(
+  pool: Pool,
   songId: number,
   filters: { page?: number; limit?: number }
-): any[] {
+): Promise<any[]> {
   const { page = 1, limit = 50 } = filters;
 
-  return db.prepare(`
+  const [rows] = await pool.execute<RowDataPacket[]>(`
     SELECT lh.*, u.Username, u.FirstName, u.LastName
     FROM listening_history lh
     JOIN userprofile u ON lh.UserID = u.UserID
     WHERE lh.SongID = ?
     ORDER BY lh.ListenedAt DESC
     LIMIT ? OFFSET ?
-  `).all(songId, limit, (page - 1) * limit);
+  `, [songId, parseInt(String(limit), 10), parseInt(String((page - 1) * limit), 10)]);
+
+  return rows;
 }
 
 // Get recent listening history
-export function getRecentListeningHistory(
-  db: Database,
+export async function getRecentListeningHistory(
+  pool: Pool,
   userId: number,
   hours: number,
   limit?: number
-): any[] {
+): Promise<any[]> {
   let query = `
     SELECT lh.*, s.SongName, s.Duration as SongDuration, s.FilePath,
            up.FirstName AS ArtistFirstName, up.LastName AS ArtistLastName,
@@ -101,27 +103,31 @@ export function getRecentListeningHistory(
     FROM listening_history lh
     JOIN song s ON lh.SongID = s.SongID
     LEFT JOIN album al ON s.AlbumID = al.AlbumID
-    LEFT JOIN artist a ON al.ArtistID = a.ArtistID
+    LEFT JOIN artist a ON s.ArtistID = a.ArtistID
     LEFT JOIN userprofile up ON a.ArtistID = up.UserID
     LEFT JOIN genre g ON s.GenreID = g.GenreID
-    WHERE lh.UserID = ? AND lh.ListenedAt >= datetime('now', '-' || ? || ' hours')
+    WHERE lh.UserID = ? AND lh.ListenedAt >= DATE_SUB(NOW(), INTERVAL ? HOUR)
     ORDER BY lh.ListenedAt DESC
   `;
 
+  const params: any[] = [userId, hours];
+
   if (limit) {
-    query += ` LIMIT ${limit}`;
+    query += ` LIMIT ?`;
+    params.push(parseInt(String(limit), 10));
   }
 
-  return db.prepare(query).all(userId, hours);
+  const [rows] = await pool.execute<RowDataPacket[]>(query, params);
+  return rows;
 }
 
 // Get user's most played songs
-export function getUserMostPlayedSongs(
-  db: Database,
+export async function getUserMostPlayedSongs(
+  pool: Pool,
   userId: number,
   limit: number
-): any[] {
-  return db.prepare(`
+): Promise<any[]> {
+  const [rows] = await pool.execute<RowDataPacket[]>(`
     SELECT s.*, al.AlbumName, g.GenreName,
            up.FirstName AS ArtistFirstName, up.LastName AS ArtistLastName,
            COUNT(lh.HistoryID) as playCount,
@@ -129,41 +135,45 @@ export function getUserMostPlayedSongs(
     FROM listening_history lh
     JOIN song s ON lh.SongID = s.SongID
     LEFT JOIN album al ON s.AlbumID = al.AlbumID
-    LEFT JOIN artist a ON al.ArtistID = a.ArtistID
+    LEFT JOIN artist a ON s.ArtistID = a.ArtistID
     LEFT JOIN userprofile up ON a.ArtistID = up.UserID
     LEFT JOIN genre g ON s.GenreID = g.GenreID
     WHERE lh.UserID = ?
     GROUP BY s.SongID
     ORDER BY playCount DESC, totalListenTime DESC
     LIMIT ?
-  `).all(userId, limit);
+  `, [userId, parseInt(String(limit), 10)]);
+
+  return rows;
 }
 
 // Get user's most played artists
-export function getUserMostPlayedArtists(
-  db: Database,
+export async function getUserMostPlayedArtists(
+  pool: Pool,
   userId: number,
   limit: number
-): any[] {
-  return db.prepare(`
+): Promise<any[]> {
+  const [rows] = await pool.execute<RowDataPacket[]>(`
     SELECT a.*, up.Username, up.FirstName, up.LastName,
            COUNT(lh.HistoryID) as playCount,
            SUM(lh.Duration) as totalListenTime
     FROM listening_history lh
     JOIN song s ON lh.SongID = s.SongID
     LEFT JOIN album al ON s.AlbumID = al.AlbumID
-    JOIN artist a ON al.ArtistID = a.ArtistID
+    JOIN artist a ON s.ArtistID = a.ArtistID
     JOIN userprofile up ON a.ArtistID = up.UserID
     WHERE lh.UserID = ?
     GROUP BY a.ArtistID
     ORDER BY playCount DESC, totalListenTime DESC
     LIMIT ?
-  `).all(userId, limit);
+  `, [userId, parseInt(String(limit), 10)]);
+
+  return rows;
 }
 
 // Get globally most played songs
-export function getGlobalMostPlayedSongs(db: Database, limit: number): any[] {
-  return db.prepare(`
+export async function getGlobalMostPlayedSongs(pool: Pool, limit: number): Promise<any[]> {
+  const [rows] = await pool.execute<RowDataPacket[]>(`
     SELECT s.*, al.AlbumName, g.GenreName,
            up.FirstName AS ArtistFirstName, up.LastName AS ArtistLastName,
            COUNT(lh.HistoryID) as playCount,
@@ -171,28 +181,30 @@ export function getGlobalMostPlayedSongs(db: Database, limit: number): any[] {
     FROM listening_history lh
     JOIN song s ON lh.SongID = s.SongID
     LEFT JOIN album al ON s.AlbumID = al.AlbumID
-    LEFT JOIN artist a ON al.ArtistID = a.ArtistID
+    LEFT JOIN artist a ON s.ArtistID = a.ArtistID
     LEFT JOIN userprofile up ON a.ArtistID = up.UserID
     LEFT JOIN genre g ON s.GenreID = g.GenreID
     GROUP BY s.SongID
     ORDER BY playCount DESC, totalListenTime DESC
     LIMIT ?
-  `).all(limit);
+  `, [parseInt(String(limit), 10)]);
+
+  return rows;
 }
 
 // Delete user's listening history
-export function deleteUserListeningHistory(db: Database, userId: number): void {
-  db.prepare('DELETE FROM listening_history WHERE UserID = ?').run(userId);
+export async function deleteUserListeningHistory(pool: Pool, userId: number): Promise<void> {
+  await pool.execute('DELETE FROM listening_history WHERE UserID = ?', [userId]);
 }
 
 // Delete song's listening history
-export function deleteSongListeningHistory(db: Database, songId: number): void {
-  db.prepare('DELETE FROM listening_history WHERE SongID = ?').run(songId);
+export async function deleteSongListeningHistory(pool: Pool, songId: number): Promise<void> {
+  await pool.execute('DELETE FROM listening_history WHERE SongID = ?', [songId]);
 }
 
 // Get user's listening statistics
-export function getListeningStats(db: Database, userId: number): any {
-  const stats = db.prepare(`
+export async function getListeningStats(pool: Pool, userId: number): Promise<any> {
+  const [rows] = await pool.execute<RowDataPacket[]>(`
     SELECT 
       COUNT(DISTINCT lh.SongID) as uniqueSongsPlayed,
       COUNT(lh.HistoryID) as totalPlays,
@@ -202,27 +214,28 @@ export function getListeningStats(db: Database, userId: number): any {
       MAX(lh.ListenedAt) as lastListen
     FROM listening_history lh
     WHERE lh.UserID = ?
-  `).get(userId);
+  `, [userId]);
 
-  return stats;
+  return rows[0];
 }
 
 // Get trending songs (most played in last N days)
-export function getTrendingSongs(db: Database, days: number, limit: number): any[] {
-  return db.prepare(`
+export async function getTrendingSongs(pool: Pool, days: number, limit: number): Promise<any[]> {
+  const [rows] = await pool.execute<RowDataPacket[]>(`
     SELECT s.*, al.AlbumName, g.GenreName,
            up.FirstName AS ArtistFirstName, up.LastName AS ArtistLastName,
            COUNT(lh.HistoryID) as playCount
     FROM listening_history lh
     JOIN song s ON lh.SongID = s.SongID
     LEFT JOIN album al ON s.AlbumID = al.AlbumID
-    LEFT JOIN artist a ON al.ArtistID = a.ArtistID
+    LEFT JOIN artist a ON s.ArtistID = a.ArtistID
     LEFT JOIN userprofile up ON a.ArtistID = up.UserID
     LEFT JOIN genre g ON s.GenreID = g.GenreID
-    WHERE lh.ListenedAt >= datetime('now', '-' || ? || ' days')
+    WHERE lh.ListenedAt >= DATE_SUB(NOW(), INTERVAL ? DAY)
     GROUP BY s.SongID
     ORDER BY playCount DESC
     LIMIT ?
-  `).all(days, limit);
+  `, [days, parseInt(String(limit), 10)]);
+  
+  return rows;
 }
-

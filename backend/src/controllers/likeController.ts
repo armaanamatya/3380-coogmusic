@@ -1,140 +1,154 @@
-import { Database } from 'better-sqlite3';
+import { Pool, RowDataPacket, ResultSetHeader } from 'mysql2/promise';
 
 // Like a song
-export function likeSong(db: Database, userId: number, songId: number): void {
+export async function likeSong(pool: Pool, userId: number, songId: number): Promise<void> {
   // Verify user exists
-  const user = db.prepare('SELECT UserID FROM userprofile WHERE UserID = ?').get(userId);
-  if (!user) {
+  const [users] = await pool.execute<RowDataPacket[]>('SELECT UserID FROM userprofile WHERE UserID = ?', [userId]);
+  if (users.length === 0) {
     throw new Error('User not found');
   }
 
   // Verify song exists
-  const song = db.prepare('SELECT SongID FROM song WHERE SongID = ?').get(songId);
-  if (!song) {
+  const [songs] = await pool.execute<RowDataPacket[]>('SELECT SongID FROM song WHERE SongID = ?', [songId]);
+  if (songs.length === 0) {
     throw new Error('Song not found');
   }
 
   // Check if already liked
-  const existingLike = db.prepare('SELECT * FROM user_likes_song WHERE UserID = ? AND SongID = ?')
-    .get(userId, songId);
-  if (existingLike) {
+  const [existingLikes] = await pool.execute<RowDataPacket[]>(
+    'SELECT * FROM user_likes_song WHERE UserID = ? AND SongID = ?',
+    [userId, songId]
+  );
+  if (existingLikes.length > 0) {
     throw new Error('User has already liked this song');
   }
 
-  db.prepare('INSERT INTO user_likes_song (UserID, SongID) VALUES (?, ?)').run(userId, songId);
+  await pool.execute('INSERT INTO user_likes_song (UserID, SongID) VALUES (?, ?)', [userId, songId]);
 }
 
 // Unlike a song
-export function unlikeSong(db: Database, userId: number, songId: number): void {
-  const result = db.prepare('DELETE FROM user_likes_song WHERE UserID = ? AND SongID = ?')
-    .run(userId, songId);
+export async function unlikeSong(pool: Pool, userId: number, songId: number): Promise<void> {
+  const [result] = await pool.execute<ResultSetHeader>(
+    'DELETE FROM user_likes_song WHERE UserID = ? AND SongID = ?',
+    [userId, songId]
+  );
 
-  if (result.changes === 0) {
+  if (result.affectedRows === 0) {
     throw new Error('Like not found');
   }
 }
 
 // Like an album
-export function likeAlbum(db: Database, userId: number, albumId: number): void {
+export async function likeAlbum(pool: Pool, userId: number, albumId: number): Promise<void> {
   // Verify user exists
-  const user = db.prepare('SELECT UserID FROM userprofile WHERE UserID = ?').get(userId);
-  if (!user) {
+  const [users] = await pool.execute<RowDataPacket[]>('SELECT UserID FROM userprofile WHERE UserID = ?', [userId]);
+  if (users.length === 0) {
     throw new Error('User not found');
   }
 
   // Verify album exists
-  const album = db.prepare('SELECT AlbumID FROM album WHERE AlbumID = ?').get(albumId);
-  if (!album) {
+  const [albums] = await pool.execute<RowDataPacket[]>('SELECT AlbumID FROM album WHERE AlbumID = ?', [albumId]);
+  if (albums.length === 0) {
     throw new Error('Album not found');
   }
 
   // Check if already liked
-  const existingLike = db.prepare('SELECT * FROM user_likes_album WHERE UserID = ? AND AlbumID = ?')
-    .get(userId, albumId);
-  if (existingLike) {
+  const [existingLikes] = await pool.execute<RowDataPacket[]>(
+    'SELECT * FROM user_likes_album WHERE UserID = ? AND AlbumID = ?',
+    [userId, albumId]
+  );
+  if (existingLikes.length > 0) {
     throw new Error('User has already liked this album');
   }
 
-  db.prepare('INSERT INTO user_likes_album (UserID, AlbumID) VALUES (?, ?)').run(userId, albumId);
+  await pool.execute('INSERT INTO user_likes_album (UserID, AlbumID) VALUES (?, ?)', [userId, albumId]);
 }
 
 // Unlike an album
-export function unlikeAlbum(db: Database, userId: number, albumId: number): void {
-  const result = db.prepare('DELETE FROM user_likes_album WHERE UserID = ? AND AlbumID = ?')
-    .run(userId, albumId);
+export async function unlikeAlbum(pool: Pool, userId: number, albumId: number): Promise<void> {
+  const [result] = await pool.execute<ResultSetHeader>(
+    'DELETE FROM user_likes_album WHERE UserID = ? AND AlbumID = ?',
+    [userId, albumId]
+  );
 
-  if (result.changes === 0) {
+  if (result.affectedRows === 0) {
     throw new Error('Like not found');
   }
 }
 
 // Like a playlist
-export function likePlaylist(db: Database, userId: number, playlistId: number): void {
+export async function likePlaylist(pool: Pool, userId: number, playlistId: number): Promise<void> {
   // Verify user exists
-  const user = db.prepare('SELECT UserID FROM userprofile WHERE UserID = ?').get(userId);
-  if (!user) {
+  const [users] = await pool.execute<RowDataPacket[]>('SELECT UserID FROM userprofile WHERE UserID = ?', [userId]);
+  if (users.length === 0) {
     throw new Error('User not found');
   }
 
   // Verify playlist exists
-  const playlist = db.prepare('SELECT PlaylistID FROM playlist WHERE PlaylistID = ?').get(playlistId);
-  if (!playlist) {
+  const [playlists] = await pool.execute<RowDataPacket[]>('SELECT PlaylistID FROM playlist WHERE PlaylistID = ?', [playlistId]);
+  if (playlists.length === 0) {
     throw new Error('Playlist not found');
   }
 
   // Check if already liked
-  const existingLike = db.prepare('SELECT * FROM user_likes_playlist WHERE UserID = ? AND PlaylistID = ?')
-    .get(userId, playlistId);
-  if (existingLike) {
+  const [existingLikes] = await pool.execute<RowDataPacket[]>(
+    'SELECT * FROM user_likes_playlist WHERE UserID = ? AND PlaylistID = ?',
+    [userId, playlistId]
+  );
+  if (existingLikes.length > 0) {
     throw new Error('User has already liked this playlist');
   }
 
-  db.prepare('INSERT INTO user_likes_playlist (UserID, PlaylistID) VALUES (?, ?)').run(userId, playlistId);
+  await pool.execute('INSERT INTO user_likes_playlist (UserID, PlaylistID) VALUES (?, ?)', [userId, playlistId]);
 }
 
 // Unlike a playlist
-export function unlikePlaylist(db: Database, userId: number, playlistId: number): void {
-  const result = db.prepare('DELETE FROM user_likes_playlist WHERE UserID = ? AND PlaylistID = ?')
-    .run(userId, playlistId);
+export async function unlikePlaylist(pool: Pool, userId: number, playlistId: number): Promise<void> {
+  const [result] = await pool.execute<ResultSetHeader>(
+    'DELETE FROM user_likes_playlist WHERE UserID = ? AND PlaylistID = ?',
+    [userId, playlistId]
+  );
 
-  if (result.changes === 0) {
+  if (result.affectedRows === 0) {
     throw new Error('Like not found');
   }
 }
 
 // Get user's liked songs
-export function getUserLikedSongs(
-  db: Database,
+export async function getUserLikedSongs(
+  pool: Pool,
   userId: number,
   filters: { page?: number; limit?: number }
-): any[] {
+): Promise<any[]> {
   const { page = 1, limit = 50 } = filters;
 
-  return db.prepare(`
+  const [rows] = await pool.execute<RowDataPacket[]>(`
     SELECT s.*, uls.LikedAt,
            up.FirstName AS ArtistFirstName, up.LastName AS ArtistLastName,
            al.AlbumName, g.GenreName
     FROM user_likes_song uls
     JOIN song s ON uls.SongID = s.SongID
     LEFT JOIN album al ON s.AlbumID = al.AlbumID
-    LEFT JOIN artist a ON al.ArtistID = a.ArtistID
+    LEFT JOIN artist a ON s.ArtistID = a.ArtistID
     LEFT JOIN userprofile up ON a.ArtistID = up.UserID
     LEFT JOIN genre g ON s.GenreID = g.GenreID
     WHERE uls.UserID = ?
     ORDER BY uls.LikedAt DESC
     LIMIT ? OFFSET ?
-  `).all(userId, limit, (page - 1) * limit);
+  `, [userId, parseInt(String(limit), 10), parseInt(String((page - 1) * limit), 10)]);
+
+  return rows;
 }
 
 // Get user's liked albums
-export function getUserLikedAlbums(
-  db: Database,
+export async function getUserLikedAlbums(
+  pool: Pool,
   userId: number,
   filters: { page?: number; limit?: number }
-): any[] {
+): Promise<any[]> {
   const { page = 1, limit = 50 } = filters;
 
-  return db.prepare(`
+  const [rows] = await pool.execute<RowDataPacket[]>(`
     SELECT a.*, ula.LikedAt,
            up.FirstName AS ArtistFirstName, up.LastName AS ArtistLastName
     FROM user_likes_album ula
@@ -144,18 +158,20 @@ export function getUserLikedAlbums(
     WHERE ula.UserID = ?
     ORDER BY ula.LikedAt DESC
     LIMIT ? OFFSET ?
-  `).all(userId, limit, (page - 1) * limit);
+  `, [userId, parseInt(String(limit), 10), parseInt(String((page - 1) * limit), 10)]);
+
+  return rows;
 }
 
 // Get user's liked playlists
-export function getUserLikedPlaylists(
-  db: Database,
+export async function getUserLikedPlaylists(
+  pool: Pool,
   userId: number,
   filters: { page?: number; limit?: number }
-): any[] {
+): Promise<any[]> {
   const { page = 1, limit = 50 } = filters;
 
-  return db.prepare(`
+  const [rows] = await pool.execute<RowDataPacket[]>(`
     SELECT p.*, ulp.LikedAt,
            up.Username, up.FirstName, up.LastName
     FROM user_likes_playlist ulp
@@ -164,48 +180,64 @@ export function getUserLikedPlaylists(
     WHERE ulp.UserID = ?
     ORDER BY ulp.LikedAt DESC
     LIMIT ? OFFSET ?
-  `).all(userId, limit, (page - 1) * limit);
+  `, [userId, parseInt(String(limit), 10), parseInt(String((page - 1) * limit), 10)]);
+
+  return rows;
 }
 
 // Check if song is liked by user
-export function isSongLiked(db: Database, userId: number, songId: number): boolean {
-  const like = db.prepare('SELECT 1 FROM user_likes_song WHERE UserID = ? AND SongID = ?')
-    .get(userId, songId);
-  return !!like;
+export async function isSongLiked(pool: Pool, userId: number, songId: number): Promise<boolean> {
+  const [rows] = await pool.execute<RowDataPacket[]>(
+    'SELECT 1 FROM user_likes_song WHERE UserID = ? AND SongID = ?',
+    [userId, songId]
+  );
+  return rows.length > 0;
 }
 
 // Check if album is liked by user
-export function isAlbumLiked(db: Database, userId: number, albumId: number): boolean {
-  const like = db.prepare('SELECT 1 FROM user_likes_album WHERE UserID = ? AND AlbumID = ?')
-    .get(userId, albumId);
-  return !!like;
+export async function isAlbumLiked(pool: Pool, userId: number, albumId: number): Promise<boolean> {
+  const [rows] = await pool.execute<RowDataPacket[]>(
+    'SELECT 1 FROM user_likes_album WHERE UserID = ? AND AlbumID = ?',
+    [userId, albumId]
+  );
+  return rows.length > 0;
 }
 
 // Check if playlist is liked by user
-export function isPlaylistLiked(db: Database, userId: number, playlistId: number): boolean {
-  const like = db.prepare('SELECT 1 FROM user_likes_playlist WHERE UserID = ? AND PlaylistID = ?')
-    .get(userId, playlistId);
-  return !!like;
+export async function isPlaylistLiked(pool: Pool, userId: number, playlistId: number): Promise<boolean> {
+  const [rows] = await pool.execute<RowDataPacket[]>(
+    'SELECT 1 FROM user_likes_playlist WHERE UserID = ? AND PlaylistID = ?',
+    [userId, playlistId]
+  );
+  return rows.length > 0;
 }
 
 // Get song like count
-export function getSongLikeCount(db: Database, songId: number): number {
-  const result = db.prepare('SELECT COUNT(*) as count FROM user_likes_song WHERE SongID = ?')
-    .get(songId) as { count: number };
+export async function getSongLikeCount(pool: Pool, songId: number): Promise<number> {
+  const [rows] = await pool.execute<RowDataPacket[]>(
+    'SELECT COUNT(*) as count FROM user_likes_song WHERE SongID = ?',
+    [songId]
+  );
+  const result = rows[0] as { count: number };
   return result.count;
 }
 
 // Get album like count
-export function getAlbumLikeCount(db: Database, albumId: number): number {
-  const result = db.prepare('SELECT COUNT(*) as count FROM user_likes_album WHERE AlbumID = ?')
-    .get(albumId) as { count: number };
+export async function getAlbumLikeCount(pool: Pool, albumId: number): Promise<number> {
+  const [rows] = await pool.execute<RowDataPacket[]>(
+    'SELECT COUNT(*) as count FROM user_likes_album WHERE AlbumID = ?',
+    [albumId]
+  );
+  const result = rows[0] as { count: number };
   return result.count;
 }
 
 // Get playlist like count
-export function getPlaylistLikeCount(db: Database, playlistId: number): number {
-  const result = db.prepare('SELECT COUNT(*) as count FROM user_likes_playlist WHERE PlaylistID = ?')
-    .get(playlistId) as { count: number };
+export async function getPlaylistLikeCount(pool: Pool, playlistId: number): Promise<number> {
+  const [rows] = await pool.execute<RowDataPacket[]>(
+    'SELECT COUNT(*) as count FROM user_likes_playlist WHERE PlaylistID = ?',
+    [playlistId]
+  );
+  const result = rows[0] as { count: number };
   return result.count;
 }
-

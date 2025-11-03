@@ -1,48 +1,52 @@
-import { Database } from 'better-sqlite3';
+import { Pool, RowDataPacket, ResultSetHeader } from 'mysql2/promise';
 
 // Follow an artist
-export function followArtist(db: Database, userId: number, artistId: number): void {
+export async function followArtist(pool: Pool, userId: number, artistId: number): Promise<void> {
   // Verify user exists
-  const user = db.prepare('SELECT UserID FROM userprofile WHERE UserID = ?').get(userId);
-  if (!user) {
+  const [users] = await pool.execute<RowDataPacket[]>('SELECT UserID FROM userprofile WHERE UserID = ?', [userId]);
+  if (users.length === 0) {
     throw new Error('User not found');
   }
 
   // Verify artist exists
-  const artist = db.prepare('SELECT ArtistID FROM artist WHERE ArtistID = ?').get(artistId);
-  if (!artist) {
+  const [artists] = await pool.execute<RowDataPacket[]>('SELECT ArtistID FROM artist WHERE ArtistID = ?', [artistId]);
+  if (artists.length === 0) {
     throw new Error('Artist not found');
   }
 
   // Check if already following
-  const existingFollow = db.prepare('SELECT * FROM user_follows_artist WHERE UserID = ? AND ArtistID = ?')
-    .get(userId, artistId);
-  if (existingFollow) {
+  const [existingFollows] = await pool.execute<RowDataPacket[]>(
+    'SELECT * FROM user_follows_artist WHERE UserID = ? AND ArtistID = ?',
+    [userId, artistId]
+  );
+  if (existingFollows.length > 0) {
     throw new Error('User is already following this artist');
   }
 
-  db.prepare('INSERT INTO user_follows_artist (UserID, ArtistID) VALUES (?, ?)').run(userId, artistId);
+  await pool.execute('INSERT INTO user_follows_artist (UserID, ArtistID) VALUES (?, ?)', [userId, artistId]);
 }
 
 // Unfollow an artist
-export function unfollowArtist(db: Database, userId: number, artistId: number): void {
-  const result = db.prepare('DELETE FROM user_follows_artist WHERE UserID = ? AND ArtistID = ?')
-    .run(userId, artistId);
+export async function unfollowArtist(pool: Pool, userId: number, artistId: number): Promise<void> {
+  const [result] = await pool.execute<ResultSetHeader>(
+    'DELETE FROM user_follows_artist WHERE UserID = ? AND ArtistID = ?',
+    [userId, artistId]
+  );
 
-  if (result.changes === 0) {
+  if (result.affectedRows === 0) {
     throw new Error('Follow relationship not found');
   }
 }
 
 // Get artists followed by user
-export function getUserFollowing(
-  db: Database,
+export async function getUserFollowing(
+  pool: Pool,
   userId: number,
   filters: { page?: number; limit?: number }
-): any[] {
+): Promise<any[]> {
   const { page = 1, limit = 50 } = filters;
 
-  return db.prepare(`
+  const [rows] = await pool.execute<RowDataPacket[]>(`
     SELECT a.*, u.Username, u.FirstName, u.LastName, u.ProfilePicture, ufa.FollowedAt
     FROM user_follows_artist ufa
     JOIN artist a ON ufa.ArtistID = a.ArtistID
@@ -50,51 +54,63 @@ export function getUserFollowing(
     WHERE ufa.UserID = ?
     ORDER BY ufa.FollowedAt DESC
     LIMIT ? OFFSET ?
-  `).all(userId, limit, (page - 1) * limit);
+  `, [userId, parseInt(String(limit), 10), parseInt(String((page - 1) * limit), 10)]);
+
+  return rows;
 }
 
 // Get followers of an artist
-export function getArtistFollowers(
-  db: Database,
+export async function getArtistFollowers(
+  pool: Pool,
   artistId: number,
   filters: { page?: number; limit?: number }
-): any[] {
+): Promise<any[]> {
   const { page = 1, limit = 50 } = filters;
 
-  return db.prepare(`
+  const [rows] = await pool.execute<RowDataPacket[]>(`
     SELECT u.UserID, u.Username, u.FirstName, u.LastName, u.ProfilePicture, ufa.FollowedAt
     FROM user_follows_artist ufa
     JOIN userprofile u ON ufa.UserID = u.UserID
     WHERE ufa.ArtistID = ?
     ORDER BY ufa.FollowedAt DESC
     LIMIT ? OFFSET ?
-  `).all(artistId, limit, (page - 1) * limit);
+  `, [artistId, parseInt(String(limit), 10), parseInt(String((page - 1) * limit), 10)]);
+
+  return rows;
 }
 
 // Check if user is following artist
-export function isFollowingArtist(db: Database, userId: number, artistId: number): boolean {
-  const follow = db.prepare('SELECT 1 FROM user_follows_artist WHERE UserID = ? AND ArtistID = ?')
-    .get(userId, artistId);
-  return !!follow;
+export async function isFollowingArtist(pool: Pool, userId: number, artistId: number): Promise<boolean> {
+  const [rows] = await pool.execute<RowDataPacket[]>(
+    'SELECT 1 FROM user_follows_artist WHERE UserID = ? AND ArtistID = ?',
+    [userId, artistId]
+  );
+  return rows.length > 0;
 }
 
 // Get follower count for artist
-export function getFollowerCount(db: Database, artistId: number): number {
-  const result = db.prepare('SELECT COUNT(*) as count FROM user_follows_artist WHERE ArtistID = ?')
-    .get(artistId) as { count: number };
+export async function getFollowerCount(pool: Pool, artistId: number): Promise<number> {
+  const [rows] = await pool.execute<RowDataPacket[]>(
+    'SELECT COUNT(*) as count FROM user_follows_artist WHERE ArtistID = ?',
+    [artistId]
+  );
+  const result = rows[0] as { count: number };
   return result.count;
 }
 
 // Get following count for user
-export function getFollowingCount(db: Database, userId: number): number {
-  const result = db.prepare('SELECT COUNT(*) as count FROM user_follows_artist WHERE UserID = ?')
-    .get(userId) as { count: number };
+export async function getFollowingCount(pool: Pool, userId: number): Promise<number> {
+  const [rows] = await pool.execute<RowDataPacket[]>(
+    'SELECT COUNT(*) as count FROM user_follows_artist WHERE UserID = ?',
+    [userId]
+  );
+  const result = rows[0] as { count: number };
   return result.count;
 }
 
 // Get mutual follows (artists both users follow)
-export function getMutualFollows(db: Database, userId1: number, userId2: number): any[] {
-  return db.prepare(`
+export async function getMutualFollows(pool: Pool, userId1: number, userId2: number): Promise<any[]> {
+  const [rows] = await pool.execute<RowDataPacket[]>(`
     SELECT a.*, u.Username, u.FirstName, u.LastName
     FROM user_follows_artist ufa1
     JOIN user_follows_artist ufa2 ON ufa1.ArtistID = ufa2.ArtistID
@@ -102,6 +118,7 @@ export function getMutualFollows(db: Database, userId1: number, userId2: number)
     JOIN userprofile u ON a.ArtistID = u.UserID
     WHERE ufa1.UserID = ? AND ufa2.UserID = ?
     ORDER BY u.Username
-  `).all(userId1, userId2);
-}
+  `, [userId1, userId2]);
 
+  return rows;
+}

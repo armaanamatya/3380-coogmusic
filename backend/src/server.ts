@@ -212,13 +212,17 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
   if (requestPath === '/api/test-db' && method === 'GET') {
     try {
       const pool = await getPool();
-      const songCount = pool.prepare("SELECT COUNT(*) as count FROM song").get() as { count: number };
-      const albumCount = pool.prepare("SELECT COUNT(*) as count FROM album").get() as { count: number };
-      const artistCount = pool.prepare("SELECT COUNT(*) as count FROM artist").get() as { count: number };
+      const [songRows] = await pool.query<any[]>("SELECT COUNT(*) as count FROM song");
+      const [albumRows] = await pool.query<any[]>("SELECT COUNT(*) as count FROM album");
+      const [artistRows] = await pool.query<any[]>("SELECT COUNT(*) as count FROM artist");
+      
+      const songCount = songRows[0];
+      const albumCount = albumRows[0];
+      const artistCount = artistRows[0];
       
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ 
-        message: 'SQLite database connection successful',
+        message: 'MySQL database connection successful',
         counts: {
           songs: songCount.count,
           albums: albumCount.count,
@@ -249,6 +253,12 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
         try {
           const userData = (req as any).body as RegisterUserData;
           const profilePicture = (req as any).file;
+          
+          // Validate required fields
+          if (!userData || !userData.username || !userData.email || !userData.password) {
+            throw new Error('Missing required fields: username, email, and password are required');
+          }
+          
           console.log(`  👤 User: ${userData.username} (${userData.email})`);
           console.log(`  📷 Profile Picture: ${profilePicture ? profilePicture.filename : 'None'}`);
           
@@ -269,7 +279,8 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
           }));
         } catch (error: any) {
           logError(error);
-          const statusCode = error.message.includes('already exists') ? 400 : 500;
+          const statusCode = error.message.includes('already exists') || error.message.includes('Missing required') ? 400 : 500;
+          console.log(`  Response: ${statusCode} - ${error.message}`);
           res.writeHead(statusCode, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
         }
@@ -295,6 +306,11 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     req.on('end', async () => {
       try {
         const credentials = JSON.parse(body) as LoginCredentials;
+        
+        if (!credentials.username || !credentials.password) {
+          throw new Error('Username and password are required');
+        }
+        
         console.log(`  👤 User: ${credentials.username}`);
         const pool = await getPool();
 
@@ -310,7 +326,8 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
         }));
       } catch (error: any) {
         logError(error);
-        const statusCode = error.message.includes('Invalid') ? 401 : 500;
+        const statusCode = error.message.includes('Invalid') || error.message.includes('required') ? 401 : 500;
+        console.log(`  Response: ${statusCode} - ${error.message}`);
         res.writeHead(statusCode, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
       }
@@ -350,16 +367,18 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
         console.log(`  💿 Filter by Album ID: ${albumId}`);
       }
       
-      const songs = songController.getAllSongs(pool, filters);
+      const songs = await songController.getAllSongs(pool, filters);
       console.log(`  ✅ Found ${songs.length} songs`);
       logResponse(200, `Returned ${songs.length} songs`);
       
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ songs }));
-    } catch (error) {
+    } catch (error: any) {
       logError(error);
+      const errorMessage = error?.message || 'Internal server error';
+      console.error(`  Full error:`, error);
       res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Internal server error' }));
+      res.end(JSON.stringify({ error: errorMessage }));
     }
     return;
   }
@@ -368,7 +387,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
   if (requestPath === '/api/song/top' && method === 'GET') {
     try {
       const pool = await getPool();
-      const songs = songController.getTopSongsByListenCount(pool, 10);
+      const songs = await songController.getTopSongsByListenCount(pool, 10);
       
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ songs }));
@@ -387,7 +406,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     try {
       const pool = await getPool();
       
-      const song = songController.getSongById(pool, songId);
+      const song = await songController.getSongById(pool, songId);
       
       if (!song) {
         console.log(`  ❌ Song not found`);
@@ -423,7 +442,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
         const updateData = JSON.parse(body);
         const pool = await getPool();
 
-        songController.updateSong(pool, songId, updateData);
+        await songController.updateSong(pool, songId, updateData);
 
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ message: 'Song updated successfully' }));
@@ -444,7 +463,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
       const songId = parseInt(requestPath.split('/').pop() || '0');
       const pool = await getPool();
 
-      const result = songController.deleteSong(pool, songId);
+      const result = await songController.deleteSong(pool, songId);
 
       // Delete the audio file from disk
       if (result.filePath) {
@@ -466,7 +485,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
   if (requestPath === '/api/genres' && method === 'GET') {
     try {
       const pool = await getPool();
-      const genres = genreController.getAllGenres(pool);
+      const genres = await genreController.getAllGenres(pool);
       
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ genres }));
@@ -482,7 +501,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
   if (requestPath === '/api/genres/with-listens' && method === 'GET') {
     try {
       const pool = await getPool();
-      const genres = genreController.getGenresWithListenCount(pool);
+      const genres = await genreController.getGenresWithListenCount(pool);
       
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ genres }));
@@ -505,7 +524,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
         filters.artistId = parseInt(artistId as string);
       }
       
-      const albums = albumController.getAllAlbums(pool, filters);
+      const albums = await albumController.getAllAlbums(pool, filters);
       
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ albums }));
@@ -521,7 +540,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
   if (requestPath === '/api/albums/top' && method === 'GET') {
     try {
       const pool = await getPool();
-      const albums = albumController.getTopAlbumsByLikes(pool, 10);
+      const albums = await albumController.getTopAlbumsByLikes(pool, 10);
       
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ albums }));
@@ -546,7 +565,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
         const albumData = JSON.parse(body) as CreateAlbumData;
         const pool = await getPool();
 
-        const result = albumController.createAlbum(pool, albumData);
+        const result = await albumController.createAlbum(pool, albumData);
 
         res.writeHead(201, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ 
@@ -577,7 +596,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
         const updateData = JSON.parse(body);
         const pool = await getPool();
 
-        albumController.updateAlbum(pool, albumId, updateData);
+        await albumController.updateAlbum(pool, albumId, updateData);
 
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ message: 'Album updated successfully' }));
@@ -598,7 +617,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
       const albumId = parseInt(requestPath.split('/').pop() || '0');
       const pool = await getPool();
 
-      const result = albumController.deleteAlbum(pool, albumId);
+      const result = await albumController.deleteAlbum(pool, albumId);
 
       // Delete album cover file if exists
       if (result.albumArtPath) {
@@ -621,7 +640,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
   if (requestPath === '/api/artists' && method === 'GET') {
     try {
       const pool = await getPool();
-      const artists = artistController.getAllArtists(pool);
+      const artists = await artistController.getAllArtists(pool);
       
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ artists }));
@@ -637,7 +656,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
   if (requestPath === '/api/artists/top' && method === 'GET') {
     try {
       const pool = await getPool();
-      const artists = artistController.getTopArtistsByFollowers(pool, 10);
+      const artists = await artistController.getTopArtistsByFollowers(pool, 10);
       
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ artists }));
@@ -688,12 +707,12 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
           const albumCoverPath = albumCover ? `/uploads/album-covers/${albumCover.filename}` : null;
 
           // Create song using controller
-          const result = songController.createSong(pool, musicData, audioFilePath, audioFile.size);
+          const result = await songController.createSong(pool, musicData, audioFilePath, audioFile.size);
           console.log(`  ✅ Song created (ID: ${result.songId})`);
 
           // If album cover provided and albumId exists, update album cover
           if (albumCover && musicData.albumId && albumCoverPath) {
-            albumController.updateAlbumCover(pool, musicData.albumId, albumCoverPath);
+            await albumController.updateAlbumCover(pool, musicData.albumId, albumCoverPath);
             console.log(`  🖼️  Album cover updated for Album ID: ${musicData.albumId}`);
           }
 
@@ -728,7 +747,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
       const pathParts = requestPath?.split('/') || [];
       const userId = parseInt(pathParts[3] || '0');
       const pool = await getPool();
-      const user = userController.getUserById(pool, userId);
+      const user = await userController.getUserById(pool, userId);
       
       if (!user) {
         res.writeHead(404, { 'Content-Type': 'application/json' });
@@ -761,11 +780,11 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
         const pool = await getPool();
         
         // Update the user
-        userController.updateUser(pool, userId, updateData);
+        await userController.updateUser(pool, userId, updateData);
         console.log(`  ✅ User updated successfully`);
         
         // Fetch the updated user
-        const updatedUser = userController.getUserById(pool, userId);
+        const updatedUser = await userController.getUserById(pool, userId);
         console.log(`  👤 Fetched updated user:`, updatedUser ? 'Success' : 'Failed');
         
         if (!updatedUser) {
@@ -886,9 +905,9 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
       
       let playlists;
       if (userId) {
-        playlists = playlistController.getPlaylistsByUser(pool, parseInt(userId as string));
+        playlists = await playlistController.getPlaylistsByUser(pool, parseInt(userId as string));
       } else {
-        playlists = playlistController.getPublicPlaylists(pool, {
+        playlists = await playlistController.getPublicPlaylists(pool, {
           page: parseInt(page as string),
           limit: parseInt(limit as string)
         });
@@ -907,7 +926,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
   if (requestPath === '/api/playlists/top' && method === 'GET') {
     try {
       const pool = await getPool();
-      const playlists = playlistController.getTopPlaylistsByLikes(pool, 10);
+      const playlists = await playlistController.getTopPlaylistsByLikes(pool, 10);
       
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ playlists }));
@@ -928,7 +947,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
         const playlistData = JSON.parse(body);
         const pool = await getPool();
         
-        const result = playlistController.createPlaylist(pool, playlistData);
+        const result = await playlistController.createPlaylist(pool, playlistData);
         
         res.writeHead(201, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ 
@@ -949,7 +968,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     const playlistId = parseInt(requestPath.split('/').pop() || '0');
     try {
       const pool = await getPool();
-      const playlist = playlistController.getPlaylistById(pool, playlistId);
+      const playlist = await playlistController.getPlaylistById(pool, playlistId);
       
       if (!playlist) {
         res.writeHead(404, { 'Content-Type': 'application/json' });
@@ -976,7 +995,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
         const updateData = JSON.parse(body);
         const pool = await getPool();
         
-        playlistController.updatePlaylist(pool, playlistId, updateData);
+        await playlistController.updatePlaylist(pool, playlistId, updateData);
         
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ message: 'Playlist updated successfully' }));
@@ -1013,7 +1032,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     const playlistId = parseInt(pathParts[3] || '0');
     try {
       const pool = await getPool();
-      const songs = await playlistController.getPlaylistSongs(pool, playlistId);
+      const songs = playlistController.getPlaylistSongs(pool, playlistId);
       
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ songs }));
@@ -1285,7 +1304,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
         const historyData = JSON.parse(body);
         const pool = await getPool();
         
-        const result = historyController.addListeningHistory(pool, historyData);
+        const result = await historyController.addListeningHistory(pool, historyData);
         
         res.writeHead(201, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ 

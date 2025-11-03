@@ -1,89 +1,101 @@
-import { Database } from 'better-sqlite3';
+import { Pool, RowDataPacket, ResultSetHeader } from 'mysql2/promise';
 import { Artist } from '../types/index.js';
 
 // Get all artists
-export function getAllArtists(db: Database): any[] {
-  const artists = db.prepare(`
+export async function getAllArtists(pool: Pool): Promise<any[]> {
+  const [rows] = await pool.execute<RowDataPacket[]>(`
     SELECT a.ArtistID, up.FirstName, up.LastName, up.Username, a.ArtistBio, a.VerifiedStatus
     FROM artist a
     LEFT JOIN userprofile up ON a.ArtistID = up.UserID
     ORDER BY up.FirstName, up.LastName
-  `).all();
+  `);
   
-  return artists;
+  return rows;
 }
 
 // Get artist by ID
-export function getArtistById(db: Database, artistId: number): any | null {
-  const artist = db.prepare(`
+export async function getArtistById(pool: Pool, artistId: number): Promise<any | null> {
+  const [rows] = await pool.execute<RowDataPacket[]>(`
     SELECT a.ArtistID, up.FirstName, up.LastName, up.Username, up.ProfilePicture,
            a.ArtistBio, a.VerifiedStatus, a.DateVerified
     FROM artist a
     LEFT JOIN userprofile up ON a.ArtistID = up.UserID
     WHERE a.ArtistID = ?
-  `).get(artistId);
+  `, [artistId]);
   
-  return artist || null;
+  return rows.length > 0 ? rows[0] : null;
 }
 
 // Update artist bio
-export function updateArtistBio(
-  db: Database,
+export async function updateArtistBio(
+  pool: Pool,
   artistId: number,
   bio: string
-): void {
+): Promise<void> {
   // Check if artist exists
-  const existingArtist = db.prepare('SELECT * FROM artist WHERE ArtistID = ?').get(artistId);
-  if (!existingArtist) {
+  const [existingArtists] = await pool.execute<RowDataPacket[]>(
+    'SELECT * FROM artist WHERE ArtistID = ?', 
+    [artistId]
+  );
+  if (existingArtists.length === 0) {
     throw new Error('Artist not found');
   }
 
-  db.prepare('UPDATE artist SET ArtistBio = ? WHERE ArtistID = ?').run(bio, artistId);
+  await pool.execute('UPDATE artist SET ArtistBio = ? WHERE ArtistID = ?', [bio, artistId]);
 }
 
 // Verify artist (admin function)
-export function verifyArtist(
-  db: Database,
+export async function verifyArtist(
+  pool: Pool,
   artistId: number,
   adminId: number
-): void {
+): Promise<void> {
   // Check if artist exists
-  const existingArtist = db.prepare('SELECT * FROM artist WHERE ArtistID = ?').get(artistId);
-  if (!existingArtist) {
+  const [existingArtists] = await pool.execute<RowDataPacket[]>(
+    'SELECT * FROM artist WHERE ArtistID = ?', 
+    [artistId]
+  );
+  if (existingArtists.length === 0) {
     throw new Error('Artist not found');
   }
 
   const dateVerified = new Date().toISOString().split('T')[0];
   
-  db.prepare(
-    'UPDATE artist SET VerifiedStatus = 1, VerifyingAdminID = ?, DateVerified = ? WHERE ArtistID = ?'
-  ).run(adminId, dateVerified, artistId);
+  await pool.execute(
+    'UPDATE artist SET VerifiedStatus = 1, VerifyingAdminID = ?, DateVerified = ? WHERE ArtistID = ?',
+    [adminId, dateVerified, artistId]
+  );
 }
 
 // Get artist albums
-export function getArtistAlbums(db: Database, artistId: number): any[] {
-  return db.prepare(`
+export async function getArtistAlbums(pool: Pool, artistId: number): Promise<any[]> {
+  const [rows] = await pool.execute<RowDataPacket[]>(`
     SELECT * FROM album 
     WHERE ArtistID = ? 
-    ORDER BY AlbumDate DESC
-  `).all(artistId);
+    ORDER BY ReleaseDate DESC
+  `, [artistId]);
+  
+  return rows;
 }
 
 // Get artist songs
-export function getArtistSongs(db: Database, artistId: number): any[] {
-  return db.prepare(`
+export async function getArtistSongs(pool: Pool, artistId: number): Promise<any[]> {
+  const [rows] = await pool.execute<RowDataPacket[]>(`
     SELECT s.*, al.AlbumName, g.GenreName
     FROM song s
     LEFT JOIN album al ON s.AlbumID = al.AlbumID
     LEFT JOIN genre g ON s.GenreID = g.GenreID
-    WHERE al.ArtistID = ?
+    WHERE s.ArtistID = ?
     ORDER BY s.SongID DESC
-  `).all(artistId);
+  `, [artistId]);
+  
+  return rows;
 }
 
 // Get top artists by follower count
-export function getTopArtistsByFollowers(db: Database, limit: number = 10): any[] {
-  return db.prepare(`
+export async function getTopArtistsByFollowers(pool: Pool, limit: number = 10): Promise<any[]> {
+  const limitValue = parseInt(String(limit), 10);
+  const [rows] = await pool.query<RowDataPacket[]>(`
     SELECT 
       a.ArtistID,
       u.FirstName,
@@ -99,6 +111,7 @@ export function getTopArtistsByFollowers(db: Database, limit: number = 10): any[
     GROUP BY a.ArtistID, u.FirstName, u.LastName, u.Username, u.ProfilePicture, a.ArtistBio, a.VerifiedStatus
     ORDER BY followerCount DESC
     LIMIT ?
-  `).all(limit);
+  `, [limitValue]);
+  
+  return rows as RowDataPacket[];
 }
-

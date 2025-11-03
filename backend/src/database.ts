@@ -1,4 +1,4 @@
-import Database from 'better-sqlite3';
+import mysql from 'mysql2/promise';
 import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
@@ -10,32 +10,45 @@ const __dirname = path.dirname(__filename);
 dotenv.config();
 
 export interface DatabaseConfig {
-  path: string;
+  host: string;
+  user: string;
+  password: string;
+  database: string;
+  port: number;
+  waitForConnections: boolean;
+  connectionLimit: number;
+  queueLimit: number;
+  ssl?: any;
 }
 
 const dbConfig: DatabaseConfig = {
-  path: process.env.DB_PATH || './coogmusic.db',
+  host: process.env.DB_HOST || 'localhost',
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD || '',
+  database: process.env.DB_NAME || 'coogmusic',
+  port: parseInt(process.env.DB_PORT || '3306', 10),
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0,
+  // Azure requires SSL
+  ssl: {
+    rejectUnauthorized: false
+  }
 };
 
-let db: Database.Database | null = null;
+let pool: mysql.Pool | null = null;
 
-export const createConnection = async (): Promise<Database.Database> => {
+export const createConnection = async (): Promise<mysql.Pool> => {
   try {
-    if (!db) {
-      // Ensure directory exists
-      const dbDir = path.dirname(dbConfig.path);
-      if (!fs.existsSync(dbDir)) {
-        fs.mkdirSync(dbDir, { recursive: true });
-      }
-      
-      db = new Database(dbConfig.path);
-      
-      // Enable foreign key constraints
-      db.pragma('foreign_keys = ON');
-      
-      console.log('Connected to SQLite database');
+    if (!pool) {
+      pool = mysql.createPool(dbConfig);
+      // Test the connection
+      const connection = await pool.getConnection();
+      await connection.ping();
+      connection.release();
+      console.log('Connected to MySQL database');
     }
-    return db;
+    return pool;
   } catch (error) {
     console.error('Error connecting to database:', error);
     throw error;
@@ -44,24 +57,10 @@ export const createConnection = async (): Promise<Database.Database> => {
 
 export const getPool = createConnection;
 
-// Legacy function - not used in current implementation (controllers use createConnection)
-// Kept for backward compatibility but not exported to avoid TypeScript naming issues
-const createPool = (): InstanceType<typeof Database> => {
-  try {
-    const database = new Database(dbConfig.path);
-    database.pragma('foreign_keys = ON');
-    console.log('SQLite database pool created');
-    return database;
-  } catch (error) {
-    console.error('Error creating database pool:', error);
-    throw error;
-  }
-};
-
 export const testConnection = async (): Promise<boolean> => {
   try {
     const database = await createConnection();
-    database.prepare('SELECT 1').get();
+    const [rows] = await database.query('SELECT 1 as test');
     console.log('Database connection test successful');
     return true;
   } catch (error) {
@@ -73,20 +72,48 @@ export const testConnection = async (): Promise<boolean> => {
 export const initializeDatabase = async (): Promise<void> => {
   try {
     const database = await createConnection();
-    
-    // Check if tables already exist
-    const tables = database.prepare(`
-      SELECT name FROM sqlite_master 
-      WHERE type='table' AND name='userprofile'
-    `).get();
-    
-    if (!tables) {
-      // Only initialize schema if tables don't exist
-      const schemaPath = path.join(__dirname, 'schema.sqlite.sql');
+    const [tables] = await database.query<any[]>(
+      "SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'userprofile'",
+      [dbConfig.database]
+    );
+
+    if (tables.length === 0) {
+      const schemaPath = path.join(__dirname, 'schema.mysql.sql');
       
       if (fs.existsSync(schemaPath)) {
         const schema = fs.readFileSync(schemaPath, 'utf8');
-        database.exec(schema);
+        
+        // Better statement splitting - handle multi-line statements
+        // Remove comments first
+        const cleanedSchema = schema
+          .replace(/--.*$/gm, '') // Remove single-line comments
+          .replace(/\/\*[\s\S]*?\*\//g, ''); // Remove multi-line comments
+        
+        // Split by semicolons, but keep multi-line statements together
+        const statements = cleanedSchema
+          .split(';')
+          .map(stmt => stmt.trim())
+          .filter(stmt => stmt.length > 0);
+        
+        console.log(`Executing ${statements.length} schema statements...`);
+        
+        let statementIndex = 0;
+        for (const statement of statements) {
+          statementIndex++;
+          const trimmedStatement = statement.trim();
+          if (trimmedStatement) {
+            try {
+              await database.query(trimmedStatement);
+              console.log(`✅ Statement ${statementIndex}/${statements.length} executed`);
+            } catch (error: any) {
+              // Log errors properly instead of just warning
+              console.error(`❌ Error in statement ${statementIndex}:`, error.message);
+              console.error(`Statement preview: ${trimmedStatement.substring(0, 200)}...`);
+              // Don't skip - we need to see what's failing
+              throw error; // Re-throw to stop execution
+            }
+          }
+        }
         console.log('Database schema initialized');
       } else {
         console.warn('Schema file not found, database may not be properly initialized');
@@ -100,10 +127,10 @@ export const initializeDatabase = async (): Promise<void> => {
   }
 };
 
-export const closeConnection = (): void => {
-  if (db) {
-    db.close();
-    db = null;
+export const closeConnection = async (): Promise<void> => {
+  if (pool) {
+    await pool.end();
+    pool = null;
     console.log('Database connection closed');
   }
 };

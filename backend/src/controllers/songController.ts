@@ -1,11 +1,11 @@
-import { Database } from 'better-sqlite3';
+import { Pool, RowDataPacket, ResultSetHeader } from 'mysql2/promise';
 import { Song, UpdateSongData, UploadMusicData } from '../types/index.js';
 import * as fs from 'fs';
 import * as path from 'path';
 
 // Get all songs with filters
-export function getAllSongs(
-  db: Database,
+export async function getAllSongs(
+  pool: Pool,
   filters: {
     page?: number;
     limit?: number;
@@ -13,7 +13,7 @@ export function getAllSongs(
     genreId?: number;
     albumId?: number;
   }
-): Song[] {
+): Promise<Song[]> {
   const { page = 1, limit = 50, artistId, genreId, albumId } = filters;
   
   let query = `
@@ -46,15 +46,18 @@ export function getAllSongs(
     queryParams.push(albumId);
   }
   
-  query += ' ORDER BY s.SongID DESC LIMIT ? OFFSET ?';
-  queryParams.push(limit, (page - 1) * limit);
+  // LIMIT and OFFSET must be integers, not placeholders (some MySQL drivers don't support placeholders for LIMIT/OFFSET)
+  const limitValue = parseInt(String(limit), 10);
+  const offsetValue = parseInt(String((page - 1) * limit), 10);
+  query += ` ORDER BY s.SongID DESC LIMIT ${limitValue} OFFSET ${offsetValue}`;
   
-  return db.prepare(query).all(...queryParams) as Song[];
+  const [rows] = await pool.execute<RowDataPacket[]>(query, queryParams);
+  return rows as Song[];
 }
 
 // Get song by ID
-export function getSongById(db: Database, songId: number): Song | null {
-  const song = db.prepare(`
+export async function getSongById(pool: Pool, songId: number): Promise<Song | null> {
+  const [rows] = await pool.execute<RowDataPacket[]>(`
     SELECT s.*, 
            a.ArtistID, up.FirstName AS ArtistFirstName, up.LastName AS ArtistLastName,
            al.AlbumName, al.AlbumCover,
@@ -65,31 +68,32 @@ export function getSongById(db: Database, songId: number): Song | null {
     LEFT JOIN album al ON s.AlbumID = al.AlbumID
     LEFT JOIN genre g ON s.GenreID = g.GenreID
     WHERE s.SongID = ?
-  `).get(songId) as Song | undefined;
+  `, [songId]);
   
-  return song || null;
+  return rows.length > 0 ? (rows[0] as Song) : null;
 }
 
 // Create new song
-export function createSong(
-  db: Database,
+export async function createSong(
+  pool: Pool,
   musicData: UploadMusicData,
   audioFilePath: string,
   audioFileSize: number
-): { songId: number; audioFilePath: string } {
+): Promise<{ songId: number; audioFilePath: string }> {
   // Verify artist exists
-  const artist = db.prepare('SELECT ArtistID FROM artist WHERE ArtistID = ?').get(musicData.artistId);
-  if (!artist) {
+  const [artists] = await pool.execute<RowDataPacket[]>(
+    'SELECT ArtistID FROM artist WHERE ArtistID = ?', 
+    [musicData.artistId]
+  );
+  if (artists.length === 0) {
     throw new Error('Artist not found');
   }
 
   // Insert new song
-  const stmt = db.prepare(`
+  const [result] = await pool.execute<ResultSetHeader>(`
     INSERT INTO song (SongName, ArtistID, AlbumID, GenreID, Duration, FilePath, FileSize, ReleaseDate)
-    VALUES (?, ?, ?, ?, ?, ?, ?, DATE('now'))
-  `);
-
-  const result = stmt.run(
+    VALUES (?, ?, ?, ?, ?, ?, ?, CURDATE())
+  `, [
     musicData.songName,
     musicData.artistId,
     musicData.albumId || null,
@@ -97,23 +101,26 @@ export function createSong(
     parseInt(musicData.duration) || 0,
     audioFilePath,
     audioFileSize
-  );
+  ]);
 
   return {
-    songId: Number(result.lastInsertRowid),
+    songId: result.insertId,
     audioFilePath
   };
 }
 
 // Update song
-export function updateSong(
-  db: Database,
+export async function updateSong(
+  pool: Pool,
   songId: number,
   updateData: UpdateSongData
-): void {
+): Promise<void> {
   // Check if song exists
-  const existingSong = db.prepare('SELECT * FROM song WHERE SongID = ?').get(songId);
-  if (!existingSong) {
+  const [existingSongs] = await pool.execute<RowDataPacket[]>(
+    'SELECT * FROM song WHERE SongID = ?', 
+    [songId]
+  );
+  if (existingSongs.length === 0) {
     throw new Error('Song not found');
   }
 
@@ -136,19 +143,24 @@ export function updateSong(
   values.push(songId);
   const updateQuery = `UPDATE song SET ${updates.join(', ')} WHERE SongID = ?`;
   
-  db.prepare(updateQuery).run(...values);
+  await pool.execute(updateQuery, values);
 }
 
 // Delete song
-export function deleteSong(db: Database, songId: number): { filePath: string | null } {
+export async function deleteSong(pool: Pool, songId: number): Promise<{ filePath: string | null }> {
   // Get song details including file path
-  const song = db.prepare('SELECT * FROM song WHERE SongID = ?').get(songId) as any;
-  if (!song) {
+  const [songs] = await pool.execute<RowDataPacket[]>(
+    'SELECT * FROM song WHERE SongID = ?', 
+    [songId]
+  );
+  if (songs.length === 0) {
     throw new Error('Song not found');
   }
 
+  const song = songs[0] as any;
+
   // Delete the song from database
-  db.prepare('DELETE FROM song WHERE SongID = ?').run(songId);
+  await pool.execute('DELETE FROM song WHERE SongID = ?', [songId]);
 
   return { filePath: song.FilePath || null };
 }
@@ -164,8 +176,9 @@ export function deleteFileFromDisk(filePath: string): void {
 }
 
 // Get top songs by listen count
-export function getTopSongsByListenCount(db: Database, limit: number = 10): any[] {
-  return db.prepare(`
+export async function getTopSongsByListenCount(pool: Pool, limit: number = 10): Promise<any[]> {
+  const limitValue = parseInt(String(limit), 10);
+  const [rows] = await pool.query<RowDataPacket[]>(`
     SELECT 
       s.SongID,
       s.SongName,
@@ -185,7 +198,9 @@ export function getTopSongsByListenCount(db: Database, limit: number = 10): any[
     LEFT JOIN album al ON s.AlbumID = al.AlbumID
     LEFT JOIN genre g ON s.GenreID = g.GenreID
     ORDER BY s.ListenCount DESC
-    LIMIT ?
-  `).all(limit);
+    LIMIT ${limitValue}
+  `);
+  
+  return rows as RowDataPacket[];
 }
 
