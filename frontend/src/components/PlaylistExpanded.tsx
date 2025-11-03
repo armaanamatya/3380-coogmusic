@@ -37,7 +37,10 @@ export const PlaylistExpanded: React.FC<PlaylistExpandedProps> = ({
         const data = await response.json();
         
         if (response.ok) {
-          setSongs(data.songs || []);
+          // Ensure songs is always an array
+          const songsArray = Array.isArray(data.songs) ? data.songs : 
+                            Array.isArray(data) ? data : [];
+          setSongs(songsArray);
         } else {
           setError(data.error || 'Failed to load playlist songs');
         }
