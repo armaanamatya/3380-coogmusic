@@ -1032,7 +1032,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     const playlistId = parseInt(pathParts[3] || '0');
     try {
       const pool = await getPool();
-      const songs = playlistController.getPlaylistSongs(pool, playlistId);
+      const songs = await playlistController.getPlaylistSongs(pool, playlistId);
       
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ songs }));
@@ -1054,7 +1054,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
         const { songId } = JSON.parse(body);
         const pool = await getPool();
         
-        playlistController.addSongToPlaylist(pool, playlistId, songId);
+        await playlistController.addSongToPlaylist(pool, playlistId, songId);
         
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ message: 'Song added to playlist' }));
@@ -1076,7 +1076,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
       const songId = parseInt(pathParts[5] || '0');
       const pool = await getPool();
       
-      playlistController.removeSongFromPlaylist(pool, playlistId, songId);
+      await playlistController.removeSongFromPlaylist(pool, playlistId, songId);
       
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ message: 'Song removed from playlist' }));
