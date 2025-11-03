@@ -253,6 +253,12 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
         try {
           const userData = (req as any).body as RegisterUserData;
           const profilePicture = (req as any).file;
+          
+          // Validate required fields
+          if (!userData || !userData.username || !userData.email || !userData.password) {
+            throw new Error('Missing required fields: username, email, and password are required');
+          }
+          
           console.log(`  👤 User: ${userData.username} (${userData.email})`);
           console.log(`  📷 Profile Picture: ${profilePicture ? profilePicture.filename : 'None'}`);
           
@@ -273,7 +279,8 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
           }));
         } catch (error: any) {
           logError(error);
-          const statusCode = error.message.includes('already exists') ? 400 : 500;
+          const statusCode = error.message.includes('already exists') || error.message.includes('Missing required') ? 400 : 500;
+          console.log(`  Response: ${statusCode} - ${error.message}`);
           res.writeHead(statusCode, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
         }
@@ -299,6 +306,11 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     req.on('end', async () => {
       try {
         const credentials = JSON.parse(body) as LoginCredentials;
+        
+        if (!credentials.username || !credentials.password) {
+          throw new Error('Username and password are required');
+        }
+        
         console.log(`  👤 User: ${credentials.username}`);
         const pool = await getPool();
 
@@ -314,7 +326,8 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
         }));
       } catch (error: any) {
         logError(error);
-        const statusCode = error.message.includes('Invalid') ? 401 : 500;
+        const statusCode = error.message.includes('Invalid') || error.message.includes('required') ? 401 : 500;
+        console.log(`  Response: ${statusCode} - ${error.message}`);
         res.writeHead(statusCode, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
       }
@@ -360,10 +373,12 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
       
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ songs }));
-    } catch (error) {
+    } catch (error: any) {
       logError(error);
+      const errorMessage = error?.message || 'Internal server error';
+      console.error(`  Full error:`, error);
       res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Internal server error' }));
+      res.end(JSON.stringify({ error: errorMessage }));
     }
     return;
   }
@@ -427,7 +442,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
         const updateData = JSON.parse(body);
         const pool = await getPool();
 
-        songController.updateSong(pool, songId, updateData);
+        await songController.updateSong(pool, songId, updateData);
 
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ message: 'Song updated successfully' }));
@@ -581,7 +596,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
         const updateData = JSON.parse(body);
         const pool = await getPool();
 
-        albumController.updateAlbum(pool, albumId, updateData);
+        await albumController.updateAlbum(pool, albumId, updateData);
 
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ message: 'Album updated successfully' }));
@@ -697,7 +712,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
 
           // If album cover provided and albumId exists, update album cover
           if (albumCover && musicData.albumId && albumCoverPath) {
-            albumController.updateAlbumCover(pool, musicData.albumId, albumCoverPath);
+            await albumController.updateAlbumCover(pool, musicData.albumId, albumCoverPath);
             console.log(`  🖼️  Album cover updated for Album ID: ${musicData.albumId}`);
           }
 
@@ -800,7 +815,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
       const userId = parseInt(pathParts[3] || '0');
       const { page = '1', limit = '50' } = parsedUrl.query;
       const pool = await getPool();
-      const likedSongs = await likeController.getUserLikedSongs(pool, userId, {
+      const likedSongs = likeController.getUserLikedSongs(pool, userId, {
         page: parseInt(page as string),
         limit: parseInt(limit as string)
       });
@@ -823,7 +838,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
       const { page = '1', limit = '50' } = parsedUrl.query;
       const pool = await getPool();
       
-      const following = await followController.getUserFollowing(pool, userId, {
+      const following = followController.getUserFollowing(pool, userId, {
         page: parseInt(page as string),
         limit: parseInt(limit as string)
       });
@@ -846,7 +861,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
       const { page = '1', limit = '50' } = parsedUrl.query;
       const pool = await getPool();
       
-      const history = await historyController.getUserListeningHistory(pool, userId, {
+      const history = historyController.getUserListeningHistory(pool, userId, {
         page: parseInt(page as string),
         limit: parseInt(limit as string)
       });
@@ -866,7 +881,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     try {
       const { query, page = '1', limit = '50' } = parsedUrl.query;
       const pool = await getPool();
-      const users = await userController.searchUsers(pool, (query as string) || '', {
+      const users = userController.searchUsers(pool, (query as string) || '', {
         page: parseInt(page as string),
         limit: parseInt(limit as string)
       });
@@ -980,7 +995,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
         const updateData = JSON.parse(body);
         const pool = await getPool();
         
-        playlistController.updatePlaylist(pool, playlistId, updateData);
+        await playlistController.updatePlaylist(pool, playlistId, updateData);
         
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ message: 'Playlist updated successfully' }));
@@ -1017,7 +1032,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     const playlistId = parseInt(pathParts[3] || '0');
     try {
       const pool = await getPool();
-      const songs = await playlistController.getPlaylistSongs(pool, playlistId);
+      const songs = playlistController.getPlaylistSongs(pool, playlistId);
       
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ songs }));
@@ -1264,7 +1279,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     try {
       const { page = '1', limit = '50' } = parsedUrl.query;
       const pool = await getPool();
-      const followers = await followController.getArtistFollowers(pool, artistId, {
+      const followers = followController.getArtistFollowers(pool, artistId, {
         page: parseInt(page as string),
         limit: parseInt(limit as string)
       });
@@ -1310,7 +1325,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     try {
       const { days = '7', limit = '20' } = parsedUrl.query;
       const pool = await getPool();
-      const songs = await historyController.getTrendingSongs(pool, parseInt(days as string), parseInt(limit as string));
+      const songs = historyController.getTrendingSongs(pool, parseInt(days as string), parseInt(limit as string));
       
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ songs }));
