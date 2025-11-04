@@ -196,17 +196,25 @@ function HomePage() {
 
   // Function to fetch followed artists
   const fetchFollowedArtists = useCallback(async () => {
-    if (!user?.userId) return
+    if (!user?.userId) {
+      console.log('No user ID available for fetching followed artists')
+      return
+    }
     
     try {
       setFollowedLoading(true)
+      console.log('Fetching followed artists for user ID:', user.userId)
       const response = await userApi.getFollowing(user.userId, { limit: 20 })
       
       if (!response.ok) {
+        console.error('API response not ok:', response.status, response.statusText)
+        const errorData = await response.text()
+        console.error('Error response:', errorData)
         throw new Error('Failed to fetch followed artists')
       }
       
       const data = await response.json()
+      console.log('Followed artists API response:', data)
       setFollowedArtists(data.following || [])
     } catch (error) {
       console.error('Error fetching followed artists:', error)
@@ -756,36 +764,6 @@ function HomePage() {
                 )}
               </div>
 
-              {/* Your Library - Top Artists Section */}
-              <div className="mb-8">
-                <h2 className="text-2xl font-bold text-red-700 mb-4">Top Artists</h2>
-                {artistsLoading ? (
-                  <div className="flex justify-center items-center py-8">
-                    <div className="text-gray-600">Loading top artists...</div>
-                  </div>
-                ) : (
-                  <div className="flex gap-4 overflow-x-auto pb-2">
-                    {Array.isArray(topArtists) && topArtists.map((artist) => (
-                      <div key={artist.ArtistID} className="flex-shrink-0">
-                        <ArtistCard
-                          id={artist.ArtistID.toString()}
-                          name={`${artist.FirstName} ${artist.LastName}`}
-                          imageUrl={getArtistImageUrl()}
-                          onFollowChange={refreshFollowedArtists}
-                        />
-                        <div className="text-center mt-2">
-                          <p className="text-xs text-gray-600">
-                            {artist.followerCount} followers
-                          </p>
-                          {artist.VerifiedStatus && (
-                            <span className="inline-block text-blue-500 text-xs">✓ Verified</span>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
             </>
           )}
 

@@ -45,6 +45,11 @@ export async function getUserFollowing(
   filters: { page?: number; limit?: number }
 ): Promise<any[]> {
   const { page = 1, limit = 50 } = filters;
+  
+  // Validate and ensure limit and offset are positive integers
+  const limitValue = Math.max(1, Math.floor(Number(limit)) || 50);
+  const pageValue = Math.max(1, Math.floor(Number(page)) || 1);
+  const offsetValue = (pageValue - 1) * limitValue;
 
   const [rows] = await pool.execute<RowDataPacket[]>(`
     SELECT a.*, u.Username, u.FirstName, u.LastName, u.ProfilePicture, ufa.FollowedAt
@@ -53,8 +58,8 @@ export async function getUserFollowing(
     JOIN userprofile u ON a.ArtistID = u.UserID
     WHERE ufa.UserID = ?
     ORDER BY ufa.FollowedAt DESC
-    LIMIT ? OFFSET ?
-  `, [userId, parseInt(String(limit), 10), parseInt(String((page - 1) * limit), 10)]);
+    LIMIT ${limitValue} OFFSET ${offsetValue}
+  `, [userId]);
 
   return rows;
 }
@@ -66,6 +71,11 @@ export async function getArtistFollowers(
   filters: { page?: number; limit?: number }
 ): Promise<any[]> {
   const { page = 1, limit = 50 } = filters;
+  
+  // Validate and ensure limit and offset are positive integers
+  const limitValue = Math.max(1, Math.floor(Number(limit)) || 50);
+  const pageValue = Math.max(1, Math.floor(Number(page)) || 1);
+  const offsetValue = (pageValue - 1) * limitValue;
 
   const [rows] = await pool.execute<RowDataPacket[]>(`
     SELECT u.UserID, u.Username, u.FirstName, u.LastName, u.ProfilePicture, ufa.FollowedAt
@@ -73,8 +83,8 @@ export async function getArtistFollowers(
     JOIN userprofile u ON ufa.UserID = u.UserID
     WHERE ufa.ArtistID = ?
     ORDER BY ufa.FollowedAt DESC
-    LIMIT ? OFFSET ?
-  `, [artistId, parseInt(String(limit), 10), parseInt(String((page - 1) * limit), 10)]);
+    LIMIT ${limitValue} OFFSET ${offsetValue}
+  `, [artistId]);
 
   return rows;
 }
