@@ -53,7 +53,26 @@ export async function registerUser(
     profilePicturePath
   ]);
 
-  return { userId: result.insertId };
+  const userId = result.insertId;
+
+  // If user type is Artist, create an artist record
+  if (userData.userType === 'Artist') {
+    await pool.execute(`
+      INSERT INTO artist (
+        ArtistID, ArtistBio, ArtistPFP, VerifiedStatus, VerifyingAdminID, DateVerified
+      )
+      VALUES (?, ?, ?, ?, ?, ?)
+    `, [
+      userId,
+      null, // ArtistBio - empty initially
+      null, // ArtistPFP - no separate artist profile picture initially
+      0,    // VerifiedStatus - false by default
+      null, // VerifyingAdminID - no admin assigned yet
+      null  // DateVerified - null until verified
+    ]);
+  }
+
+  return { userId };
 }
 
 // Authenticate user login

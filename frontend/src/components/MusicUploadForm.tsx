@@ -26,7 +26,7 @@ const MusicUploadForm: React.FC<MusicUploadFormProps> = ({ onUploadSuccess, onCa
     // Remove artistId - will use current user
     albumId: '',
     genreId: '',
-    // Remove duration - will be calculated from audio file
+    duration: '', // Added duration field - required by backend
     releaseDate: new Date().toISOString().split('T')[0]
   });
   
@@ -79,11 +79,38 @@ const MusicUploadForm: React.FC<MusicUploadFormProps> = ({ onUploadSuccess, onCa
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, files: selectedFiles } = e.target;
     if (selectedFiles && selectedFiles[0]) {
+      const file = selectedFiles[0];
       setFiles(prev => ({
         ...prev,
-        [name]: selectedFiles[0]
+        [name]: file
       }));
+      
+      // Auto-calculate duration for audio files
+      if (name === 'audioFile') {
+        calculateAudioDuration(file);
+      }
     }
+  };
+
+  const calculateAudioDuration = (file: File) => {
+    const audio = new Audio();
+    const url = URL.createObjectURL(file);
+    
+    audio.addEventListener('loadedmetadata', () => {
+      const duration = Math.round(audio.duration);
+      setFormData(prev => ({
+        ...prev,
+        duration: duration.toString()
+      }));
+      URL.revokeObjectURL(url);
+    });
+    
+    audio.addEventListener('error', () => {
+      console.warn('Could not calculate audio duration');
+      URL.revokeObjectURL(url);
+    });
+    
+    audio.src = url;
   };
 
   const handleDrag = (e: React.DragEvent) => {
@@ -109,6 +136,8 @@ const MusicUploadForm: React.FC<MusicUploadFormProps> = ({ onUploadSuccess, onCa
           ...prev,
           audioFile: file
         }));
+        // Auto-calculate duration for dropped audio files
+        calculateAudioDuration(file);
       }
     }
   };
@@ -121,8 +150,8 @@ const MusicUploadForm: React.FC<MusicUploadFormProps> = ({ onUploadSuccess, onCa
       return;
     }
 
-    if (!formData.songName) {
-      setError('Please fill in all required fields');
+    if (!formData.songName || !formData.duration) {
+      setError('Please fill in all required fields and wait for duration calculation');
       return;
     }
 
@@ -166,7 +195,7 @@ const MusicUploadForm: React.FC<MusicUploadFormProps> = ({ onUploadSuccess, onCa
           // Remove artistId - will use current user
           albumId: '',
           genreId: '',
-          // Remove duration - will be calculated from audio file
+          duration: '', // Reset duration field
           releaseDate: new Date().toISOString().split('T')[0]
         });
         setFiles({
@@ -222,6 +251,11 @@ const MusicUploadForm: React.FC<MusicUploadFormProps> = ({ onUploadSuccess, onCa
                 <p className="text-xs text-gray-500">
                   Size: {(files.audioFile.size / (1024 * 1024)).toFixed(2)} MB
                 </p>
+                {formData.duration && (
+                  <p className="text-xs text-green-600">
+                    Duration: {Math.floor(parseInt(formData.duration) / 60)}:{(parseInt(formData.duration) % 60).toString().padStart(2, '0')} (auto-detected)
+                  </p>
+                )}
               </div>
             ) : (
               <div className="space-y-2">
