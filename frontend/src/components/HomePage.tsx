@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import { ArtistCard, SongCard, AlbumCard, PlaylistCard } from './cards'
 import { GenreCard } from './cards/GenreCard'
@@ -187,6 +187,28 @@ function HomePage() {
     fetchGenres()
   }, [])
 
+  // Function to fetch followed artists
+  const fetchFollowedArtists = useCallback(async () => {
+    if (!user?.userId) return
+    
+    try {
+      setFollowedLoading(true)
+      const response = await userApi.getFollowing(user.userId, { limit: 20 })
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch followed artists')
+      }
+      
+      const data = await response.json()
+      setFollowedArtists(data.following || [])
+    } catch (error) {
+      console.error('Error fetching followed artists:', error)
+      setFollowedArtists([])
+    } finally {
+      setFollowedLoading(false)
+    }
+  }, [user?.userId])
+
   // Fetch top 10 artists by followers
   useEffect(() => {
     const fetchTopArtists = async () => {
@@ -210,30 +232,9 @@ function HomePage() {
       }
     }
 
-    const fetchFollowedArtists = async () => {
-      if (!user?.userId) return
-      
-      try {
-        setFollowedLoading(true)
-        const response = await userApi.getFollowing(user.userId, { limit: 20 })
-        
-        if (!response.ok) {
-          throw new Error('Failed to fetch followed artists')
-        }
-        
-        const data = await response.json()
-        setFollowedArtists(data.following || [])
-      } catch (error) {
-        console.error('Error fetching followed artists:', error)
-        setFollowedArtists([])
-      } finally {
-        setFollowedLoading(false)
-      }
-    }
-
     fetchTopArtists()
     fetchFollowedArtists()
-  }, [user?.userId])
+  }, [user?.userId, fetchFollowedArtists])
 
   // Function to refresh followed artists (called after follow/unfollow)
   const refreshFollowedArtists = () => {
