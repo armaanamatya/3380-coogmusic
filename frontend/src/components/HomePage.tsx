@@ -3,6 +3,7 @@ import { useAuth } from '../hooks/useAuth'
 import { ArtistCard, SongCard, AlbumCard, PlaylistCard } from './cards'
 import { GenreCard } from './cards/GenreCard'
 import { PlaylistExpanded } from './PlaylistExpanded'
+import { AlbumExpanded } from './AlbumExpanded'
 import { genreApi, artistApi, songApi, albumApi, playlistApi, userApi, getFileUrl } from '../services/api'
 import MusicUploadForm from './MusicUploadForm'
 import MusicLibrary from './MusicLibrary'
@@ -130,6 +131,12 @@ function HomePage() {
   
   // Expanded playlist state
   const [expandedPlaylist, setExpandedPlaylist] = useState<{
+    id: number;
+    name: string;
+  } | null>(null)
+
+  // Expanded album state
+  const [expandedAlbum, setExpandedAlbum] = useState<{
     id: number;
     name: string;
   } | null>(null)
@@ -588,6 +595,10 @@ function HomePage() {
                           title={album.AlbumName}
                           artist={`${album.ArtistFirstName} ${album.ArtistLastName}`}
                           imageUrl={getAlbumCoverUrl()}
+                          onClick={() => setExpandedAlbum({
+                            id: album.AlbumID,
+                            name: album.AlbumName
+                          })}
                         />
                         <div className="text-center mt-2">
                           <p className="text-xs text-gray-600">
@@ -892,6 +903,15 @@ function HomePage() {
           playlistId={expandedPlaylist.id}
           playlistName={expandedPlaylist.name}
           onClose={() => setExpandedPlaylist(null)}
+        />
+      )}
+
+      {/* Expanded Album Modal */}
+      {expandedAlbum && (
+        <AlbumExpanded
+          albumId={expandedAlbum.id}
+          albumName={expandedAlbum.name}
+          onClose={() => setExpandedAlbum(null)}
         />
       )}
     </div>
