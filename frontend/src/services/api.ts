@@ -300,6 +300,9 @@ export const followApi = {
       body: JSON.stringify({ userId, artistId })
     }),
 
+  checkFollowStatus: (userId: number, artistId: number) =>
+    fetch(`${API_BASE}/api/users/${userId}/following/${artistId}`),
+
   getArtistFollowers: (artistId: number, params?: { page?: number; limit?: number }) => {
     const query = params ? new URLSearchParams(
       Object.entries(params)

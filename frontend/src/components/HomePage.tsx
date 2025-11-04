@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import { ArtistCard, SongCard, AlbumCard, PlaylistCard } from './cards'
 import { GenreCard } from './cards/GenreCard'
 import { PlaylistExpanded } from './PlaylistExpanded'
-import { genreApi, artistApi, songApi, albumApi, playlistApi, getFileUrl } from '../services/api'
+import { genreApi, artistApi, songApi, albumApi, playlistApi, userApi, getFileUrl } from '../services/api'
 import MusicUploadForm from './MusicUploadForm'
 import MusicLibrary from './MusicLibrary'
 import MusicEditForm from './MusicEditForm'
@@ -112,6 +112,10 @@ function HomePage() {
   const [topArtists, setTopArtists] = useState<TopArtist[]>([])
   const [artistsLoading, setArtistsLoading] = useState(true)
   
+  // Followed artists state
+  const [followedArtists, setFollowedArtists] = useState<any[]>([])
+  const [followedLoading, setFollowedLoading] = useState(false)
+  
   // Top songs state
   const [topSongs, setTopSongs] = useState<TopSong[]>([])
   const [songsLoading, setSongsLoading] = useState(true)
@@ -183,6 +187,28 @@ function HomePage() {
     fetchGenres()
   }, [])
 
+  // Function to fetch followed artists
+  const fetchFollowedArtists = useCallback(async () => {
+    if (!user?.userId) return
+    
+    try {
+      setFollowedLoading(true)
+      const response = await userApi.getFollowing(user.userId, { limit: 20 })
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch followed artists')
+      }
+      
+      const data = await response.json()
+      setFollowedArtists(data.following || [])
+    } catch (error) {
+      console.error('Error fetching followed artists:', error)
+      setFollowedArtists([])
+    } finally {
+      setFollowedLoading(false)
+    }
+  }, [user?.userId])
+
   // Fetch top 10 artists by followers
   useEffect(() => {
     const fetchTopArtists = async () => {
@@ -207,7 +233,13 @@ function HomePage() {
     }
 
     fetchTopArtists()
-  }, [])
+    fetchFollowedArtists()
+  }, [user?.userId, fetchFollowedArtists])
+
+  // Function to refresh followed artists (called after follow/unfollow)
+  const refreshFollowedArtists = () => {
+    fetchFollowedArtists()
+  }
 
   // Fetch top 10 songs by listen count
   useEffect(() => {
@@ -493,6 +525,7 @@ function HomePage() {
                           id={artist.ArtistID.toString()}
                           name={`${artist.FirstName} ${artist.LastName}`}
                           imageUrl={getArtistImageUrl()}
+                          onFollowChange={refreshFollowedArtists}
                         />
                         <div className="text-center mt-2">
                           <p className="text-xs text-gray-600">
@@ -636,6 +669,45 @@ function HomePage() {
 
           {activeTab === 'library' && (
             <>
+              {/* Your Followed Artists Section */}
+              <div className="mb-8">
+                <h2 className="text-2xl font-bold text-red-700 mb-4">Your Followed Artists</h2>
+                {followedLoading ? (
+                  <div className="flex justify-center items-center py-8">
+                    <div className="text-gray-600">Loading followed artists...</div>
+                  </div>
+                ) : followedArtists.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-gray-600 mb-4">You haven't followed any artists yet.</p>
+                    <p className="text-sm text-gray-500">Follow artists to see them here!</p>
+                  </div>
+                ) : (
+                  <div className="flex gap-4 overflow-x-auto pb-2">
+                    {followedArtists.map((artist) => (
+                      <div key={artist.ArtistID} className="flex-shrink-0">
+                        <ArtistCard
+                          id={artist.ArtistID.toString()}
+                          name={`${artist.FirstName} ${artist.LastName}`}
+                          imageUrl={artist.ProfilePicture ? getFileUrl(artist.ProfilePicture) : getFileUrl('profile-pictures/default.jpg')}
+                          showFollowButton={false}
+                        />
+                        <div className="text-center mt-2">
+                          <p className="text-xs text-gray-600">
+                            @{artist.Username}
+                          </p>
+                          {artist.VerifiedStatus && (
+                            <span className="inline-block text-blue-500 text-xs">✓ Verified</span>
+                          )}
+                          <p className="text-xs text-gray-500">
+                            Followed {new Date(artist.FollowedAt).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               {/* Your Library - Top Playlists Section */}
               <div className="mb-8">
                 <h2 className="text-2xl font-bold text-red-700 mb-4">Top Playlists</h2>
@@ -688,6 +760,7 @@ function HomePage() {
                           id={artist.ArtistID.toString()}
                           name={`${artist.FirstName} ${artist.LastName}`}
                           imageUrl={getArtistImageUrl()}
+                          onFollowChange={refreshFollowedArtists}
                         />
                         <div className="text-center mt-2">
                           <p className="text-xs text-gray-600">
