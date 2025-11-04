@@ -237,7 +237,7 @@ function HomePage() {
       
       if (!response.ok) {
         const errorData = await response.text()
-        throw new Error('Failed to fetch followed artists')
+        throw new Error(`Failed to fetch followed artists: ${errorData}`)
       }
       
       const data = await response.json()
