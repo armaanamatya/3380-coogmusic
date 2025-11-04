@@ -4,6 +4,9 @@ import { ArtistCard, SongCard, AlbumCard, PlaylistCard } from './cards'
 import { GenreCard } from './cards/GenreCard'
 import { PlaylistExpanded } from './PlaylistExpanded'
 import { AlbumExpanded } from './AlbumExpanded'
+import { MyPlaylistsSection } from './MyPlaylistsSection'
+import { CreatePlaylistModal } from './CreatePlaylistModal'
+import { AddToPlaylistModal } from './AddToPlaylistModal'
 import { genreApi, artistApi, songApi, albumApi, playlistApi, userApi, getFileUrl } from '../services/api'
 import MusicUploadForm from './MusicUploadForm'
 import MusicLibrary from './MusicLibrary'
@@ -141,6 +144,15 @@ function HomePage() {
     name: string;
   } | null>(null)
 
+  // Playlist modal state
+  const [isCreatePlaylistModalOpen, setIsCreatePlaylistModalOpen] = useState(false)
+  const [isAddToPlaylistModalOpen, setIsAddToPlaylistModalOpen] = useState(false)
+  const [selectedSongForPlaylist, setSelectedSongForPlaylist] = useState<{
+    id: number;
+    title: string;
+  } | null>(null)
+  const [playlistRefreshTrigger, setPlaylistRefreshTrigger] = useState(0)
+
   // Music management handlers
   const handleEditSong = (song: Song) => {
     setEditingSong(song);
@@ -166,6 +178,25 @@ function HomePage() {
     setEditingSong(null);
     setMusicSubTab('library');
   };
+
+  // Playlist handlers
+  const handleCreatePlaylist = () => {
+    setIsCreatePlaylistModalOpen(true)
+  }
+
+  const handlePlaylistCreated = () => {
+    setPlaylistRefreshTrigger(prev => prev + 1)
+  }
+
+  const handleAddToPlaylist = (songId: number, songTitle: string) => {
+    setSelectedSongForPlaylist({ id: songId, title: songTitle })
+    setIsAddToPlaylistModalOpen(true)
+  }
+
+  const handleCloseAddToPlaylistModal = () => {
+    setSelectedSongForPlaylist(null)
+    setIsAddToPlaylistModalOpen(false)
+  }
 
   // Fetch top 10 genres with listen counts
   useEffect(() => {
@@ -197,27 +228,21 @@ function HomePage() {
   // Function to fetch followed artists
   const fetchFollowedArtists = useCallback(async () => {
     if (!user?.userId) {
-      console.log('No user ID available for fetching followed artists')
       return
     }
     
     try {
       setFollowedLoading(true)
-      console.log('Fetching followed artists for user ID:', user.userId)
       const response = await userApi.getFollowing(user.userId, { limit: 20 })
       
       if (!response.ok) {
-        console.error('API response not ok:', response.status, response.statusText)
         const errorData = await response.text()
-        console.error('Error response:', errorData)
-        throw new Error('Failed to fetch followed artists')
+        throw new Error(`Failed to fetch followed artists: ${errorData}`)
       }
       
       const data = await response.json()
-      console.log('Followed artists API response:', data)
       setFollowedArtists(data.following || [])
     } catch (error) {
-      console.error('Error fetching followed artists:', error)
       setFollowedArtists([])
     } finally {
       setFollowedLoading(false)
@@ -572,6 +597,8 @@ function HomePage() {
                           title={song.SongName}
                           artist={`${song.ArtistFirstName} ${song.ArtistLastName}`}
                           imageUrl={getFileUrl('profile-pictures/default.jpg')}
+                          onAddToPlaylist={handleAddToPlaylist}
+                          listenCount={song.ListenCount}
                         />
                         <div className="text-center mt-2">
                           <p className="text-xs text-gray-600">
@@ -727,42 +754,12 @@ function HomePage() {
                 )}
               </div>
 
-              {/* Your Library - Top Playlists Section */}
-              <div className="mb-8">
-                <h2 className="text-2xl font-bold text-red-700 mb-4">Top Playlists</h2>
-                {playlistsLoading ? (
-                  <div className="flex justify-center items-center py-8">
-                    <div className="text-gray-600">Loading top playlists...</div>
-                  </div>
-                ) : (
-                  <div className="flex gap-4 overflow-x-auto pb-2">
-                    {Array.isArray(topPlaylists) && topPlaylists.map((playlist) => (
-                      <div key={playlist.PlaylistID} className="flex-shrink-0">
-                        <PlaylistCard
-                          id={playlist.PlaylistID.toString()}
-                          title={playlist.PlaylistName}
-                          imageUrl={getFileUrl('profile-pictures/default.jpg')}
-                          onClick={() => setExpandedPlaylist({
-                            id: playlist.PlaylistID,
-                            name: playlist.PlaylistName
-                          })}
-                        />
-                        <div className="text-center mt-2">
-                          <p className="text-xs text-gray-600">
-                            {playlist.likeCount} likes
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            by @{playlist.CreatorUsername}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            {playlist.songCount} songs
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+              {/* Your Library - My Playlists Section */}
+              <MyPlaylistsSection
+                onCreatePlaylist={handleCreatePlaylist}
+                onPlaylistClick={setExpandedPlaylist}
+                key={playlistRefreshTrigger}
+              />
 
             </>
           )}
@@ -892,6 +889,21 @@ function HomePage() {
           onClose={() => setExpandedAlbum(null)}
         />
       )}
+
+      {/* Create Playlist Modal */}
+      <CreatePlaylistModal
+        isOpen={isCreatePlaylistModalOpen}
+        onClose={() => setIsCreatePlaylistModalOpen(false)}
+        onPlaylistCreated={handlePlaylistCreated}
+      />
+
+      {/* Add to Playlist Modal */}
+      <AddToPlaylistModal
+        isOpen={isAddToPlaylistModalOpen}
+        onClose={handleCloseAddToPlaylistModal}
+        songId={selectedSongForPlaylist?.id || null}
+        songTitle={selectedSongForPlaylist?.title}
+      />
     </div>
   )
 }
