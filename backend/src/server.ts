@@ -838,7 +838,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
       const { page = '1', limit = '50' } = parsedUrl.query;
       const pool = await getPool();
       
-      const following = followController.getUserFollowing(pool, userId, {
+      const following = await followController.getUserFollowing(pool, userId, {
         page: parseInt(page as string),
         limit: parseInt(limit as string)
       });
@@ -1236,7 +1236,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
         const { userId, artistId } = JSON.parse(body);
         const pool = await getPool();
         
-        followController.followArtist(pool, userId, artistId);
+        await followController.followArtist(pool, userId, artistId);
         
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ message: 'Artist followed successfully' }));
@@ -1259,7 +1259,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
         const { userId, artistId } = JSON.parse(body);
         const pool = await getPool();
         
-        followController.unfollowArtist(pool, userId, artistId);
+        await followController.unfollowArtist(pool, userId, artistId);
         
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ message: 'Artist unfollowed successfully' }));
@@ -1286,6 +1286,24 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
       
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ followers }));
+    } catch (error: any) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
+    }
+    return;
+  }
+
+  // Check if user is following artist
+  if (requestPath?.match(/^\/api\/users\/\d+\/following\/\d+$/) && method === 'GET') {
+    const pathParts = requestPath?.split('/') || [];
+    const userId = parseInt(pathParts[3] || '0');
+    const artistId = parseInt(pathParts[5] || '0');
+    try {
+      const pool = await getPool();
+      const isFollowing = await followController.isFollowingArtist(pool, userId, artistId);
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ isFollowing }));
     } catch (error: any) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
