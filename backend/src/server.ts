@@ -1087,6 +1087,115 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     return;
   }
 
+  // Unified search across all entities
+  if (requestPath === '/api/search' && method === 'GET') {
+    try {
+      const { query } = parsedUrl.query;
+      
+      if (!query || typeof query !== 'string' || query.trim().length === 0) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Query parameter is required' }));
+        return;
+      }
+
+      const pool = await getPool();
+      const searchTerm = `%${query.trim()}%`;
+
+      // Search artists (from userprofile + artist tables)
+      const [artistRows] = await pool.execute<RowDataPacket[]>(`
+        SELECT 
+          u.UserID as ArtistID,
+          u.FirstName,
+          u.LastName,
+          u.Username,
+          u.ProfilePicture,
+          a.VerifiedStatus,
+          'artist' as type
+        FROM userprofile u
+        JOIN artist a ON u.UserID = a.ArtistID
+        WHERE (u.FirstName LIKE ? OR u.LastName LIKE ? OR u.Username LIKE ?)
+        AND u.UserType = 'Artist'
+        LIMIT 5
+      `, [searchTerm, searchTerm, searchTerm]);
+
+      // Search albums
+      const [albumRows] = await pool.execute<RowDataPacket[]>(`
+        SELECT 
+          a.AlbumID,
+          a.AlbumName,
+          a.AlbumCover,
+          a.ReleaseDate,
+          u.FirstName as ArtistFirstName,
+          u.LastName as ArtistLastName,
+          u.Username as ArtistUsername,
+          'album' as type
+        FROM album a
+        JOIN artist ar ON a.ArtistID = ar.ArtistID
+        JOIN userprofile u ON ar.ArtistID = u.UserID
+        WHERE a.AlbumName LIKE ?
+        LIMIT 5
+      `, [searchTerm]);
+
+      // Search songs
+      const [songRows] = await pool.execute<RowDataPacket[]>(`
+        SELECT 
+          s.SongID,
+          s.SongName,
+          s.FilePath,
+          s.Duration,
+          s.ListenCount,
+          u.FirstName as ArtistFirstName,
+          u.LastName as ArtistLastName,
+          u.Username as ArtistUsername,
+          a.AlbumName,
+          a.AlbumCover,
+          'song' as type
+        FROM song s
+        JOIN artist ar ON s.ArtistID = ar.ArtistID
+        JOIN userprofile u ON ar.ArtistID = u.UserID
+        LEFT JOIN album a ON s.AlbumID = a.AlbumID
+        WHERE s.SongName LIKE ?
+        LIMIT 5
+      `, [searchTerm]);
+
+      // Search playlists (public only)
+      const [playlistRows] = await pool.execute<RowDataPacket[]>(`
+        SELECT 
+          p.PlaylistID,
+          p.PlaylistName,
+          p.Description,
+          p.CreatedAt,
+          u.FirstName as CreatorFirstName,
+          u.LastName as CreatorLastName,
+          u.Username as CreatorUsername,
+          'playlist' as type
+        FROM playlist p
+        JOIN userprofile u ON p.UserID = u.UserID
+        WHERE p.PlaylistName LIKE ? AND p.IsPublic = 1
+        LIMIT 5
+      `, [searchTerm]);
+
+      const searchResults = {
+        query: query.trim(),
+        results: {
+          artists: artistRows,
+          albums: albumRows,
+          songs: songRows,
+          playlists: playlistRows
+        },
+        totalResults: artistRows.length + albumRows.length + songRows.length + playlistRows.length
+      };
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(searchResults));
+    } catch (error: any) {
+      console.error('Search error:', error);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Internal server error' }));
+    }
+    return;
+  }
+
   // Search users
   if (requestPath === '/api/users/search' && method === 'GET') {
     try {

@@ -350,6 +350,12 @@ export const historyApi = {
   }
 };
 
+// Search endpoints
+export const searchApi = {
+  search: (query: string) =>
+    fetch(`${API_BASE}/api/search?query=${encodeURIComponent(query)}`)
+};
+
 // Export base URL for direct use if needed
 export const API_BASE_URL = API_BASE;
 
