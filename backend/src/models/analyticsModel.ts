@@ -13,13 +13,13 @@ export interface AnalyticsFilters {
 export interface UserCount {
   listeners: number;
   artists: number;
-  ratio?: string | undefined;
+  ratio?: string;
 }
 
 export interface LoginCount {
   listeners: number;
   artists: number;
-  ratio?: string | undefined;
+  ratio?: string;
 }
 
 export interface LoginTime {
