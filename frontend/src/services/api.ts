@@ -104,7 +104,10 @@ export const albumApi = {
     }),
 
   getTop: () => 
-    fetch(`${API_BASE}/api/albums/top`)
+    fetch(`${API_BASE}/api/albums/top`),
+
+  getStats: (id: number) =>
+    fetch(`${API_BASE}/api/albums/${id}/stats`)
 };
 
 // Artist endpoints
@@ -244,7 +247,10 @@ export const playlistApi = {
     }),
 
   getTop: () => 
-    fetch(`${API_BASE}/api/playlists/top`)
+    fetch(`${API_BASE}/api/playlists/top`),
+
+  getStats: (id: number) =>
+    fetch(`${API_BASE}/api/playlists/${id}/stats`)
 };
 
 // Like endpoints
