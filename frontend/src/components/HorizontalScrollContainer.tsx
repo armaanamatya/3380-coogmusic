@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, ReactNode } from 'react'
+import React, { useRef, useState, useEffect, type ReactNode } from 'react'
 
 interface HorizontalScrollContainerProps {
   children: ReactNode
@@ -146,7 +146,7 @@ export const HorizontalScrollContainer: React.FC<HorizontalScrollContainerProps>
       )}
 
       {/* Custom scrollbar hiding styles */}
-      <style jsx>{`
+      <style>{`
         .scrollbar-hide::-webkit-scrollbar {
           display: none;
         }

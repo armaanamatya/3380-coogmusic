@@ -50,7 +50,6 @@ type TabType = 'overview' | 'albums' | 'songs'
 
 export const ArtistExpanded: React.FC<ArtistExpandedProps> = ({
   artistId,
-  artistName,
   onClose
 }) => {
   const { user } = useAuth()

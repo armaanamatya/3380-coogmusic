@@ -171,7 +171,6 @@ function HomePage() {
     id: number;
     name: string;
   } | null>(null)
-  const [isArtistModalOpen, setIsArtistModalOpen] = useState(false)
 
   // Music management handlers
   const handleEditSong = (song: Song) => {
@@ -232,12 +231,10 @@ function HomePage() {
   // Artist modal handlers
   const handleArtistClick = (artistId: number, artistName: string) => {
     setSelectedArtist({ id: artistId, name: artistName })
-    setIsArtistModalOpen(true)
   }
 
   const handleCloseArtistModal = () => {
     setSelectedArtist(null)
-    setIsArtistModalOpen(false)
   }
 
   // Fetch top 10 genres with listen counts
