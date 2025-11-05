@@ -27,6 +27,34 @@ export const authApi = {
     })
 };
 
+// Analytics endpoints
+export const analyticsApi = {
+  getReport: (filters: {
+    startDate: string;
+    endDate: string;
+    includeListeners: boolean;
+    includeArtists: boolean;
+    includePlaylistStatistics: boolean;
+    includeAlbumStatistics: boolean;
+    includeGeographics: boolean;
+  }) =>
+    fetch(`${API_BASE}/api/analytics/report`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(filters)
+    }),
+  getIndividualReport: (data: {
+    username: string;
+    startDate: string;
+    endDate: string;
+  }) =>
+    fetch(`${API_BASE}/api/analytics/individual`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    })
+};
+
 // Song endpoints
 export const songApi = {
   getAll: (params?: { 

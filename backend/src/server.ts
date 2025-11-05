@@ -17,6 +17,7 @@ import * as userController from './controllers/userController.js';
 import * as likeController from './controllers/likeController.js';
 import * as followController from './controllers/followController.js';
 import * as historyController from './controllers/historyController.js';
+import * as analyticsController from './controllers/analyticsController.js';
 import { RegisterUserData, LoginCredentials, UploadMusicData, CreateAlbumData } from './types/index.js';
 
 dotenv.config();
@@ -334,6 +335,52 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
       }
     });
     
+    return;
+  }
+
+  // Analytics Report Endpoint
+  if (requestPath === '/api/analytics/report' && method === 'POST') {
+    console.log('  📊 Generating analytics report...');
+    let body = '';
+    
+    req.on('data', (chunk) => {
+      body += chunk.toString();
+    });
+
+    req.on('end', async () => {
+      try {
+        const pool = await getPool();
+        req.body = JSON.parse(body);
+        await analyticsController.getAnalyticsReport(pool, req, res);
+      } catch (error: any) {
+        logError(error);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
+      }
+    });
+    return;
+  }
+
+  // Individual User Analytics Report Endpoint
+  if (requestPath === '/api/analytics/individual' && method === 'POST') {
+    console.log('  📊 Generating individual user analytics report...');
+    let body = '';
+    
+    req.on('data', (chunk) => {
+      body += chunk.toString();
+    });
+
+    req.on('end', async () => {
+      try {
+        const pool = await getPool();
+        req.body = JSON.parse(body);
+        await analyticsController.getIndividualUserReport(pool, req, res);
+      } catch (error: any) {
+        logError(error);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
+      }
+    });
     return;
   }
 
