@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import { ArtistCard, SongCard, AlbumCard, PlaylistCard } from './cards'
 import { GenreCard } from './cards/GenreCard'
@@ -10,7 +10,9 @@ import { AddToPlaylistModal } from './AddToPlaylistModal'
 import { SongPlayer } from './SongPlayer'
 import { ArtistExpanded } from './ArtistExpanded'
 import { HorizontalScrollContainer } from './HorizontalScrollContainer'
-import { genreApi, artistApi, songApi, albumApi, playlistApi, userApi, getFileUrl } from '../services/api'
+import { SearchResults } from './SearchResults'
+import type { SearchResult } from './SearchResultItem'
+import { genreApi, artistApi, songApi, albumApi, playlistApi, userApi, getFileUrl, searchApi } from '../services/api'
 import MusicUploadForm from './MusicUploadForm'
 import MusicLibrary from './MusicLibrary'
 import MusicEditForm from './MusicEditForm'
@@ -105,6 +107,12 @@ function HomePage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [activeTab, setActiveTab] = useState('home')
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true)
+  
+  // Search functionality state
+  const [searchResults, setSearchResults] = useState<any>(null)
+  const [searchLoading, setSearchLoading] = useState(false)
+  const [showSearchResults, setShowSearchResults] = useState(false)
+  const searchRef = useRef<HTMLDivElement>(null)
   
   // Music management state
   const [musicSubTab, setMusicSubTab] = useState<MusicSubTab>('library')
@@ -236,6 +244,101 @@ function HomePage() {
   const handleCloseArtistModal = () => {
     setSelectedArtist(null)
   }
+
+  // Search handlers
+  const performSearch = async (query: string) => {
+    if (!query.trim()) {
+      setSearchResults(null)
+      setShowSearchResults(false)
+      return
+    }
+
+    try {
+      setSearchLoading(true)
+      const response = await searchApi.search(query.trim())
+      
+      if (response.ok) {
+        const data = await response.json()
+        setSearchResults(data)
+        setShowSearchResults(true)
+      } else {
+        console.error('Search failed')
+        setSearchResults(null)
+        setShowSearchResults(false)
+      }
+    } catch (error) {
+      console.error('Search error:', error)
+      setSearchResults(null)
+      setShowSearchResults(false)
+    } finally {
+      setSearchLoading(false)
+    }
+  }
+
+  const handleSearchQueryChange = (value: string) => {
+    setSearchQuery(value)
+    if (!value.trim()) {
+      setSearchResults(null)
+      setShowSearchResults(false)
+    }
+  }
+
+  const handleSearchResultClick = (result: SearchResult) => {
+    setShowSearchResults(false)
+    setSearchQuery('')
+    setSearchResults(null)
+
+    // Navigate to appropriate modal based on result type
+    switch (result.type) {
+      case 'artist':
+        handleArtistClick(result.ArtistID, `${result.FirstName} ${result.LastName}`)
+        break
+      case 'album':
+        setExpandedAlbum({ id: result.AlbumID, name: result.AlbumName })
+        break
+      case 'song':
+        handlePlaySong({
+          id: result.SongID.toString(),
+          title: result.SongName,
+          artist: `${result.ArtistFirstName} ${result.ArtistLastName}`,
+          audioFilePath: result.FilePath,
+          imageUrl: result.AlbumCover ? getFileUrl(`album-covers/${result.AlbumCover}`) : undefined
+        })
+        break
+      case 'playlist':
+        setExpandedPlaylist({ id: result.PlaylistID, name: result.PlaylistName })
+        break
+    }
+  }
+
+  const handleCloseSearchResults = () => {
+    setShowSearchResults(false)
+  }
+
+  // Debounced search effect
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (searchQuery.trim().length > 0) {
+        performSearch(searchQuery)
+      }
+    }, 300) // 300ms debounce
+
+    return () => clearTimeout(timeoutId)
+  }, [searchQuery])
+
+  // Click outside to close search results
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+        setShowSearchResults(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [])
 
   // Fetch top 10 genres with listen counts
   useEffect(() => {
@@ -561,12 +664,12 @@ function HomePage() {
       <main className="flex-1 p-8">
         {/* Search Bar */}
         <div className="mb-8">
-          <div className="relative max-w-xl">
+          <div className="relative max-w-xl" ref={searchRef}>
             <input
               type="text"
               placeholder="Search for songs, artists, playlists..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => handleSearchQueryChange(e.target.value)}
               className="w-full px-4 py-3 pl-12 text-gray-700 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-red-500 focus:ring-2 focus:ring-red-200"
             />
             <svg
@@ -582,6 +685,15 @@ function HomePage() {
                 d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
               />
             </svg>
+            
+            {/* Search Results */}
+            <SearchResults
+              searchData={searchResults}
+              isLoading={searchLoading}
+              isVisible={showSearchResults}
+              onResultClick={handleSearchResultClick}
+              onClose={handleCloseSearchResults}
+            />
           </div>
         </div>
 
