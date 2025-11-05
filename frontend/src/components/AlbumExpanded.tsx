@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { songApi } from '../services/api';
+import { songApi, albumApi } from '../services/api';
 
 interface Song {
   SongID: number;
@@ -10,6 +10,14 @@ interface Song {
   GenreName?: string;
   Duration: number;
   ListenCount: number;
+}
+
+interface AlbumStats {
+  likeCount: number;
+  songCount: number;
+  totalPlays: number;
+  totalDuration: number;
+  releaseDate: string;
 }
 
 interface AlbumExpandedProps {
@@ -24,31 +32,60 @@ export const AlbumExpanded: React.FC<AlbumExpandedProps> = ({
   onClose
 }) => {
   const [songs, setSongs] = useState<Song[]>([]);
+  const [stats, setStats] = useState<AlbumStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchAlbumSongs = async () => {
+    const fetchAlbumData = async () => {
       try {
         setLoading(true);
-        const response = await songApi.getAll({ albumId });
-        const data = await response.json();
         
-        if (response.ok) {
-          setSongs(data.songs || []);
-        } else {
-          setError(data.error || 'Failed to load album songs');
+        // Fetch songs and stats in parallel
+        const [songsResponse, statsResponse] = await Promise.all([
+          songApi.getAll({ albumId }),
+          albumApi.getStats(albumId)
+        ]);
+
+        if (songsResponse.ok) {
+          const songsData = await songsResponse.json();
+          setSongs(songsData.songs || []);
+        }
+
+        if (statsResponse.ok) {
+          const statsData = await statsResponse.json();
+          setStats(statsData.stats);
+        }
+
+        if (!songsResponse.ok && !statsResponse.ok) {
+          setError('Failed to load album data');
         }
       } catch (err) {
-        setError('Failed to load album songs');
-        console.error('Error fetching album songs:', err);
+        setError('Failed to load album data');
+        console.error('Error fetching album data:', err);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchAlbumSongs();
+    fetchAlbumData();
   }, [albumId]);
+
+  // Handle click outside to close modal
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      if (target.closest('.album-modal-content')) {
+        return; // Click is inside modal content, don't close
+      }
+      onClose();
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [onClose]);
 
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -56,21 +93,80 @@ export const AlbumExpanded: React.FC<AlbumExpandedProps> = ({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const formatTotalDuration = (totalSeconds: number) => {
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    }
+    return `${minutes}m`;
+  };
+
+  const formatNumber = (num: number) => {
+    if (num >= 1000000) {
+      return (num / 1000000).toFixed(1) + 'M';
+    } else if (num >= 1000) {
+      return (num / 1000).toFixed(1) + 'K';
+    }
+    return num.toString();
+  };
+
+  const formatReleaseDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="album-modal-content bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="bg-red-600 text-white p-6 flex justify-between items-center">
-          <div>
-            <h2 className="text-3xl font-bold">{albumName}</h2>
-            <p className="text-red-100 mt-1">{songs.length} songs</p>
+        <div className="bg-red-600 text-white p-6">
+          <div className="flex justify-between items-start">
+            <div className="flex-1">
+              <h2 className="text-3xl font-bold mb-4">{albumName}</h2>
+              
+              {/* Album Stats */}
+              {stats && (
+                <div className="flex space-x-6 text-sm">
+                  <div className="text-center">
+                    <div className="font-bold text-xl">{stats.songCount}</div>
+                    <div className="text-red-200">Songs</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="font-bold text-xl">{formatNumber(stats.totalPlays)}</div>
+                    <div className="text-red-200">Total Plays</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="font-bold text-xl">{formatTotalDuration(stats.totalDuration)}</div>
+                    <div className="text-red-200">Duration</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="font-bold text-xl">{stats.likeCount}</div>
+                    <div className="text-red-200">Likes</div>
+                  </div>
+                </div>
+              )}
+              
+              {/* Release Date */}
+              {stats?.releaseDate && (
+                <div className="mt-3 text-red-100">
+                  Released {formatReleaseDate(stats.releaseDate)}
+                </div>
+              )}
+            </div>
+            
+            <button
+              onClick={onClose}
+              className="text-white hover:text-red-200 transition-colors ml-4"
+            >
+              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            className="text-white hover:text-gray-200 text-3xl font-bold"
-          >
-            ×
-          </button>
         </div>
 
         {/* Content */}

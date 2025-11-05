@@ -637,6 +637,65 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     return;
   }
 
+  // Get album statistics
+  if (requestPath?.match(/^\/api\/albums\/\d+\/stats$/) && method === 'GET') {
+    try {
+      const albumIdStr = requestPath.split('/')[3];
+      if (!albumIdStr) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Invalid album ID' }));
+        return;
+      }
+      const albumId = parseInt(albumIdStr);
+      if (isNaN(albumId)) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Invalid album ID' }));
+        return;
+      }
+
+      const pool = await getPool();
+      
+      // Get like count
+      const [likeRows] = await pool.execute<RowDataPacket[]>(
+        'SELECT COUNT(*) as likeCount FROM user_likes_album WHERE AlbumID = ?',
+        [albumId]
+      );
+      const likeCount = likeRows[0]?.likeCount || 0;
+
+      // Get song count, total plays, and total duration
+      const [songRows] = await pool.execute<RowDataPacket[]>(
+        'SELECT COUNT(*) as songCount, COALESCE(SUM(ListenCount), 0) as totalPlays, COALESCE(SUM(Duration), 0) as totalDuration FROM song WHERE AlbumID = ?',
+        [albumId]
+      );
+      const songCount = songRows[0]?.songCount || 0;
+      const totalPlays = songRows[0]?.totalPlays || 0;
+      const totalDuration = songRows[0]?.totalDuration || 0;
+
+      // Get release date
+      const [albumRows] = await pool.execute<RowDataPacket[]>(
+        'SELECT ReleaseDate FROM album WHERE AlbumID = ?',
+        [albumId]
+      );
+      const releaseDate = albumRows[0]?.ReleaseDate || null;
+
+      const stats = {
+        likeCount,
+        songCount,
+        totalPlays,
+        totalDuration,
+        releaseDate
+      };
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ stats }));
+    } catch (error) {
+      console.error('Get album stats error:', error);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Internal server error' }));
+    }
+    return;
+  }
+
   // Get all artists
   if (requestPath === '/api/artists' && method === 'GET') {
     try {
@@ -1191,6 +1250,71 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     } catch (error: any) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
+    }
+    return;
+  }
+
+  // Get playlist statistics
+  if (requestPath?.match(/^\/api\/playlists\/\d+\/stats$/) && method === 'GET') {
+    try {
+      const playlistIdStr = requestPath.split('/')[3];
+      if (!playlistIdStr) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Invalid playlist ID' }));
+        return;
+      }
+      const playlistId = parseInt(playlistIdStr);
+      if (isNaN(playlistId)) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Invalid playlist ID' }));
+        return;
+      }
+
+      const pool = await getPool();
+      
+      // Get like count
+      const [likeRows] = await pool.execute<RowDataPacket[]>(
+        'SELECT COUNT(*) as likeCount FROM user_likes_playlist WHERE PlaylistID = ?',
+        [playlistId]
+      );
+      const likeCount = likeRows[0]?.likeCount || 0;
+
+      // Get song count and total duration
+      const [songRows] = await pool.execute<RowDataPacket[]>(
+        'SELECT COUNT(*) as songCount, COALESCE(SUM(s.Duration), 0) as totalDuration FROM playlist_song ps JOIN song s ON ps.SongID = s.SongID WHERE ps.PlaylistID = ?',
+        [playlistId]
+      );
+      const songCount = songRows[0]?.songCount || 0;
+      const totalDuration = songRows[0]?.totalDuration || 0;
+
+      // Get playlist creation date
+      const [playlistRows] = await pool.execute<RowDataPacket[]>(
+        'SELECT CreatedAt FROM playlist WHERE PlaylistID = ?',
+        [playlistId]
+      );
+      const createdAt = playlistRows[0]?.CreatedAt || null;
+
+      // Get total plays (sum of listen counts for all songs in playlist)
+      const [playsRows] = await pool.execute<RowDataPacket[]>(
+        'SELECT COALESCE(SUM(s.ListenCount), 0) as totalPlays FROM playlist_song ps JOIN song s ON ps.SongID = s.SongID WHERE ps.PlaylistID = ?',
+        [playlistId]
+      );
+      const totalPlays = playsRows[0]?.totalPlays || 0;
+
+      const stats = {
+        likeCount,
+        songCount,
+        totalDuration,
+        totalPlays,
+        createdAt
+      };
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ stats }));
+    } catch (error) {
+      console.error('Get playlist stats error:', error);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Internal server error' }));
     }
     return;
   }

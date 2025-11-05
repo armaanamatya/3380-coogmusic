@@ -670,14 +670,6 @@ function HomePage() {
                             name: album.AlbumName
                           })}
                         />
-                        <div className="text-center mt-2">
-                          <p className="text-xs text-gray-600">
-                            {album.likeCount} likes
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            {album.songCount} songs • {new Date(album.ReleaseDate).getFullYear()}
-                          </p>
-                        </div>
                       </div>
                     ))}
                   </HorizontalScrollContainer>
@@ -704,17 +696,6 @@ function HomePage() {
                             name: playlist.PlaylistName
                           })}
                         />
-                        <div className="text-center mt-2">
-                          <p className="text-xs text-gray-600">
-                            {playlist.likeCount} likes
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            by @{playlist.CreatorUsername}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            {playlist.songCount} songs
-                          </p>
-                        </div>
                       </div>
                     ))}
                   </HorizontalScrollContainer>

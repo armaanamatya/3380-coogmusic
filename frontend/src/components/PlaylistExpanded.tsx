@@ -14,6 +14,27 @@ interface Song {
   AddedAt: string;
 }
 
+interface PlaylistStats {
+  likeCount: number;
+  songCount: number;
+  totalPlays: number;
+  totalDuration: number;
+  createdAt: string;
+}
+
+interface PlaylistDetails {
+  PlaylistID: number;
+  PlaylistName: string;
+  UserID: number;
+  Description?: string;
+  IsPublic: number;
+  CreatedAt: string;
+  UpdatedAt: string;
+  Username: string;
+  FirstName: string;
+  LastName: string;
+}
+
 interface PlaylistExpandedProps {
   playlistId: number;
   playlistName: string;
@@ -26,34 +47,70 @@ export const PlaylistExpanded: React.FC<PlaylistExpandedProps> = ({
   onClose
 }) => {
   const [songs, setSongs] = useState<Song[]>([]);
+  const [stats, setStats] = useState<PlaylistStats | null>(null);
+  const [playlistDetails, setPlaylistDetails] = useState<PlaylistDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchPlaylistSongs = async () => {
+    const fetchPlaylistData = async () => {
       try {
         setLoading(true);
-        const response = await playlistApi.getSongs(playlistId);
-        const data = await response.json();
         
-        if (response.ok) {
+        // Fetch songs, stats, and playlist details in parallel
+        const [songsResponse, statsResponse, detailsResponse] = await Promise.all([
+          playlistApi.getSongs(playlistId),
+          playlistApi.getStats(playlistId),
+          playlistApi.getById(playlistId)
+        ]);
+
+        if (songsResponse.ok) {
+          const songsData = await songsResponse.json();
           // Ensure songs is always an array
-          const songsArray = Array.isArray(data.songs) ? data.songs : 
-                            Array.isArray(data) ? data : [];
+          const songsArray = Array.isArray(songsData.songs) ? songsData.songs : 
+                            Array.isArray(songsData) ? songsData : [];
           setSongs(songsArray);
-        } else {
-          setError(data.error || 'Failed to load playlist songs');
+        }
+
+        if (statsResponse.ok) {
+          const statsData = await statsResponse.json();
+          setStats(statsData.stats);
+        }
+
+        if (detailsResponse.ok) {
+          const detailsData = await detailsResponse.json();
+          setPlaylistDetails(detailsData.playlist || detailsData);
+        }
+
+        if (!songsResponse.ok && !statsResponse.ok && !detailsResponse.ok) {
+          setError('Failed to load playlist data');
         }
       } catch (err) {
-        setError('Failed to load playlist songs');
-        console.error('Error fetching playlist songs:', err);
+        setError('Failed to load playlist data');
+        console.error('Error fetching playlist data:', err);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchPlaylistSongs();
+    fetchPlaylistData();
   }, [playlistId]);
+
+  // Handle click outside to close modal
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      if (target.closest('.playlist-modal-content')) {
+        return; // Click is inside modal content, don't close
+      }
+      onClose();
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [onClose]);
 
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -61,21 +118,87 @@ export const PlaylistExpanded: React.FC<PlaylistExpandedProps> = ({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const formatTotalDuration = (totalSeconds: number) => {
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    }
+    return `${minutes}m`;
+  };
+
+  const formatNumber = (num: number) => {
+    if (num >= 1000000) {
+      return (num / 1000000).toFixed(1) + 'M';
+    } else if (num >= 1000) {
+      return (num / 1000).toFixed(1) + 'K';
+    }
+    return num.toString();
+  };
+
+  const formatCreatedDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="playlist-modal-content bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="bg-red-600 text-white p-6 flex justify-between items-center">
-          <div>
-            <h2 className="text-3xl font-bold">{playlistName}</h2>
-            <p className="text-red-100 mt-1">{songs.length} songs</p>
+        <div className="bg-red-600 text-white p-6">
+          <div className="flex justify-between items-start">
+            <div className="flex-1">
+              <h2 className="text-3xl font-bold mb-2">{playlistName}</h2>
+              
+              {/* Creator Info */}
+              {playlistDetails && (
+                <p className="text-red-100 mb-4">
+                  by {playlistDetails.FirstName} {playlistDetails.LastName} (@{playlistDetails.Username})
+                </p>
+              )}
+              
+              {/* Playlist Stats */}
+              {stats && (
+                <div className="flex space-x-6 text-sm">
+                  <div className="text-center">
+                    <div className="font-bold text-xl">{stats.songCount}</div>
+                    <div className="text-red-200">Songs</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="font-bold text-xl">{formatNumber(stats.totalPlays)}</div>
+                    <div className="text-red-200">Total Plays</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="font-bold text-xl">{formatTotalDuration(stats.totalDuration)}</div>
+                    <div className="text-red-200">Duration</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="font-bold text-xl">{stats.likeCount}</div>
+                    <div className="text-red-200">Likes</div>
+                  </div>
+                </div>
+              )}
+              
+              {/* Created Date */}
+              {stats?.createdAt && (
+                <div className="mt-3 text-red-100">
+                  Created {formatCreatedDate(stats.createdAt)}
+                </div>
+              )}
+            </div>
+            
+            <button
+              onClick={onClose}
+              className="text-white hover:text-red-200 transition-colors ml-4"
+            >
+              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            className="text-white hover:text-gray-200 text-3xl font-bold"
-          >
-            ×
-          </button>
         </div>
 
         {/* Content */}
