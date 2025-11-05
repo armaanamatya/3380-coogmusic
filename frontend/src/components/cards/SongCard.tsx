@@ -8,7 +8,9 @@ interface SongCardProps {
   imageUrl?: string
   onClick?: () => void
   onAddToPlaylist?: (songId: number, songTitle: string) => void
+  onPlaySong?: (song: { id: string; title: string; artist: string; audioFilePath?: string; imageUrl?: string }) => void
   listenCount?: number
+  audioFilePath?: string
 }
 
 export const SongCard: React.FC<SongCardProps> = ({
@@ -18,12 +20,22 @@ export const SongCard: React.FC<SongCardProps> = ({
   imageUrl,
   onClick,
   onAddToPlaylist,
-  listenCount
+  onPlaySong,
+  listenCount,
+  audioFilePath
 }) => {
   const handleAddToPlaylist = (e: React.MouseEvent) => {
     e.stopPropagation() // Prevent card click
     if (onAddToPlaylist) {
       onAddToPlaylist(parseInt(id), title)
+    }
+  }
+
+  const handleCardClick = () => {
+    if (onPlaySong) {
+      onPlaySong({ id, title, artist, audioFilePath, imageUrl })
+    } else if (onClick) {
+      onClick()
     }
   }
 
@@ -36,7 +48,7 @@ export const SongCard: React.FC<SongCardProps> = ({
         type="song"
         artist={artist}
         listenCount={listenCount}
-        onClick={onClick}
+        onClick={handleCardClick}
       />
       {onAddToPlaylist && (
         <button

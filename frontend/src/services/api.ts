@@ -112,7 +112,15 @@ export const artistApi = {
   getAll: () => 
     fetch(`${API_BASE}/api/artists`),
   getTop: () => 
-    fetch(`${API_BASE}/api/artists/top`)
+    fetch(`${API_BASE}/api/artists/top`),
+  getById: (id: number) =>
+    fetch(`${API_BASE}/api/artists/${id}`),
+  getAlbums: (id: number) =>
+    fetch(`${API_BASE}/api/artists/${id}/albums`),
+  getSongs: (id: number) =>
+    fetch(`${API_BASE}/api/artists/${id}/songs`),
+  getStats: (id: number) =>
+    fetch(`${API_BASE}/api/artists/${id}/stats`)
 };
 
 // Genre endpoints

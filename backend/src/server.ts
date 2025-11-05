@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import { RowDataPacket } from 'mysql2/promise';
 import { initializeDatabase, testConnection, getPool } from './database.js';
 import * as authController from './controllers/authController.js';
 import * as songController from './controllers/songController.js';
@@ -662,6 +663,157 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
       res.end(JSON.stringify({ artists }));
     } catch (error) {
       console.error('Get top artists error:', error);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Internal server error' }));
+    }
+    return;
+  }
+
+  // Get individual artist by ID
+  if (requestPath?.match(/^\/api\/artists\/\d+$/) && method === 'GET') {
+    console.log(`  🎤 Found artist route match for: ${requestPath}`);
+    try {
+      const artistIdStr = requestPath.split('/')[3];
+      if (!artistIdStr) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Invalid artist ID' }));
+        return;
+      }
+      const artistId = parseInt(artistIdStr);
+      if (isNaN(artistId)) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Invalid artist ID' }));
+        return;
+      }
+
+      const pool = await getPool();
+      const artist = await artistController.getArtistById(pool, artistId);
+      
+      if (!artist) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Artist not found' }));
+        return;
+      }
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ artist }));
+    } catch (error) {
+      console.error('Get artist by ID error:', error);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Internal server error' }));
+    }
+    return;
+  }
+
+  // Get artist albums
+  if (requestPath?.match(/^\/api\/artists\/\d+\/albums$/) && method === 'GET') {
+    try {
+      const artistIdStr = requestPath.split('/')[3];
+      if (!artistIdStr) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Invalid artist ID' }));
+        return;
+      }
+      const artistId = parseInt(artistIdStr);
+      if (isNaN(artistId)) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Invalid artist ID' }));
+        return;
+      }
+
+      const pool = await getPool();
+      const albums = await artistController.getArtistAlbums(pool, artistId);
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ albums }));
+    } catch (error) {
+      console.error('Get artist albums error:', error);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Internal server error' }));
+    }
+    return;
+  }
+
+  // Get artist songs
+  if (requestPath?.match(/^\/api\/artists\/\d+\/songs$/) && method === 'GET') {
+    try {
+      const artistIdStr = requestPath.split('/')[3];
+      if (!artistIdStr) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Invalid artist ID' }));
+        return;
+      }
+      const artistId = parseInt(artistIdStr);
+      if (isNaN(artistId)) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Invalid artist ID' }));
+        return;
+      }
+
+      const pool = await getPool();
+      const songs = await artistController.getArtistSongs(pool, artistId);
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ songs }));
+    } catch (error) {
+      console.error('Get artist songs error:', error);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Internal server error' }));
+    }
+    return;
+  }
+
+  // Get artist statistics
+  if (requestPath?.match(/^\/api\/artists\/\d+\/stats$/) && method === 'GET') {
+    try {
+      const artistIdStr = requestPath.split('/')[3];
+      if (!artistIdStr) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Invalid artist ID' }));
+        return;
+      }
+      const artistId = parseInt(artistIdStr);
+      if (isNaN(artistId)) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Invalid artist ID' }));
+        return;
+      }
+
+      const pool = await getPool();
+      
+      // Get follower count
+      const [followerRows] = await pool.execute<RowDataPacket[]>(
+        'SELECT COUNT(*) as followerCount FROM user_follows_artist WHERE ArtistID = ?',
+        [artistId]
+      );
+      const followerCount = followerRows[0]?.followerCount || 0;
+
+      // Get album count
+      const [albumRows] = await pool.execute<RowDataPacket[]>(
+        'SELECT COUNT(*) as albumCount FROM album WHERE ArtistID = ?',
+        [artistId]
+      );
+      const albumCount = albumRows[0]?.albumCount || 0;
+
+      // Get song count and total listens
+      const [songRows] = await pool.execute<RowDataPacket[]>(
+        'SELECT COUNT(*) as songCount, COALESCE(SUM(ListenCount), 0) as totalListens FROM song WHERE ArtistID = ?',
+        [artistId]
+      );
+      const songCount = songRows[0]?.songCount || 0;
+      const totalListens = songRows[0]?.totalListens || 0;
+
+      const stats = {
+        followerCount,
+        albumCount,
+        songCount,
+        totalListens
+      };
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ stats }));
+    } catch (error) {
+      console.error('Get artist stats error:', error);
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Internal server error' }));
     }
@@ -1354,6 +1506,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     return;
   }
 
+  console.log(`  ❌ No route found for: ${method} ${requestPath}`);
   res.writeHead(404, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify({ error: 'Not Found' }));
 });

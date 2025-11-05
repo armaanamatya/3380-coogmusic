@@ -7,6 +7,9 @@ import { AlbumExpanded } from './AlbumExpanded'
 import { MyPlaylistsSection } from './MyPlaylistsSection'
 import { CreatePlaylistModal } from './CreatePlaylistModal'
 import { AddToPlaylistModal } from './AddToPlaylistModal'
+import { SongPlayer } from './SongPlayer'
+import { ArtistExpanded } from './ArtistExpanded'
+import { HorizontalScrollContainer } from './HorizontalScrollContainer'
 import { genreApi, artistApi, songApi, albumApi, playlistApi, userApi, getFileUrl } from '../services/api'
 import MusicUploadForm from './MusicUploadForm'
 import MusicLibrary from './MusicLibrary'
@@ -153,6 +156,22 @@ function HomePage() {
   } | null>(null)
   const [playlistRefreshTrigger, setPlaylistRefreshTrigger] = useState(0)
 
+  // Song player state
+  const [selectedSong, setSelectedSong] = useState<{
+    id: string;
+    title: string;
+    artist: string;
+    audioFilePath?: string;
+    imageUrl?: string;
+  } | null>(null)
+  const [isSongPlayerOpen, setIsSongPlayerOpen] = useState(false)
+
+  // Artist modal state
+  const [selectedArtist, setSelectedArtist] = useState<{
+    id: number;
+    name: string;
+  } | null>(null)
+
   // Music management handlers
   const handleEditSong = (song: Song) => {
     setEditingSong(song);
@@ -196,6 +215,26 @@ function HomePage() {
   const handleCloseAddToPlaylistModal = () => {
     setSelectedSongForPlaylist(null)
     setIsAddToPlaylistModalOpen(false)
+  }
+
+  // Song player handlers
+  const handlePlaySong = (song: { id: string; title: string; artist: string; audioFilePath?: string; imageUrl?: string }) => {
+    setSelectedSong(song)
+    setIsSongPlayerOpen(true)
+  }
+
+  const handleCloseSongPlayer = () => {
+    setSelectedSong(null)
+    setIsSongPlayerOpen(false)
+  }
+
+  // Artist modal handlers
+  const handleArtistClick = (artistId: number, artistName: string) => {
+    setSelectedArtist({ id: artistId, name: artistName })
+  }
+
+  const handleCloseArtistModal = () => {
+    setSelectedArtist(null)
   }
 
   // Fetch top 10 genres with listen counts
@@ -558,7 +597,7 @@ function HomePage() {
                     <div className="text-gray-600">Loading top artists...</div>
                   </div>
                 ) : (
-                  <div className="flex gap-4 overflow-x-auto pb-2">
+                  <HorizontalScrollContainer>
                     {Array.isArray(topArtists) && topArtists.map((artist) => (
                       <div key={artist.ArtistID} className="flex-shrink-0">
                         <ArtistCard
@@ -566,18 +605,12 @@ function HomePage() {
                           name={`${artist.FirstName} ${artist.LastName}`}
                           imageUrl={getArtistImageUrl()}
                           onFollowChange={refreshFollowedArtists}
+                          verified={artist.VerifiedStatus === 1}
+                          onClick={() => handleArtistClick(artist.ArtistID, `${artist.FirstName} ${artist.LastName}`)}
                         />
-                        <div className="text-center mt-2">
-                          <p className="text-xs text-gray-600">
-                            {artist.followerCount} followers
-                          </p>
-                          {artist.VerifiedStatus && (
-                            <span className="inline-block text-blue-500 text-xs">✓ Verified</span>
-                          )}
-                        </div>
                       </div>
                     ))}
-                  </div>
+                  </HorizontalScrollContainer>
                 )}
               </div>
 
@@ -589,7 +622,7 @@ function HomePage() {
                     <div className="text-gray-600">Loading top songs...</div>
                   </div>
                 ) : (
-                  <div className="flex gap-4 overflow-x-auto pb-2">
+                  <HorizontalScrollContainer>
                     {Array.isArray(topSongs) && topSongs.map((song) => (
                       <div key={song.SongID} className="flex-shrink-0">
                         <SongCard
@@ -598,6 +631,8 @@ function HomePage() {
                           artist={`${song.ArtistFirstName} ${song.ArtistLastName}`}
                           imageUrl={getFileUrl('profile-pictures/default.jpg')}
                           onAddToPlaylist={handleAddToPlaylist}
+                          onPlaySong={handlePlaySong}
+                          audioFilePath={song.FilePath}
                           listenCount={song.ListenCount}
                         />
                         <div className="text-center mt-2">
@@ -610,7 +645,7 @@ function HomePage() {
                         </div>
                       </div>
                     ))}
-                  </div>
+                  </HorizontalScrollContainer>
                 )}
               </div>
 
@@ -622,7 +657,7 @@ function HomePage() {
                     <div className="text-gray-600">Loading top albums...</div>
                   </div>
                 ) : (
-                  <div className="flex gap-4 overflow-x-auto pb-2">
+                  <HorizontalScrollContainer>
                     {Array.isArray(topAlbums) && topAlbums.map((album) => (
                       <div key={album.AlbumID} className="flex-shrink-0">
                         <AlbumCard
@@ -645,7 +680,7 @@ function HomePage() {
                         </div>
                       </div>
                     ))}
-                  </div>
+                  </HorizontalScrollContainer>
                 )}
               </div>
 
@@ -657,7 +692,7 @@ function HomePage() {
                     <div className="text-gray-600">Loading top playlists...</div>
                   </div>
                 ) : (
-                  <div className="flex gap-4 overflow-x-auto pb-2">
+                  <HorizontalScrollContainer>
                     {Array.isArray(topPlaylists) && topPlaylists.map((playlist) => (
                       <div key={playlist.PlaylistID} className="flex-shrink-0">
                         <PlaylistCard
@@ -682,7 +717,7 @@ function HomePage() {
                         </div>
                       </div>
                     ))}
-                  </div>
+                  </HorizontalScrollContainer>
                 )}
               </div>
 
@@ -694,7 +729,7 @@ function HomePage() {
                     <div className="text-gray-600">Loading genres...</div>
                   </div>
                 ) : (
-                  <div className="flex gap-4 overflow-x-auto pb-2">
+                  <HorizontalScrollContainer>
                     {Array.isArray(genres) && genres.map((genre) => (
                       <GenreCard
                         key={genre.GenreID}
@@ -705,7 +740,7 @@ function HomePage() {
                         onClick={() => console.log(`Clicked on genre: ${genre.GenreName}`)}
                       />
                     ))}
-                  </div>
+                  </HorizontalScrollContainer>
                 )}
               </div>
             </>
@@ -728,7 +763,7 @@ function HomePage() {
                     <p className="text-sm text-gray-500">Follow artists to see them here!</p>
                   </div>
                 ) : (
-                  <div className="flex gap-4 overflow-x-auto pb-2">
+                  <HorizontalScrollContainer>
                     {followedArtists.map((artist) => (
                       <div key={artist.ArtistID} className="flex-shrink-0">
                         <ArtistCard
@@ -736,21 +771,12 @@ function HomePage() {
                           name={`${artist.FirstName} ${artist.LastName}`}
                           imageUrl={artist.ProfilePicture ? getFileUrl(artist.ProfilePicture) : getFileUrl('profile-pictures/default.jpg')}
                           showFollowButton={false}
+                          verified={artist.VerifiedStatus === 1}
+                          onClick={() => handleArtistClick(artist.ArtistID, `${artist.FirstName} ${artist.LastName}`)}
                         />
-                        <div className="text-center mt-2">
-                          <p className="text-xs text-gray-600">
-                            @{artist.Username}
-                          </p>
-                          {artist.VerifiedStatus && (
-                            <span className="inline-block text-blue-500 text-xs">✓ Verified</span>
-                          )}
-                          <p className="text-xs text-gray-500">
-                            Followed {new Date(artist.FollowedAt).toLocaleDateString()}
-                          </p>
-                        </div>
                       </div>
                     ))}
-                  </div>
+                  </HorizontalScrollContainer>
                 )}
               </div>
 
@@ -904,6 +930,22 @@ function HomePage() {
         songId={selectedSongForPlaylist?.id || null}
         songTitle={selectedSongForPlaylist?.title}
       />
+
+      {/* Song Player Modal */}
+      <SongPlayer
+        isOpen={isSongPlayerOpen}
+        onClose={handleCloseSongPlayer}
+        song={selectedSong}
+      />
+
+      {/* Artist Expanded Modal */}
+      {selectedArtist && (
+        <ArtistExpanded
+          artistId={selectedArtist.id}
+          artistName={selectedArtist.name}
+          onClose={handleCloseArtistModal}
+        />
+      )}
     </div>
   )
 }
