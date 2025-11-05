@@ -27,6 +27,28 @@ export const authApi = {
     })
 };
 
+// Legacy alias for backwards compatibility with additional login tracking methods
+export const loginApi = {
+  ...authApi,
+  logout: (userId: number) =>
+    fetch(`${API_BASE}/api/login/logout`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId })
+    }),
+  updateActivity: (userId: number, activities: {
+    songsPlayed: number;
+    songsLiked: number;
+    artistsFollowed: number;
+    songsUploaded: number;
+  }) =>
+    fetch(`${API_BASE}/api/login/activity`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, ...activities })
+    })
+};
+
 // Analytics endpoints
 export const analyticsApi = {
   getReport: (filters: {

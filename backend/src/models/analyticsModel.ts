@@ -13,13 +13,13 @@ export interface AnalyticsFilters {
 export interface UserCount {
   listeners: number;
   artists: number;
-  ratio?: string;
+  ratio?: string | undefined;
 }
 
 export interface LoginCount {
   listeners: number;
   artists: number;
-  ratio?: string;
+  ratio?: string | undefined;
 }
 
 export interface LoginTime {
@@ -652,8 +652,10 @@ export async function getIndividualUserReport(
     const [debugRows] = await pool.execute<RowDataPacket[]>(debugQuery, [trimmedUsername]);
     if (debugRows.length > 0) {
       const foundUser = debugRows[0];
-      console.error(`User found but filtered out: "${trimmedUsername}" (UserID: ${foundUser.UserID}, UserType: ${foundUser.UserType})`);
-      throw new Error(`User "${trimmedUsername}" is an Analyst and cannot be analyzed. Only Listener and Artist users can be analyzed.`);
+      if (foundUser) {
+        console.error(`User found but filtered out: "${trimmedUsername}" (UserID: ${foundUser.UserID}, UserType: ${foundUser.UserType})`);
+        throw new Error(`User "${trimmedUsername}" is an Analyst and cannot be analyzed. Only Listener and Artist users can be analyzed.`);
+      }
     } else {
       console.error(`User not found in database: "${trimmedUsername}" (original: "${username}")`);
       throw new Error(`User "${trimmedUsername}" not found. Please check the username and try again.`);
@@ -661,6 +663,10 @@ export async function getIndividualUserReport(
   }
   
   const user = userRows[0];
+  if (!user) {
+    throw new Error(`User "${trimmedUsername}" not found. Please check the username and try again.`);
+  }
+  
   const userId = user.UserID;
   const userType = user.UserType;
   const dateJoined = user.DateJoined;
@@ -809,7 +815,7 @@ export async function getIndividualUserReport(
       WHERE ArtistID = ?
     `;
     const [artistRows] = await pool.execute<RowDataPacket[]>(artistQuery, [userId]);
-    if (artistRows.length === 0) {
+    if (artistRows.length === 0 || !artistRows[0]) {
       return report;
     }
     const artistId = artistRows[0].ArtistID;

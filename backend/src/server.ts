@@ -1,4 +1,5 @@
 import { createServer, IncomingMessage, ServerResponse } from 'http';
+import { ExtendedRequest } from './types/index.js';
 import { parse } from 'url';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -350,7 +351,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     req.on('end', async () => {
       try {
         const pool = await getPool();
-        req.body = JSON.parse(body);
+        (req as ExtendedRequest).body = JSON.parse(body);
         await analyticsController.getAnalyticsReport(pool, req, res);
       } catch (error: any) {
         logError(error);
@@ -373,7 +374,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     req.on('end', async () => {
       try {
         const pool = await getPool();
-        req.body = JSON.parse(body);
+        (req as ExtendedRequest).body = JSON.parse(body);
         await analyticsController.getIndividualUserReport(pool, req, res);
       } catch (error: any) {
         logError(error);
