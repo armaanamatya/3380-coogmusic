@@ -18,6 +18,7 @@ import MusicLibrary from './MusicLibrary'
 import MusicEditForm from './MusicEditForm'
 import AlbumManager from './AlbumManager'
 import Settings from './Settings'
+import Analytics from './Analytics'
 
 
 interface Song {
@@ -626,6 +627,21 @@ function HomePage() {
                   {!isSidebarCollapsed && 'Your Library'}
                 </button>
               </li>
+              {user?.userType?.toLowerCase() === 'analyst' && (
+                <li>
+                  <button
+                    onClick={() => setActiveTab('analytics')}
+                    className={`flex items-center w-full ${isSidebarCollapsed ? 'px-3 py-3 justify-center' : 'px-4 py-3'} rounded-lg transition-colors ${
+                      activeTab === 'analytics'
+                        ? 'bg-white text-red-700'
+                        : 'text-white hover:bg-white/10'
+                    }`}
+                  >
+                    <span className={`text-xl ${!isSidebarCollapsed ? 'mr-3' : ''}`}>📊</span>
+                    {!isSidebarCollapsed && 'Analytics'}
+                  </button>
+                </li>
+              )}
               <li>
                 <button
                   onClick={() => setActiveTab('settings')}
@@ -983,6 +999,10 @@ function HomePage() {
                 )}
               </div>
             </div>
+          )}
+
+          {activeTab === 'analytics' && user?.userType?.toLowerCase() === 'analyst' && (
+            <Analytics />
           )}
 
           {activeTab === 'settings' && (

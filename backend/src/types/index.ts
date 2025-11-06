@@ -1,6 +1,9 @@
 import { IncomingMessage, ServerResponse } from 'http';
 import { Database } from 'better-sqlite3';
 
+// Re-export HTTP types for external use
+export { ServerResponse } from 'http';
+
 // Extended request type with parsed body and files
 export interface ExtendedRequest extends IncomingMessage {
   body?: any;
