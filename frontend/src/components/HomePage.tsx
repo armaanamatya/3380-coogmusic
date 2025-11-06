@@ -4,6 +4,7 @@ import { ArtistCard, SongCard, AlbumCard, PlaylistCard } from './cards'
 import { GenreCard } from './cards/GenreCard'
 import { PlaylistExpanded } from './PlaylistExpanded'
 import { AlbumExpanded } from './AlbumExpanded'
+import { GenreExpanded } from './GenreExpanded'
 import { MyPlaylistsSection } from './MyPlaylistsSection'
 import { CreatePlaylistModal } from './CreatePlaylistModal'
 import { AddToPlaylistModal } from './AddToPlaylistModal'
@@ -152,6 +153,12 @@ function HomePage() {
 
   // Expanded album state
   const [expandedAlbum, setExpandedAlbum] = useState<{
+    id: number;
+    name: string;
+  } | null>(null)
+
+  // Expanded genre state
+  const [expandedGenre, setExpandedGenre] = useState<{
     id: number;
     name: string;
   } | null>(null)
@@ -846,7 +853,7 @@ function HomePage() {
                         name={genre.GenreName}
                         imageUrl={getGenreImageUrl(genre.GenreName)}
                         listenCount={genre.totalListens}
-                        onClick={() => console.log(`Clicked on genre: ${genre.GenreName}`)}
+                        onClick={() => setExpandedGenre({ id: genre.GenreID, name: genre.GenreName })}
                       />
                     ))}
                   </HorizontalScrollContainer>
@@ -1026,6 +1033,15 @@ function HomePage() {
           albumId={expandedAlbum.id}
           albumName={expandedAlbum.name}
           onClose={() => setExpandedAlbum(null)}
+        />
+      )}
+
+      {/* Expanded Genre Modal */}
+      {expandedGenre && (
+        <GenreExpanded
+          genreId={expandedGenre.id}
+          genreName={expandedGenre.name}
+          onClose={() => setExpandedGenre(null)}
         />
       )}
 

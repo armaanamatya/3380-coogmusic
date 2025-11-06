@@ -264,15 +264,6 @@ export const PlaylistExpanded: React.FC<PlaylistExpandedProps> = ({
           )}
         </div>
 
-        {/* Footer */}
-        <div className="border-t border-gray-200 p-4 bg-gray-50">
-          <button
-            onClick={onClose}
-            className="w-full bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 transition-colors font-semibold"
-          >
-            Close
-          </button>
-        </div>
       </div>
     </div>
   );

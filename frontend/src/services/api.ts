@@ -181,7 +181,13 @@ export const genreApi = {
   getAll: () => 
     fetch(`${API_BASE}/api/genres`),
   getAllWithListens: () => 
-    fetch(`${API_BASE}/api/genres/with-listens`)
+    fetch(`${API_BASE}/api/genres/with-listens`),
+  getById: (id: number) =>
+    fetch(`${API_BASE}/api/genres/${id}`),
+  getSongs: (id: number) =>
+    fetch(`${API_BASE}/api/genres/${id}/songs`),
+  getAlbums: (id: number) =>
+    fetch(`${API_BASE}/api/genres/${id}/albums`)
 };
 
 // Health check endpoints
