@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { userApi } from '../services/api';
+import { userApi, getFileUrl } from '../services/api';
 
 interface UserProfile {
   UserID: number;
@@ -255,7 +255,7 @@ function Settings() {
                 <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center">
                   {profile?.ProfilePicture ? (
                     <img
-                      src={profile.ProfilePicture}
+                      src={getFileUrl(profile.ProfilePicture)}
                       alt="Profile"
                       className="w-20 h-20 rounded-full object-cover"
                     />

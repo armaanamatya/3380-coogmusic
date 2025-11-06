@@ -114,6 +114,44 @@ export async function getSongsByGenre(pool: Pool, genreId: number): Promise<any[
   return rows;
 }
 
+// Get albums by genre
+export async function getAlbumsByGenre(pool: Pool, genreId: number): Promise<any[]> {
+  const [rows] = await pool.execute<RowDataPacket[]>(`
+    SELECT DISTINCT a.*, up.FirstName AS ArtistFirstName, up.LastName AS ArtistLastName,
+           COUNT(DISTINCT s.SongID) as songCount,
+           COALESCE(SUM(s.ListenCount), 0) as totalListens
+    FROM album a
+    LEFT JOIN song s ON a.AlbumID = s.AlbumID AND s.GenreID = ?
+    LEFT JOIN artist ar ON a.ArtistID = ar.ArtistID
+    LEFT JOIN userprofile up ON ar.ArtistID = up.UserID
+    WHERE s.GenreID = ?
+    GROUP BY a.AlbumID, a.AlbumName, a.ArtistID, a.ReleaseDate, a.Description, a.CreatedAt, a.UpdatedAt, 
+             up.FirstName, up.LastName
+    ORDER BY totalListens DESC, a.ReleaseDate DESC
+  `, [genreId, genreId]);
+  
+  return rows;
+}
+
+// Get genre stats (total songs, albums, listens)
+export async function getGenreStats(pool: Pool, genreId: number): Promise<any> {
+  const [rows] = await pool.execute<RowDataPacket[]>(`
+    SELECT 
+      g.GenreID,
+      g.GenreName,
+      g.Description,
+      COUNT(DISTINCT s.SongID) as totalSongs,
+      COUNT(DISTINCT s.AlbumID) as totalAlbums,
+      COALESCE(SUM(s.ListenCount), 0) as totalListens
+    FROM genre g
+    LEFT JOIN song s ON g.GenreID = s.GenreID
+    WHERE g.GenreID = ?
+    GROUP BY g.GenreID, g.GenreName, g.Description
+  `, [genreId]);
+  
+  return rows.length > 0 ? rows[0] : null;
+}
+
 // Get genres with listen counts
 export async function getGenresWithListenCount(pool: Pool): Promise<any[]> {
   const [rows] = await pool.execute<RowDataPacket[]>(`
