@@ -135,7 +135,7 @@ export async function updateUser(
 export async function updateUserType(
   pool: Pool,
   userId: number,
-  userType: 'Listener' | 'Artist' | 'Administrator' | 'Developer'
+  userType: 'Listener' | 'Artist' | 'Administrator' | 'Analyst'
 ): Promise<void> {
   const [users] = await pool.execute<RowDataPacket[]>(
     'SELECT UserID FROM userprofile WHERE UserID = ?', 

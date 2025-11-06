@@ -25,7 +25,7 @@ export interface UserProfile {
   LastName: string;
   DateOfBirth: string;
   Email: string;
-  UserType: 'Listener' | 'Artist' | 'Administrator' | 'Developer';
+  UserType: 'Listener' | 'Artist' | 'Administrator' | 'Analyst';
   DateJoined: string;
   Country: string;
   City: string | null;
@@ -44,7 +44,7 @@ export interface RegisterUserData {
   lastName: string;
   dateOfBirth: string;
   email: string;
-  userType: 'Listener' | 'Artist' | 'Administrator' | 'Developer';
+  userType: 'Listener' | 'Artist' | 'Administrator' | 'Analyst';
   country: string;
   city?: string;
 }
