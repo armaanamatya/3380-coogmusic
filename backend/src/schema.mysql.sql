@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS userprofile (
     LastName VARCHAR(100) NOT NULL,
     DateOfBirth DATE NOT NULL,
     Email VARCHAR(255) NOT NULL UNIQUE,
-    UserType ENUM('Listener', 'Artist', 'Administrator', 'Developer') NOT NULL DEFAULT 'Listener',
+    UserType ENUM('Listener', 'Artist', 'Administrator', 'Analyst') NOT NULL DEFAULT 'Listener',
     DateJoined DATE NOT NULL DEFAULT (CURRENT_DATE),
     Country VARCHAR(100) NOT NULL,
     City VARCHAR(100),

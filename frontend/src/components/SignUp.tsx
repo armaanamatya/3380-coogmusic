@@ -352,7 +352,7 @@ const SignUp = () => {
                 >
                   <option value="Listener">Listener</option>
                   <option value="Artist">Artist</option>
-                  <option value="Developer">Developer</option>
+                  <option value="Analyst">Analyst</option>
                 </select>
               </div>
 

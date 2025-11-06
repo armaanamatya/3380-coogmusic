@@ -10,7 +10,7 @@ CREATE TABLE userprofile (
     LastName TEXT NOT NULL,
     DateOfBirth TEXT NOT NULL,
     Email TEXT NOT NULL UNIQUE,
-    UserType TEXT NOT NULL DEFAULT 'Listener' CHECK (UserType IN ('Listener', 'Artist', 'Administrator', 'Developer')),
+    UserType TEXT NOT NULL DEFAULT 'Listener' CHECK (UserType IN ('Listener', 'Artist', 'Administrator', 'Analyst')),
     DateJoined TEXT NOT NULL DEFAULT (DATE('now')),
     Country TEXT NOT NULL,
     City TEXT,

@@ -195,7 +195,7 @@ export const updateUser = async (userId: number, updatedFields: Partial<NewUser>
 
 
 export const updateType = async (userId: number, newType: string) => {
-  const allowedTypes = ['Listener', 'Administrator', 'Artist', 'Developer'];
+  const allowedTypes = ['Listener', 'Administrator', 'Artist', 'Analyst'];
   if (!allowedTypes.includes(newType)) {
     throw new Error(`Invalid UserType. Allowed types: ${allowedTypes.join(', ')}`);
   }
