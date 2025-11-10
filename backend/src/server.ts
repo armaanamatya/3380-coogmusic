@@ -136,11 +136,17 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     'http://localhost:3000',
     'https://3380-coogmusic.vercel.app',
     'https://3380-coogmusic-git-main-armaa-amatyas-projects.vercel.app',
-    'https://3380-coogmusic-git-extradata-armaa-amatyas-projects.vercel.app'
+    'https://3380-coogmusic-git-extradata-armaa-amatyas-projects.vercel.app',
+    'https://three380-coogmusic-1.onrender.com'
   ];
-  
+
   const origin = req.headers.origin;
-  if (origin && allowedOrigins.includes(origin)) {
+  
+  // Allow any Vercel deployment URL for this project
+  const isVercelOrigin = origin && (
+    origin.includes('3380-coogmusic') && origin.includes('.vercel.app')
+  );
+  if (origin && (allowedOrigins.includes(origin) || isVercelOrigin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Access-Control-Allow-Credentials', 'true');
   } else {
@@ -315,6 +321,28 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
         }
         
         console.log(`  👤 User: ${credentials.username}`);
+        
+        // Check for hardcoded admin credentials
+        if (credentials.username === 'admin' && credentials.password === 'admin') {
+          const adminUserData = {
+            userId: -1, // Special admin user ID
+            username: 'admin',
+            userType: 'Administrator',
+            firstName: 'Admin',
+            lastName: 'User',
+            profilePicture: null
+          };
+          
+          console.log(`  ✅ Admin login successful`);
+          logResponse(200, 'Admin login successful');
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ 
+            message: 'Login successful',
+            ...adminUserData
+          }));
+          return;
+        }
+        
         const pool = await getPool();
 
         // Authenticate user using controller
@@ -1848,6 +1876,556 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     return;
   }
 
+  // Helper function to check admin authentication
+  const checkAdminAuth = (body: string): boolean => {
+    try {
+      const data = JSON.parse(body);
+      return data.username === 'admin' && data.password === 'admin';
+    } catch {
+      return false;
+    }
+  };
+
+  // Admin endpoint: Get all users
+  if (requestPath === '/api/admin/users' && method === 'POST') {
+    let body = '';
+    
+    req.on('data', (chunk) => {
+      body += chunk.toString();
+    });
+
+    req.on('end', async () => {
+      try {
+        const requestData = JSON.parse(body);
+        if (!checkAdminAuth(body)) {
+          res.writeHead(403, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Admin access required' }));
+          return;
+        }
+
+        // Extract pagination parameters
+        const page = parseInt(requestData.page) || 1;
+        const limit = parseInt(requestData.limit) || 20;
+        const offset = (page - 1) * limit;
+        const search = requestData.search || '';
+
+        const pool = await getPool();
+        
+        // Build search condition
+        const searchCondition = search 
+          ? `WHERE (u.Username LIKE ? OR u.FirstName LIKE ? OR u.LastName LIKE ? OR u.Email LIKE ?)` 
+          : '';
+        const searchParams = search 
+          ? [`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`] 
+          : [];
+        
+        // Get total count for pagination
+        const [countResult] = await pool.execute(
+          `SELECT COUNT(*) as total FROM userprofile u ${searchCondition}`,
+          searchParams
+        );
+        const total = (countResult as any)[0].total;
+        
+        // Get paginated users
+        const baseQuery = `
+          SELECT 
+            u.UserID, u.Username, u.FirstName, u.LastName, u.Email, 
+            u.UserType, u.DateJoined, u.Country, u.City, u.IsOnline, 
+            u.AccountStatus, u.ProfilePicture,
+            ul.LoginDate as LastLogin
+          FROM userprofile u
+          LEFT JOIN (
+            SELECT UserID, MAX(LoginDate) as LoginDate 
+            FROM user_logins 
+            GROUP BY UserID
+          ) ul ON u.UserID = ul.UserID
+          ${searchCondition}
+          ORDER BY u.UserID
+          LIMIT ${limit} OFFSET ${offset}
+        `;
+        const [users] = await pool.execute(baseQuery, searchParams);
+        
+        const totalPages = Math.ceil(total / limit);
+        
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ 
+          users, 
+          pagination: {
+            page,
+            limit,
+            total,
+            totalPages,
+            hasNext: page < totalPages,
+            hasPrev: page > 1
+          }
+        }));
+      } catch (error: any) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: error.message }));
+      }
+    });
+    return;
+  }
+
+  // Admin endpoint: Delete/Ban user
+  if (requestPath?.match(/^\/api\/admin\/users\/\d+$/) && method === 'DELETE') {
+    let body = '';
+    
+    req.on('data', (chunk) => {
+      body += chunk.toString();
+    });
+
+    req.on('end', async () => {
+      try {
+        if (!checkAdminAuth(body)) {
+          res.writeHead(403, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Admin access required' }));
+          return;
+        }
+
+        const userId = parseInt(requestPath.split('/')[4] || '0');
+        if (isNaN(userId)) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Invalid user ID' }));
+          return;
+        }
+
+        const pool = await getPool();
+        await pool.execute('UPDATE userprofile SET AccountStatus = ? WHERE UserID = ?', ['Banned', userId]);
+        
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ message: 'User banned successfully' }));
+      } catch (error: any) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: error.message }));
+      }
+    });
+    return;
+  }
+
+  // Admin endpoint: Get platform statistics
+  if (requestPath === '/api/admin/stats' && method === 'POST') {
+    let body = '';
+    
+    req.on('data', (chunk) => {
+      body += chunk.toString();
+    });
+
+    req.on('end', async () => {
+      try {
+        if (!checkAdminAuth(body)) {
+          res.writeHead(403, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Admin access required' }));
+          return;
+        }
+
+        const pool = await getPool();
+        
+        const [userStats] = await pool.execute('SELECT COUNT(*) as totalUsers FROM userprofile');
+        const [songStats] = await pool.execute('SELECT COUNT(*) as totalSongs FROM song');
+        const [albumStats] = await pool.execute('SELECT COUNT(*) as totalAlbums FROM album');
+        const [playlistStats] = await pool.execute('SELECT COUNT(*) as totalPlaylists FROM playlist');
+        const [activeUsers] = await pool.execute('SELECT COUNT(*) as activeUsers FROM userprofile WHERE IsOnline = 1');
+        
+        const stats = {
+          totalUsers: (userStats as any)[0].totalUsers,
+          totalSongs: (songStats as any)[0].totalSongs,
+          totalAlbums: (albumStats as any)[0].totalAlbums,
+          totalPlaylists: (playlistStats as any)[0].totalPlaylists,
+          activeUsers: (activeUsers as any)[0].activeUsers
+        };
+        
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ stats }));
+      } catch (error: any) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: error.message }));
+      }
+    });
+    return;
+  }
+
+  // Admin endpoint: Get all songs with details
+  if (requestPath === '/api/admin/songs' && method === 'POST') {
+    let body = '';
+    
+    req.on('data', (chunk) => {
+      body += chunk.toString();
+    });
+
+    req.on('end', async () => {
+      try {
+        const requestData = JSON.parse(body);
+        if (!checkAdminAuth(body)) {
+          res.writeHead(403, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Admin access required' }));
+          return;
+        }
+
+        // Extract pagination parameters
+        const page = parseInt(requestData.page) || 1;
+        const limit = parseInt(requestData.limit) || 20;
+        const offset = (page - 1) * limit;
+        const search = requestData.search || '';
+
+        const pool = await getPool();
+        
+        // Build search condition
+        const searchCondition = search 
+          ? `WHERE (s.SongName LIKE ? OR u.Username LIKE ? OR a.AlbumName LIKE ? OR g.GenreName LIKE ?)` 
+          : '';
+        const searchParams = search 
+          ? [`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`] 
+          : [];
+        
+        // Get total count for pagination
+        const [countResult] = await pool.execute(
+          `SELECT COUNT(*) as total FROM song s
+           JOIN userprofile u ON s.ArtistID = u.UserID
+           LEFT JOIN album a ON s.AlbumID = a.AlbumID
+           LEFT JOIN genre g ON s.GenreID = g.GenreID
+           ${searchCondition}`,
+          searchParams
+        );
+        const total = (countResult as any)[0].total;
+        
+        // Get paginated songs
+        const baseQuery = `
+          SELECT 
+            s.SongID, s.SongName as Title, s.Duration, s.ReleaseDate, s.FilePath,
+            u.Username as ArtistName, u.FirstName, u.LastName,
+            a.AlbumName as AlbumTitle, g.GenreName,
+            (SELECT COUNT(*) FROM user_likes_song WHERE SongID = s.SongID) as LikeCount,
+            (SELECT COUNT(*) FROM listening_history WHERE SongID = s.SongID) as PlayCount
+          FROM song s
+          JOIN userprofile u ON s.ArtistID = u.UserID
+          LEFT JOIN album a ON s.AlbumID = a.AlbumID
+          LEFT JOIN genre g ON s.GenreID = g.GenreID
+          ${searchCondition}
+          ORDER BY s.SongID DESC
+          LIMIT ${limit} OFFSET ${offset}
+        `;
+        const [songs] = await pool.execute(baseQuery, searchParams);
+        
+        const totalPages = Math.ceil(total / limit);
+        
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ 
+          songs, 
+          pagination: {
+            page,
+            limit,
+            total,
+            totalPages,
+            hasNext: page < totalPages,
+            hasPrev: page > 1
+          }
+        }));
+      } catch (error: any) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: error.message }));
+      }
+    });
+    return;
+  }
+
+  // Admin endpoint: Delete song
+  if (requestPath?.match(/^\/api\/admin\/songs\/\d+$/) && method === 'DELETE') {
+    let body = '';
+    
+    req.on('data', (chunk) => {
+      body += chunk.toString();
+    });
+
+    req.on('end', async () => {
+      try {
+        if (!checkAdminAuth(body)) {
+          res.writeHead(403, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Admin access required' }));
+          return;
+        }
+
+        const songId = parseInt(requestPath.split('/')[4] || '0');
+        if (isNaN(songId)) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Invalid song ID' }));
+          return;
+        }
+
+        const pool = await getPool();
+        
+        // Delete related records first
+        await pool.execute('DELETE FROM user_likes_song WHERE SongID = ?', [songId]);
+        await pool.execute('DELETE FROM playlist_song WHERE SongID = ?', [songId]);
+        await pool.execute('DELETE FROM listening_history WHERE SongID = ?', [songId]);
+        
+        // Delete the song
+        await pool.execute('DELETE FROM song WHERE SongID = ?', [songId]);
+        
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ message: 'Song deleted successfully' }));
+      } catch (error: any) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: error.message }));
+      }
+    });
+    return;
+  }
+
+  // Admin endpoint: Get all albums
+  if (requestPath === '/api/admin/albums' && method === 'POST') {
+    let body = '';
+    
+    req.on('data', (chunk) => {
+      body += chunk.toString();
+    });
+
+    req.on('end', async () => {
+      try {
+        const requestData = JSON.parse(body);
+        if (!checkAdminAuth(body)) {
+          res.writeHead(403, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Admin access required' }));
+          return;
+        }
+
+        // Extract pagination parameters
+        const page = parseInt(requestData.page) || 1;
+        const limit = parseInt(requestData.limit) || 20;
+        const offset = (page - 1) * limit;
+        const search = requestData.search || '';
+
+        const pool = await getPool();
+        
+        // Build search condition
+        const searchCondition = search 
+          ? `WHERE (a.AlbumName LIKE ? OR u.Username LIKE ?)` 
+          : '';
+        const searchParams = search 
+          ? [`%${search}%`, `%${search}%`] 
+          : [];
+        
+        // Get total count for pagination
+        const [countResult] = await pool.execute(
+          `SELECT COUNT(*) as total FROM album a
+           JOIN userprofile u ON a.ArtistID = u.UserID
+           ${searchCondition}`,
+          searchParams
+        );
+        const total = (countResult as any)[0].total;
+        
+        // Get paginated albums
+        const baseQuery = `
+          SELECT 
+            a.AlbumID, a.AlbumName as Title, a.ReleaseDate, a.AlbumCover as CoverImagePath,
+            u.Username as ArtistName, u.FirstName, u.LastName,
+            (SELECT COUNT(*) FROM song WHERE AlbumID = a.AlbumID) as SongCount,
+            (SELECT COUNT(*) FROM user_likes_album WHERE AlbumID = a.AlbumID) as LikeCount
+          FROM album a
+          JOIN userprofile u ON a.ArtistID = u.UserID
+          ${searchCondition}
+          ORDER BY a.AlbumID DESC
+          LIMIT ${limit} OFFSET ${offset}
+        `;
+        const [albums] = await pool.execute(baseQuery, searchParams);
+        
+        const totalPages = Math.ceil(total / limit);
+        
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ 
+          albums, 
+          pagination: {
+            page,
+            limit,
+            total,
+            totalPages,
+            hasNext: page < totalPages,
+            hasPrev: page > 1
+          }
+        }));
+      } catch (error: any) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: error.message }));
+      }
+    });
+    return;
+  }
+
+  // Admin endpoint: Delete album
+  if (requestPath?.match(/^\/api\/admin\/albums\/\d+$/) && method === 'DELETE') {
+    let body = '';
+    
+    req.on('data', (chunk) => {
+      body += chunk.toString();
+    });
+
+    req.on('end', async () => {
+      try {
+        if (!checkAdminAuth(body)) {
+          res.writeHead(403, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Admin access required' }));
+          return;
+        }
+
+        const albumId = parseInt(requestPath.split('/')[4] || '0');
+        if (isNaN(albumId)) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Invalid album ID' }));
+          return;
+        }
+
+        const pool = await getPool();
+        
+        // Get songs in this album first
+        const [songs] = await pool.execute('SELECT SongID FROM song WHERE AlbumID = ?', [albumId]);
+        
+        // Delete related records for each song
+        for (const song of songs as any[]) {
+          await pool.execute('DELETE FROM user_likes_song WHERE SongID = ?', [song.SongID]);
+          await pool.execute('DELETE FROM playlist_song WHERE SongID = ?', [song.SongID]);
+          await pool.execute('DELETE FROM listening_history WHERE SongID = ?', [song.SongID]);
+        }
+        
+        // Delete songs in album
+        await pool.execute('DELETE FROM song WHERE AlbumID = ?', [albumId]);
+        
+        // Delete album likes
+        await pool.execute('DELETE FROM user_likes_album WHERE AlbumID = ?', [albumId]);
+        
+        // Delete the album
+        await pool.execute('DELETE FROM album WHERE AlbumID = ?', [albumId]);
+        
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ message: 'Album deleted successfully' }));
+      } catch (error: any) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: error.message }));
+      }
+    });
+    return;
+  }
+
+  // Admin endpoint: Get all playlists
+  if (requestPath === '/api/admin/playlists' && method === 'POST') {
+    let body = '';
+    
+    req.on('data', (chunk) => {
+      body += chunk.toString();
+    });
+
+    req.on('end', async () => {
+      try {
+        const requestData = JSON.parse(body);
+        if (!checkAdminAuth(body)) {
+          res.writeHead(403, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Admin access required' }));
+          return;
+        }
+
+        // Extract pagination parameters
+        const page = parseInt(requestData.page) || 1;
+        const limit = parseInt(requestData.limit) || 20;
+        const offset = (page - 1) * limit;
+        const search = requestData.search || '';
+
+        const pool = await getPool();
+        
+        // Build search condition
+        const searchCondition = search 
+          ? `WHERE (p.PlaylistName LIKE ? OR u.Username LIKE ?)` 
+          : '';
+        const searchParams = search 
+          ? [`%${search}%`, `%${search}%`] 
+          : [];
+        
+        // Get total count for pagination
+        const [countResult] = await pool.execute(
+          `SELECT COUNT(*) as total FROM playlist p
+           JOIN userprofile u ON p.UserID = u.UserID
+           ${searchCondition}`,
+          searchParams
+        );
+        const total = (countResult as any)[0].total;
+        
+        // Get paginated playlists
+        const baseQuery = `
+          SELECT 
+            p.PlaylistID, p.PlaylistName, p.CreatedAt as DateCreated, p.IsPublic,
+            u.Username as CreatorName, u.FirstName, u.LastName,
+            (SELECT COUNT(*) FROM playlist_song WHERE PlaylistID = p.PlaylistID) as SongCount,
+            (SELECT COUNT(*) FROM user_likes_playlist WHERE PlaylistID = p.PlaylistID) as LikeCount
+          FROM playlist p
+          JOIN userprofile u ON p.UserID = u.UserID
+          ${searchCondition}
+          ORDER BY p.PlaylistID DESC
+          LIMIT ${limit} OFFSET ${offset}
+        `;
+        const [playlists] = await pool.execute(baseQuery, searchParams);
+        
+        const totalPages = Math.ceil(total / limit);
+        
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ 
+          playlists, 
+          pagination: {
+            page,
+            limit,
+            total,
+            totalPages,
+            hasNext: page < totalPages,
+            hasPrev: page > 1
+          }
+        }));
+      } catch (error: any) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: error.message }));
+      }
+    });
+    return;
+  }
+
+  // Admin endpoint: Delete playlist
+  if (requestPath?.match(/^\/api\/admin\/playlists\/\d+$/) && method === 'DELETE') {
+    let body = '';
+    
+    req.on('data', (chunk) => {
+      body += chunk.toString();
+    });
+
+    req.on('end', async () => {
+      try {
+        if (!checkAdminAuth(body)) {
+          res.writeHead(403, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Admin access required' }));
+          return;
+        }
+
+        const playlistId = parseInt(requestPath.split('/')[4] || '0');
+        if (isNaN(playlistId)) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Invalid playlist ID' }));
+          return;
+        }
+
+        const pool = await getPool();
+        
+        // Delete related records
+        await pool.execute('DELETE FROM playlist_song WHERE PlaylistID = ?', [playlistId]);
+        await pool.execute('DELETE FROM user_likes_playlist WHERE PlaylistID = ?', [playlistId]);
+        
+        // Delete the playlist
+        await pool.execute('DELETE FROM playlist WHERE PlaylistID = ?', [playlistId]);
+        
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ message: 'Playlist deleted successfully' }));
+      } catch (error: any) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: error.message }));
+      }
+    });
+    return;
+  }
+
   console.log(`  ❌ No route found for: ${method} ${requestPath}`);
   res.writeHead(404, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify({ error: 'Not Found' }));
@@ -1893,3 +2471,4 @@ const startServer = async () => {
 };
 
 startServer();
+

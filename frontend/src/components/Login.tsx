@@ -39,8 +39,12 @@ const Login = () => {
           lastName: data.lastName
         });
         
-        // Navigate to home page
-        navigate('/home');
+        // Navigate based on user type
+        if (data.userType === 'Administrator') {
+          navigate('/admin');
+        } else {
+          navigate('/home');
+        }
       } else {
         setError(data.error || 'Invalid username or password');
       }
