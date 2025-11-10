@@ -3,6 +3,7 @@ import LandingPage from './components/LandingPage'
 import HomePage from './components/HomePage'
 import Login from './components/Login'
 import SignUp from './components/SignUp'
+import AdminDashboard from './components/AdminDashboard'
 import ProtectedRoute from './components/ProtectedRoute'
 import { AuthProvider } from './contexts/AuthContext'
 
@@ -20,6 +21,13 @@ function App() {
           <Route path="/home" element={
             <ProtectedRoute>
               <HomePage />
+            </ProtectedRoute>
+          } />
+          
+          {/* Admin Route */}
+          <Route path="/admin" element={
+            <ProtectedRoute>
+              <AdminDashboard />
             </ProtectedRoute>
           } />
         </Routes>
