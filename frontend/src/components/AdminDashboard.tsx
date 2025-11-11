@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
+import { API_BASE_URL } from '../services/api';
 
 interface User {
   UserID: number;
@@ -106,7 +107,7 @@ const AdminDashboard: React.FC = () => {
       ...additionalData
     };
     
-    return fetch(`http://localhost:3001${url}`, {
+    return fetch(`${API_BASE_URL}${url}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -226,7 +227,7 @@ const AdminDashboard: React.FC = () => {
     if (!confirm('Are you sure you want to ban this user?')) return;
     
     try {
-      const response = await fetch(`http://localhost:3001/api/admin/users/${userId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/users/${userId}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(adminCredentials),
@@ -246,7 +247,7 @@ const AdminDashboard: React.FC = () => {
     if (!confirm('Are you sure you want to delete this song?')) return;
     
     try {
-      const response = await fetch(`http://localhost:3001/api/admin/songs/${songId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/songs/${songId}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(adminCredentials),
@@ -266,7 +267,7 @@ const AdminDashboard: React.FC = () => {
     if (!confirm('Are you sure you want to delete this album?')) return;
     
     try {
-      const response = await fetch(`http://localhost:3001/api/admin/albums/${albumId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/albums/${albumId}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(adminCredentials),
@@ -286,7 +287,7 @@ const AdminDashboard: React.FC = () => {
     if (!confirm('Are you sure you want to delete this playlist?')) return;
     
     try {
-      const response = await fetch(`http://localhost:3001/api/admin/playlists/${playlistId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/playlists/${playlistId}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(adminCredentials),

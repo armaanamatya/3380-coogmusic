@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
+import { getFileUrl } from '../services/api'
 
 interface SongPlayerProps {
   isOpen: boolean
@@ -82,7 +83,7 @@ export const SongPlayer: React.FC<SongPlayerProps> = ({ isOpen, onClose, song })
 
   if (!isOpen || !song) return null
 
-  const audioUrl = song.audioFilePath ? `http://localhost:3001${song.audioFilePath}` : null
+  const audioUrl = song.audioFilePath ? getFileUrl(song.audioFilePath) : null
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
