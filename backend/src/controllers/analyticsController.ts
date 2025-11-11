@@ -16,7 +16,11 @@ export async function getAnalyticsReport(
       includeArtists,
       includePlaylistStatistics,
       includeAlbumStatistics,
-      includeGeographics
+      includeGeographics,
+      includeSuspendedAccounts,
+      showSongStats,
+      showArtistStats,
+      showAgeDemographics
     } = body;
 
     // Validate required fields
@@ -39,7 +43,11 @@ export async function getAnalyticsReport(
       includeArtists: !!includeArtists,
       includePlaylistStatistics: !!includePlaylistStatistics,
       includeAlbumStatistics: !!includeAlbumStatistics,
-      includeGeographics: !!includeGeographics
+      includeGeographics: !!includeGeographics,
+      includeSuspendedAccounts: !!includeSuspendedAccounts,
+      showSongStats: showSongStats !== false,
+      showArtistStats: showArtistStats !== false,
+      showAgeDemographics: showAgeDemographics !== false
     };
 
     const report = await analyticsModel.getAnalyticsReport(pool, filters);
@@ -76,6 +84,11 @@ export async function getIndividualUserReport(
       // If the error is about Analyst user or not found, return 404
       if (error.message.includes('Analyst') || error.message.includes('not found')) {
         res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: error.message }));
+        return;
+      }
+      if (error.message.includes('Admin')) {
+        res.writeHead(403, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: error.message }));
         return;
       }

@@ -4,7 +4,7 @@ import { loginApi } from './api';
 // Tracks user activities and handles logout scenarios (idle timeout, page unload, explicit logout)
 
 const IDLE_TIMEOUT_MS = 60 * 60 * 1000; // 1 hour in milliseconds
-let idleTimer: number | null = null;
+let idleTimer: ReturnType<typeof setTimeout> | null = null;
 let isTracking = false;
 let currentUserId: number | null = null;
 
@@ -68,7 +68,7 @@ export function incrementActivity(
 }
 
 // Update activity on server (debounced)
-let updateActivityTimeout: number | null = null;
+let updateActivityTimeout: ReturnType<typeof setTimeout> | null = null;
 function updateActivityOnServer() {
   if (updateActivityTimeout) {
     clearTimeout(updateActivityTimeout);

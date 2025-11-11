@@ -36,7 +36,8 @@ const Login = () => {
           username: data.username,
           userType: data.userType,
           firstName: data.firstName,
-          lastName: data.lastName
+          lastName: data.lastName,
+          profilePicture: data.profilePicture
         });
         
         // Navigate based on user type

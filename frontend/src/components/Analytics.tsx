@@ -16,6 +16,10 @@ const Analytics = () => {
   const [includeGeographics, setIncludeGeographics] = useState(false);
   const [includePlaylistStatistics, setIncludePlaylistStatistics] = useState(false);
   const [includeAlbumStatistics, setIncludeAlbumStatistics] = useState(false);
+  const [showSongStats, setShowSongStats] = useState(true);
+  const [showArtistStats, setShowArtistStats] = useState(true);
+  const [showAgeDemographics, setShowAgeDemographics] = useState(true);
+  const [includeSuspendedAccounts, setIncludeSuspendedAccounts] = useState(false);
   
   // Individual user options - single username input
   const [individualUsername, setIndividualUsername] = useState<string>('');
@@ -30,14 +34,7 @@ const Analytics = () => {
     setStartDate(value);
     
     // Clear error when user starts typing
-    if (errors.startDate) {
-      setErrors(prev => ({ ...prev, startDate: '' }));
-    }
-    
-    // Validate if end date is already set
-    if (endDate && value) {
-      validateDates(value, endDate);
-    }
+    validateDates(value, endDate);
   };
 
   const handleEndDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -45,49 +42,56 @@ const Analytics = () => {
     setEndDate(value);
     
     // Clear error when user starts typing
-    if (errors.endDate) {
-      setErrors(prev => ({ ...prev, endDate: '' }));
-    }
-    
-    // Validate if start date is already set
-    if (startDate && value) {
-      validateDates(startDate, value);
-    }
+    validateDates(startDate, value);
   };
 
   const validateDates = (start: string, end: string) => {
-    const newErrors: Record<string, string> = {};
     const today = new Date();
-    today.setHours(0, 0, 0, 0); // Reset time to midnight for comparison
-    
+    today.setHours(0, 0, 0, 0);
     const minDate = new Date('1900-01-01');
-    const startDateObj = new Date(start);
-    const endDateObj = new Date(end);
-    
-    // Validate start date
-    if (start) {
-      if (startDateObj < minDate) {
+
+    const startDateObj = start ? new Date(start) : null;
+    const endDateObj = end ? new Date(end) : null;
+
+    const newErrors: Record<string, string> = {};
+
+    if (!start) {
+      newErrors.startDate = 'Please select a start date';
+    } else if (Number.isNaN(startDateObj?.getTime())) {
+      newErrors.startDate = 'Start date is invalid';
+    } else {
+      if (startDateObj! < minDate) {
         newErrors.startDate = 'Start date cannot be before 1900-01-01';
-      } else if (startDateObj > today) {
+      } else if (startDateObj! > today) {
         newErrors.startDate = 'Start date cannot be in the future';
       }
     }
-    
-    // Validate end date
-    if (end) {
-      if (endDateObj < minDate) {
+
+    if (!end) {
+      newErrors.endDate = 'Please select an end date';
+    } else if (Number.isNaN(endDateObj?.getTime())) {
+      newErrors.endDate = 'End date is invalid';
+    } else {
+      if (endDateObj! < minDate) {
         newErrors.endDate = 'End date cannot be before 1900-01-01';
-      } else if (endDateObj > today) {
+      } else if (endDateObj! > today) {
         newErrors.endDate = 'End date cannot be in the future';
       }
     }
-    
-    // Validate that start date is before end date
-    if (start && end && startDateObj >= endDateObj) {
-      newErrors.endDate = 'End date must be after start date';
+
+    if (!newErrors.startDate && !newErrors.endDate && startDateObj && endDateObj) {
+      if (startDateObj >= endDateObj) {
+        newErrors.endDate = 'End date must be after start date';
+      }
     }
-    
-    setErrors(prev => ({ ...prev, ...newErrors }));
+
+    setErrors(prev => ({
+      ...prev,
+      startDate: newErrors.startDate ?? '',
+      endDate: newErrors.endDate ?? ''
+    }));
+
+    return newErrors;
   };
 
   const handleIncludeListenersChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -123,9 +127,9 @@ const Analytics = () => {
 
   // Generate report handler
   const handleGenerateReport = async () => {
-    // Validate dates
-    if (!startDate || !endDate) {
-      setReportError('Please select both start and end dates');
+    const dateValidation = validateDates(startDate, endDate);
+    if (dateValidation.startDate || dateValidation.endDate) {
+      setReportError('Please resolve the highlighted date issues before generating the report.');
       return;
     }
 
@@ -162,16 +166,36 @@ const Analytics = () => {
           endDate,
           includeListeners,
           includeArtists,
-          includePlaylistStatistics,
           includeAlbumStatistics,
-          includeGeographics
+          includeGeographics,
+          includePlaylistStatistics,
+          showSongStats,
+          showArtistStats,
+          showAgeDemographics,
+          includeSuspendedAccounts
         });
       }
 
       const data = await response.json();
 
       if (response.ok) {
-        setReportData(data);
+        setReportData({
+          ...data,
+          showSongStats,
+          showArtistStats,
+          showAgeDemographics,
+          meta: {
+            startDate,
+            endDate,
+            generatedAt: new Date().toISOString(),
+            includeListeners,
+            includeArtists,
+            includePlaylistStatistics,
+            includeAlbumStatistics,
+            includeGeographics,
+            includeSuspendedAccounts
+          }
+        });
       } else {
         setReportError(data.error || 'Failed to generate report');
       }
@@ -191,7 +215,7 @@ const Analytics = () => {
   return (
     <div className="space-y-8">
       <div className="mb-8">
-        <h2 className="text-2xl font-bold text-red-700 mb-4">User Engagement & Business Performance</h2>
+        <h2 className="text-2xl font-bold text-red-700 mb-4">User Engagement & Content Analytics</h2>
         
         {/* Date Range Selection */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
@@ -285,35 +309,84 @@ const Analytics = () => {
                   </div>
                 </div>
 
-                {/* Geographics Checkbox */}
-                <div className="flex items-center">
+                <div className="flex items-center pt-2">
                   <input
                     type="checkbox"
-                    id="includeGeographics"
-                    checked={includeGeographics}
-                    onChange={(e) => setIncludeGeographics(e.target.checked)}
-                    className="w-4 h-4 text-red-600 focus:ring-red-500 focus:ring-2 border-gray-300 rounded"
+                    id="includeSuspendedAccounts"
+                    checked={includeSuspendedAccounts}
+                    onChange={(e) => setIncludeSuspendedAccounts(e.target.checked)}
+                    className="w-4 h-4 text-red-600 focus:ring-red-500 focus-ring-2 border-gray-300 rounded"
                   />
-                  <label htmlFor="includeGeographics" className="ml-2 text-sm font-medium text-gray-700">
-                    Geographics
-                  </label>
-                </div>
-
-                {/* Playlist Statistics Checkbox */}
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    id="includePlaylistStatistics"
-                    checked={includePlaylistStatistics}
-                    onChange={(e) => setIncludePlaylistStatistics(e.target.checked)}
-                    className="w-4 h-4 text-red-600 focus:ring-red-500 focus:ring-2 border-gray-300 rounded"
-                  />
-                  <label htmlFor="includePlaylistStatistics" className="ml-2 text-sm font-medium text-gray-700">
-                    Playlist Statistics
+                  <label htmlFor="includeSuspendedAccounts" className="ml-2 text-sm font-medium text-gray-700">
+                    Include Suspended/Banned Accounts
                   </label>
                 </div>
 
                 {/* Album Statistics Checkbox */}
+                {/* Display Options */}
+                <div className="space-y-2 border-t border-gray-200 pt-4">
+                  <h4 className="text-sm font-semibold text-gray-700">Summary Display Options</h4>
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="includePlaylistStatistics"
+                      checked={includePlaylistStatistics}
+                      onChange={(e) => setIncludePlaylistStatistics(e.target.checked)}
+                      className="w-4 h-4 text-red-600 focus:ring-red-500 focus:ring-2 border-gray-300 rounded"
+                    />
+                    <label htmlFor="includePlaylistStatistics" className="ml-2 text-sm font-medium text-gray-700">
+                      Playlist Statistics
+                    </label>
+                  </div>
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="showSongStats"
+                      checked={showSongStats}
+                      onChange={(e) => setShowSongStats(e.target.checked)}
+                      className="w-4 h-4 text-red-600 focus:ring-red-500 focus:ring-2 border-gray-300 rounded"
+                    />
+                    <label htmlFor="showSongStats" className="ml-2 text-sm font-medium text-gray-700">
+                      Song Stats
+                    </label>
+                  </div>
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="showArtistStats"
+                      checked={showArtistStats}
+                      onChange={(e) => setShowArtistStats(e.target.checked)}
+                      className="w-4 h-4 text-red-600 focus:ring-red-500 focus:ring-2 border-gray-300 rounded"
+                    />
+                    <label htmlFor="showArtistStats" className="ml-2 text-sm font-medium text-gray-700">
+                      Artist Stats
+                    </label>
+                  </div>
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="showAgeDemographics"
+                      checked={showAgeDemographics}
+                      onChange={(e) => setShowAgeDemographics(e.target.checked)}
+                      className="w-4 h-4 text-red-600 focus:ring-red-500 focus-ring-2 border-gray-300 rounded"
+                    />
+                    <label htmlFor="showAgeDemographics" className="ml-2 text-sm font-medium text-gray-700">
+                      Age Demographics
+                    </label>
+                  </div>
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="includeGeographics"
+                      checked={includeGeographics}
+                      onChange={(e) => setIncludeGeographics(e.target.checked)}
+                      className="w-4 h-4 text-red-600 focus:ring-red-500 focus-ring-2 border-gray-300 rounded"
+                    />
+                    <label htmlFor="includeGeographics" className="ml-2 text-sm font-medium text-gray-700">
+                      Geographics
+                    </label>
+                  </div>
+                </div>
                 <div className="flex items-center">
                   <input
                     type="checkbox"
@@ -336,7 +409,14 @@ const Analytics = () => {
                 <div className="mt-6">
                   <button
                     onClick={handleGenerateReport}
-                    disabled={loading || !startDate || !endDate || (!includeListeners && !includeArtists)}
+                    disabled={
+                      loading ||
+                      !startDate ||
+                      !endDate ||
+                      !!errors.startDate ||
+                      !!errors.endDate ||
+                      (!includeListeners && !includeArtists)
+                    }
                     className="w-full bg-red-700 hover:bg-red-800 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-md transition duration-200 ease-in-out transform hover:scale-[1.02] disabled:transform-none"
                   >
                     {loading ? 'Generating Report...' : 'Generate Report'}
