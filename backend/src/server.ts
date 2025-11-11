@@ -1156,6 +1156,74 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     return;
   }
 
+  // Update user profile picture
+  if (requestPath?.match(/^\/api\/users\/\d+\/profile-picture$/) && method === 'POST') {
+    uploadProfilePicture.single('profilePicture')(req as any, res as any, async (err: any) => {
+      if (err) {
+        logError(err);
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message || 'Invalid profile picture upload' }));
+        return;
+      }
+
+      try {
+        const pathParts = requestPath?.split('/') || [];
+        const userId = parseInt(pathParts[3] || '0');
+        const file = (req as any).file;
+
+        if (!file) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'No profile picture provided' }));
+          return;
+        }
+
+        const pool = await getPool();
+        const existingUser = await userController.getUserById(pool, userId);
+        if (!existingUser) {
+          res.writeHead(404, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'User not found' }));
+          return;
+        }
+
+        const profilePicturePath = `/uploads/profile-pictures/${file.filename}`;
+
+        await userController.updateProfilePicture(pool, userId, profilePicturePath);
+        console.log(`  📸 Updated profile picture for user ${userId}`);
+
+        // Remove previous profile picture file if it exists and differs
+        if (existingUser.ProfilePicture && existingUser.ProfilePicture !== profilePicturePath) {
+          const relativePath = existingUser.ProfilePicture.startsWith('/')
+            ? existingUser.ProfilePicture.slice(1)
+            : existingUser.ProfilePicture;
+          const absolutePath = path.join(process.cwd(), relativePath);
+          if (fs.existsSync(absolutePath)) {
+            fs.unlink(absolutePath, (unlinkErr) => {
+              if (unlinkErr) {
+                console.warn(`  ⚠️ Failed to remove old profile picture: ${unlinkErr.message}`);
+              } else {
+                console.log('  🧹 Removed old profile picture');
+              }
+            });
+          }
+        }
+
+        const updatedUser = await userController.getUserById(pool, userId);
+        logResponse(200, 'Profile picture updated successfully');
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          message: 'Profile picture updated successfully',
+          profilePicture: profilePicturePath,
+          user: updatedUser
+        }));
+      } catch (error: any) {
+        logError(error);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
+      }
+    });
+    return;
+  }
+
   // Get user's liked songs
   if (requestPath?.match(/^\/api\/users\/\d+\/liked-songs$/) && method === 'GET') {
     try {

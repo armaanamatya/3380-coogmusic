@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { userApi, getFileUrl } from '../services/api';
 
@@ -42,6 +42,10 @@ function Settings() {
     DateOfBirth: ''
   });
   const [formErrors, setFormErrors] = useState<FormErrors>({});
+  const [profilePicturePreview, setProfilePicturePreview] = useState<string>('');
+  const [profilePictureFile, setProfilePictureFile] = useState<File | null>(null);
+  const [originalProfilePicture, setOriginalProfilePicture] = useState<string>('');
+  const previewObjectUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (user?.userId) {
@@ -71,6 +75,10 @@ function Settings() {
         City: data.user.City || '',
         DateOfBirth: data.user.DateOfBirth
       });
+      const pictureUrl = data.user.ProfilePicture ? getFileUrl(data.user.ProfilePicture) : '';
+      updateProfilePicturePreview(pictureUrl);
+      setOriginalProfilePicture(pictureUrl);
+      setProfilePictureFile(null);
     } catch (err: any) {
       setError(err.message);
       console.error('Error fetching user profile:', err);
@@ -125,6 +133,39 @@ function Settings() {
     }
   };
 
+  const updateProfilePicturePreview = (url: string, isObjectUrl = false) => {
+    if (previewObjectUrlRef.current && previewObjectUrlRef.current.startsWith('blob:')) {
+      URL.revokeObjectURL(previewObjectUrlRef.current);
+      previewObjectUrlRef.current = null;
+    }
+    if (isObjectUrl) {
+      previewObjectUrlRef.current = url;
+    }
+    setProfilePicturePreview(url);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (previewObjectUrlRef.current && previewObjectUrlRef.current.startsWith('blob:')) {
+        URL.revokeObjectURL(previewObjectUrlRef.current);
+      }
+    };
+  }, []);
+
+  const handleProfilePictureChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const objectUrl = URL.createObjectURL(file);
+      updateProfilePicturePreview(objectUrl, true);
+      setProfilePictureFile(file);
+    }
+  };
+
+  const handleProfilePictureReset = () => {
+    updateProfilePicturePreview(originalProfilePicture);
+    setProfilePictureFile(null);
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -137,22 +178,44 @@ function Settings() {
       setError(null);
       setSuccess(null);
       
-      const response = await userApi.update(user!.userId, formData);
+      const updatePayload: Record<string, any> = { ...formData };
+      if (profile?.DateOfBirth === formData.DateOfBirth || !formData.DateOfBirth) {
+        delete updatePayload.DateOfBirth;
+      }
+
+      const response = await userApi.update(user!.userId, updatePayload);
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to update profile');
       }
       
       const data = await response.json();
-      setProfile(data.user);
+      let updatedUser = data.user;
+      
+      if (profilePictureFile) {
+        const uploadResponse = await userApi.updateProfilePicture(user!.userId, profilePictureFile);
+        if (!uploadResponse.ok) {
+          const uploadError = await uploadResponse.json();
+          throw new Error(uploadError.error || 'Failed to update profile picture');
+        }
+        const uploadData = await uploadResponse.json();
+        updatedUser = uploadData.user || updatedUser;
+        const newPicturePath = uploadData.profilePicture || uploadData.user?.ProfilePicture || '';
+        const pictureUrl = newPicturePath ? getFileUrl(newPicturePath) : '';
+        updateProfilePicturePreview(pictureUrl);
+        setOriginalProfilePicture(pictureUrl);
+        setProfilePictureFile(null);
+      }
+
+      setProfile(updatedUser);
       
       login({
-        userId: data.user.UserID,
-        username: data.user.Username,
-        userType: data.user.UserType,
-        firstName: data.user.FirstName,
-        lastName: data.user.LastName,
-        profilePicture: data.user.ProfilePicture
+        userId: updatedUser.UserID,
+        username: updatedUser.Username,
+        userType: updatedUser.UserType,
+        firstName: updatedUser.FirstName,
+        lastName: updatedUser.LastName,
+        profilePicture: updatedUser.ProfilePicture
       });
       
       setSuccess('Profile updated successfully!');
@@ -178,6 +241,10 @@ function Settings() {
         City: profile.City || '',
         DateOfBirth: profile.DateOfBirth
       });
+      const pictureUrl = profile.ProfilePicture ? getFileUrl(profile.ProfilePicture) : '';
+      updateProfilePicturePreview(pictureUrl);
+      setOriginalProfilePicture(pictureUrl);
+      setProfilePictureFile(null);
     }
     setFormErrors({});
     setIsEditing(false);
@@ -252,17 +319,33 @@ function Settings() {
           <div className="p-6 border-b border-gray-200">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
-                <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center">
-                  {profile?.ProfilePicture ? (
+                <div className="relative">
+                  {profilePicturePreview ? (
                     <img
-                      src={getFileUrl(profile.ProfilePicture)}
+                      src={profilePicturePreview}
                       alt="Profile"
-                      className="w-20 h-20 rounded-full object-cover"
+                      className="w-20 h-20 rounded-full object-cover border border-gray-200"
                     />
                   ) : (
-                    <span className="text-2xl font-bold text-red-700">
-                      {profile?.FirstName[0]}{profile?.LastName[0]}
-                    </span>
+                    <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center border border-red-200">
+                      <span className="text-2xl font-bold text-red-700">
+                        {profile?.FirstName?.[0]}
+                        {profile?.LastName?.[0]}
+                      </span>
+                    </div>
+                  )}
+                  {isEditing && (
+                    <label className="absolute bottom-0 right-0 bg-white border border-gray-200 text-gray-700 rounded-full p-1.5 shadow cursor-pointer hover:bg-gray-50 transition-colors">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleProfilePictureChange}
+                      />
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536M4 13l6 6 9-9-6-6-9 9z" />
+                      </svg>
+                    </label>
                   )}
                 </div>
                 <div>
@@ -396,6 +479,35 @@ function Settings() {
                     <p className="mt-1 text-sm text-red-600">{formErrors.DateOfBirth}</p>
                   )}
                 </div>
+
+              {isEditing && (
+                <div className="mt-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-3 space-y-2 sm:space-y-0">
+                    <label className="px-3 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors inline-flex items-center space-x-2">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4 4m0 0l4-4m-4 4V4" />
+                      </svg>
+                      <span>Upload New Photo</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleProfilePictureChange}
+                      />
+                    </label>
+                    {(profilePictureFile || (profilePicturePreview && profilePicturePreview !== originalProfilePicture)) && (
+                      <button
+                        type="button"
+                        onClick={handleProfilePictureReset}
+                        className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800"
+                      >
+                        Reset Photo
+                      </button>
+                    )}
+                  </div>
+                  <p className="mt-2 text-xs text-gray-500">Accepted formats: JPG, PNG. Max size 5MB.</p>
+                </div>
+              )}
               </div>
             </div>
 

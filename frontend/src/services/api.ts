@@ -59,6 +59,10 @@ export const analyticsApi = {
     includePlaylistStatistics: boolean;
     includeAlbumStatistics: boolean;
     includeGeographics: boolean;
+    showSongStats?: boolean;
+    showArtistStats?: boolean;
+    showAgeDemographics?: boolean;
+    includeSuspendedAccounts?: boolean;
   }) =>
     fetch(`${API_BASE}/api/analytics/report`, {
       method: 'POST',
@@ -223,6 +227,15 @@ export const userApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
     }),
+
+  updateProfilePicture: (userId: number, file: File) => {
+    const formData = new FormData();
+    formData.append('profilePicture', file);
+    return fetch(`${API_BASE}/api/users/${userId}/profile-picture`, {
+      method: 'POST',
+      body: formData
+    });
+  },
   
   search: (query: string) =>
     fetch(`${API_BASE}/api/users/search?query=${encodeURIComponent(query)}`),

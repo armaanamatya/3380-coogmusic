@@ -556,6 +556,9 @@ function HomePage() {
 
 
 
+  const userProfileImage = user?.profilePicture ? getFileUrl(user.profilePicture) : ''
+  const userInitials = user?.firstName?.[0] || user?.username?.[0] || '?'
+
   return (
     <div className="flex min-h-screen bg-white">
       {/* Sidebar */}
@@ -567,11 +570,19 @@ function HomePage() {
         <div className="p-6">
           {/* User Profile Section */}
           <div className="flex flex-col items-center space-y-4">
-            <img
-              src="/api/placeholder/120/120"
-              alt="User profile"
-              className={`${isSidebarCollapsed ? 'w-16 h-16' : 'w-24 h-24'} rounded-full border-4 border-white shadow-md transition-all duration-300`}
-            />
+            {userProfileImage ? (
+              <img
+                src={userProfileImage}
+                alt="User profile"
+                className={`${isSidebarCollapsed ? 'w-16 h-16' : 'w-24 h-24'} rounded-full border-4 border-white shadow-md transition-all duration-300 object-cover`}
+              />
+            ) : (
+              <div className={`${isSidebarCollapsed ? 'w-16 h-16' : 'w-24 h-24'} rounded-full border-4 border-white shadow-md transition-all duration-300 bg-white/20 flex items-center justify-center`}>
+                <span className={`${isSidebarCollapsed ? 'text-lg' : 'text-2xl'} font-semibold text-white`}>
+                  {userInitials.toUpperCase()}
+                </span>
+              </div>
+            )}
             {!isSidebarCollapsed && (
               <div className="text-center">
                 <h2 className="text-xl font-semibold text-white">
