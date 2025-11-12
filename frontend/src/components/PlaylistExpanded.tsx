@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { playlistApi } from '../services/api';
+import { useAuth } from '../hooks/useAuth';
 
 interface Song {
   SongID: number;
@@ -46,55 +47,57 @@ export const PlaylistExpanded: React.FC<PlaylistExpandedProps> = ({
   playlistName,
   onClose
 }) => {
+  const { user } = useAuth();
   const [songs, setSongs] = useState<Song[]>([]);
   const [stats, setStats] = useState<PlaylistStats | null>(null);
   const [playlistDetails, setPlaylistDetails] = useState<PlaylistDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [deletingSongId, setDeletingSongId] = useState<number | null>(null);
+
+  const fetchPlaylistData = useCallback(async () => {
+    try {
+      setLoading(true);
+      
+      // Fetch songs, stats, and playlist details in parallel
+      const [songsResponse, statsResponse, detailsResponse] = await Promise.all([
+        playlistApi.getSongs(playlistId),
+        playlistApi.getStats(playlistId),
+        playlistApi.getById(playlistId)
+      ]);
+
+      if (songsResponse.ok) {
+        const songsData = await songsResponse.json();
+        // Ensure songs is always an array
+        const songsArray = Array.isArray(songsData.songs) ? songsData.songs : 
+                          Array.isArray(songsData) ? songsData : [];
+        setSongs(songsArray);
+      }
+
+      if (statsResponse.ok) {
+        const statsData = await statsResponse.json();
+        setStats(statsData.stats);
+      }
+
+      if (detailsResponse.ok) {
+        const detailsData = await detailsResponse.json();
+        setPlaylistDetails(detailsData.playlist || detailsData);
+      }
+
+      if (!songsResponse.ok && !statsResponse.ok && !detailsResponse.ok) {
+        setError('Failed to load playlist data');
+      }
+    } catch (err) {
+      setError('Failed to load playlist data');
+      console.error('Error fetching playlist data:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [playlistId]);
 
   useEffect(() => {
-    const fetchPlaylistData = async () => {
-      try {
-        setLoading(true);
-        
-        // Fetch songs, stats, and playlist details in parallel
-        const [songsResponse, statsResponse, detailsResponse] = await Promise.all([
-          playlistApi.getSongs(playlistId),
-          playlistApi.getStats(playlistId),
-          playlistApi.getById(playlistId)
-        ]);
-
-        if (songsResponse.ok) {
-          const songsData = await songsResponse.json();
-          // Ensure songs is always an array
-          const songsArray = Array.isArray(songsData.songs) ? songsData.songs : 
-                            Array.isArray(songsData) ? songsData : [];
-          setSongs(songsArray);
-        }
-
-        if (statsResponse.ok) {
-          const statsData = await statsResponse.json();
-          setStats(statsData.stats);
-        }
-
-        if (detailsResponse.ok) {
-          const detailsData = await detailsResponse.json();
-          setPlaylistDetails(detailsData.playlist || detailsData);
-        }
-
-        if (!songsResponse.ok && !statsResponse.ok && !detailsResponse.ok) {
-          setError('Failed to load playlist data');
-        }
-      } catch (err) {
-        setError('Failed to load playlist data');
-        console.error('Error fetching playlist data:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchPlaylistData();
-  }, [playlistId]);
+  }, [fetchPlaylistData]);
 
   // Handle click outside to close modal
   useEffect(() => {
@@ -143,6 +146,32 @@ export const PlaylistExpanded: React.FC<PlaylistExpandedProps> = ({
       day: 'numeric'
     });
   };
+
+  const handleDeleteSong = async (songId: number) => {
+    if (!window.confirm('Are you sure you want to remove this song from the playlist?')) {
+      return;
+    }
+
+    try {
+      setDeletingSongId(songId);
+      const response = await playlistApi.removeSong(playlistId, songId);
+      
+      if (response.ok) {
+        // Refresh the songs list and stats
+        await fetchPlaylistData();
+      } else {
+        const errorData = await response.json();
+        alert(errorData.error || 'Failed to remove song from playlist');
+      }
+    } catch (err) {
+      console.error('Error removing song from playlist:', err);
+      alert('Failed to remove song from playlist. Please try again.');
+    } finally {
+      setDeletingSongId(null);
+    }
+  };
+
+  const isPlaylistOwner = user && playlistDetails && user.userId === playlistDetails.UserID;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -257,6 +286,29 @@ export const PlaylistExpanded: React.FC<PlaylistExpandedProps> = ({
                     <div className="hidden sm:block text-gray-500 text-sm w-20 text-right">
                       {song.ListenCount.toLocaleString()} plays
                     </div>
+
+                    {/* Delete Button - only show if user owns the playlist */}
+                    {isPlaylistOwner && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteSong(song.SongID);
+                        }}
+                        disabled={deletingSongId === song.SongID}
+                        className="text-red-600 hover:text-red-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ml-2"
+                        title="Remove song from playlist"
+                      >
+                        {deletingSongId === song.SongID ? (
+                          <svg className="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                          </svg>
+                        ) : (
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        )}
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}

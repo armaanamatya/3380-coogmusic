@@ -1666,6 +1666,14 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
       const songId = parseInt(pathParts[5] || '0');
       const pool = await getPool();
       
+      // Verify playlist exists
+      const playlist = await playlistController.getPlaylistById(pool, playlistId);
+      if (!playlist) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Playlist not found' }));
+        return;
+      }
+      
       await playlistController.removeSongFromPlaylist(pool, playlistId, songId);
       
       res.writeHead(200, { 'Content-Type': 'application/json' });
