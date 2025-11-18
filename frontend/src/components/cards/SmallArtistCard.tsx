@@ -10,7 +10,6 @@ interface SmallArtistCardProps {
   showFollowButton?: boolean
   onFollowChange?: () => void
   verified?: boolean
-  followerCount?: number
 }
 
 export const SmallArtistCard: React.FC<SmallArtistCardProps> = ({
@@ -20,8 +19,7 @@ export const SmallArtistCard: React.FC<SmallArtistCardProps> = ({
   onClick,
   showFollowButton = true,
   onFollowChange,
-  verified = false,
-  followerCount
+  verified = false
 }) => {
   const { user } = useAuth()
   const [isFollowing, setIsFollowing] = useState(false)
