@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { getFileUrl } from '../services/api'
+import { getFileUrl, historyApi } from '../services/api'
+import { useAuth } from '../hooks/useAuth'
 
 interface SongPlayerProps {
   isOpen: boolean
@@ -15,11 +16,47 @@ interface SongPlayerProps {
 }
 
 export const SongPlayer: React.FC<SongPlayerProps> = ({ isOpen, onClose, song }) => {
+  const { user } = useAuth()
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
   const [hasAudioFile, setHasAudioFile] = useState(false)
+  const [hasStartedPlaying, setHasStartedPlaying] = useState(false)
   const audioRef = useRef<HTMLAudioElement>(null)
+  const playStartTimeRef = useRef<number>(0)
+  const totalListenTimeRef = useRef<number>(0)
+
+  // Function to track listening history
+  const trackListeningHistory = async () => {
+    if (!user?.userId || !song?.id || !hasStartedPlaying) return
+    
+    try {
+      await historyApi.add({
+        userId: user.userId,
+        songId: parseInt(song.id),
+        duration: Math.round(totalListenTimeRef.current)
+      })
+      console.log('Listening history tracked for song:', song.title)
+    } catch (error) {
+      console.error('Failed to track listening history:', error)
+    }
+  }
+
+  // Reset history tracking when song changes
+  useEffect(() => {
+    setHasStartedPlaying(false)
+    totalListenTimeRef.current = 0
+    playStartTimeRef.current = 0
+  }, [song?.id])
+
+  // Track listening when component unmounts or song changes
+  useEffect(() => {
+    return () => {
+      if (hasStartedPlaying && totalListenTimeRef.current > 0) {
+        trackListeningHistory()
+      }
+    }
+  }, [song?.id, hasStartedPlaying, user?.userId])
 
   useEffect(() => {
     if (song?.audioFilePath && audioRef.current) {
@@ -40,9 +77,41 @@ export const SongPlayer: React.FC<SongPlayerProps> = ({ isOpen, onClose, song })
         setCurrentTime(audio.currentTime)
       }
 
+      const handlePlay = () => {
+        setIsPlaying(true)
+        if (!hasStartedPlaying) {
+          setHasStartedPlaying(true)
+        }
+        playStartTimeRef.current = Date.now()
+      }
+
+      const handlePause = () => {
+        setIsPlaying(false)
+        if (playStartTimeRef.current > 0) {
+          const sessionDuration = (Date.now() - playStartTimeRef.current) / 1000
+          totalListenTimeRef.current += sessionDuration
+        }
+      }
+
+      const handleEnded = async () => {
+        setIsPlaying(false)
+        if (playStartTimeRef.current > 0) {
+          const sessionDuration = (Date.now() - playStartTimeRef.current) / 1000
+          totalListenTimeRef.current += sessionDuration
+        }
+        
+        // Track full listening history when song ends
+        if (hasStartedPlaying && totalListenTimeRef.current > 0) {
+          await trackListeningHistory()
+        }
+      }
+
       audio.addEventListener('loadeddata', handleLoadedData)
       audio.addEventListener('error', handleError)
       audio.addEventListener('timeupdate', handleTimeUpdate)
+      audio.addEventListener('play', handlePlay)
+      audio.addEventListener('pause', handlePause)
+      audio.addEventListener('ended', handleEnded)
       
       // Reset state when song changes
       setIsPlaying(false)
@@ -53,9 +122,20 @@ export const SongPlayer: React.FC<SongPlayerProps> = ({ isOpen, onClose, song })
         audio.removeEventListener('loadeddata', handleLoadedData)
         audio.removeEventListener('error', handleError)
         audio.removeEventListener('timeupdate', handleTimeUpdate)
+        audio.removeEventListener('play', handlePlay)
+        audio.removeEventListener('pause', handlePause)
+        audio.removeEventListener('ended', handleEnded)
       }
     }
   }, [song?.audioFilePath])
+
+  const handleClose = async () => {
+    // Track listening history before closing
+    if (hasStartedPlaying && totalListenTimeRef.current > 0) {
+      await trackListeningHistory()
+    }
+    onClose()
+  }
 
   const togglePlayPause = () => {
     if (!audioRef.current || !hasAudioFile) return
@@ -65,7 +145,6 @@ export const SongPlayer: React.FC<SongPlayerProps> = ({ isOpen, onClose, song })
     } else {
       audioRef.current.play()
     }
-    setIsPlaying(!isPlaying)
   }
 
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -92,7 +171,7 @@ export const SongPlayer: React.FC<SongPlayerProps> = ({ isOpen, onClose, song })
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-semibold">Now Playing</h3>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="text-gray-500 hover:text-gray-700"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">

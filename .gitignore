@@ -104,6 +104,13 @@ jspm_packages/
 # OS
 .DS_Store
 Thumbs.db
+nul
+
+# Claude
+.claude/
+
+# Setup files
+setup-env.cjs
 
 # Database files
 *.db
@@ -112,3 +119,6 @@ Thumbs.db
 
 # Database backup files
 *.db.backup.*
+
+B_Songs/
+C_James-Songs/

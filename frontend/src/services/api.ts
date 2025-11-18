@@ -170,6 +170,8 @@ export const artistApi = {
     fetch(`${API_BASE}/api/artists`),
   getTop: () => 
     fetch(`${API_BASE}/api/artists/top`),
+  getRecommended: () => 
+    fetch(`${API_BASE}/api/artists/recommended`),
   getById: (id: number) =>
     fetch(`${API_BASE}/api/artists/${id}`),
   getAlbums: (id: number) =>

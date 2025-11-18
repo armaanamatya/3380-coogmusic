@@ -865,6 +865,22 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     return;
   }
 
+  // Get recommended artists
+  if (requestPath === '/api/artists/recommended' && method === 'GET') {
+    try {
+      const pool = await getPool();
+      const artists = await artistController.getRecommendedArtists(pool, 10);
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ artists }));
+    } catch (error) {
+      console.error('Get recommended artists error:', error);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Internal server error' }));
+    }
+    return;
+  }
+
   // Get individual artist by ID
   if (requestPath?.match(/^\/api\/artists\/\d+$/) && method === 'GET') {
     console.log(`  🎤 Found artist route match for: ${requestPath}`);
