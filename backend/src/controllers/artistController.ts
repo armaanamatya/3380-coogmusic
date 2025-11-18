@@ -115,3 +115,27 @@ export async function getTopArtistsByFollowers(pool: Pool, limit: number = 10): 
   
   return rows as RowDataPacket[];
 }
+
+// Get recommended artists (random selection)
+export async function getRecommendedArtists(pool: Pool, limit: number = 10): Promise<any[]> {
+  const limitValue = parseInt(String(limit), 10);
+  const [rows] = await pool.query<RowDataPacket[]>(`
+    SELECT 
+      a.ArtistID,
+      u.FirstName,
+      u.LastName,
+      u.Username,
+      u.ProfilePicture,
+      a.ArtistBio,
+      a.VerifiedStatus,
+      COUNT(ufa.UserID) as followerCount
+    FROM artist a
+    JOIN userprofile u ON a.ArtistID = u.UserID
+    LEFT JOIN user_follows_artist ufa ON a.ArtistID = ufa.ArtistID
+    GROUP BY a.ArtistID, u.FirstName, u.LastName, u.Username, u.ProfilePicture, a.ArtistBio, a.VerifiedStatus
+    ORDER BY RAND()
+    LIMIT ?
+  `, [limitValue]);
+  
+  return rows as RowDataPacket[];
+}

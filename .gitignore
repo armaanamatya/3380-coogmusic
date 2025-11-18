@@ -104,6 +104,13 @@ jspm_packages/
 # OS
 .DS_Store
 Thumbs.db
+nul
+
+# Claude
+.claude/
+
+# Setup files
+setup-env.cjs
 
 # Database files
 *.db

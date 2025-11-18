@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import { ArtistCard, SongCard, AlbumCard, PlaylistCard } from './cards'
 import { GenreCard } from './cards/GenreCard'
+import { SmallArtistCard } from './cards/SmallArtistCard'
+import BoxContainer from './BoxContainer'
 import { PlaylistExpanded } from './PlaylistExpanded'
 import { AlbumExpanded } from './AlbumExpanded'
 import { GenreExpanded } from './GenreExpanded'
@@ -127,6 +129,7 @@ function HomePage() {
   
   // Top artists state
   const [topArtists, setTopArtists] = useState<TopArtist[]>([])
+  const [recommendedArtists, setRecommendedArtists] = useState<TopArtist[]>([])
   const [artistsLoading, setArtistsLoading] = useState(true)
   
   // Followed artists state
@@ -422,7 +425,26 @@ function HomePage() {
       }
     }
 
+    const fetchRecommendedArtists = async () => {
+      try {
+        const response = await artistApi.getRecommended()
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch recommended artists')
+        }
+        
+        const data = await response.json()
+        // Ensure data.artists is an array
+        const artistsArray = Array.isArray(data.artists) ? data.artists : (Array.isArray(data) ? data : [])
+        setRecommendedArtists(artistsArray)
+      } catch (error) {
+        console.error('Error fetching recommended artists:', error)
+        setRecommendedArtists([])
+      }
+    }
+
     fetchTopArtists()
+    fetchRecommendedArtists()
     fetchFollowedArtists()
   }, [user?.userId, fetchFollowedArtists])
 
@@ -735,29 +757,53 @@ function HomePage() {
         <div className="space-y-8">
           {activeTab === 'home' && (
             <>
-              {/* Top Artists Section */}
+              {/* Artists Section - Two-Column Layout */}
               <div className="mb-8">
-                <h2 className="text-2xl font-bold text-red-700 mb-4">Top Artists</h2>
-                {artistsLoading ? (
-                  <div className="flex justify-center items-center py-8">
-                    <div className="text-gray-600">Loading top artists...</div>
-                  </div>
-                ) : (
-                  <HorizontalScrollContainer>
-                    {Array.isArray(topArtists) && topArtists.map((artist) => (
-                      <div key={artist.ArtistID} className="flex-shrink-0">
-                        <ArtistCard
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Top Artists Box */}
+                  <BoxContainer title="Top Artists">
+                    {artistsLoading ? (
+                      <div className="flex justify-center items-center py-8 col-span-full">
+                        <div className="text-gray-600">Loading top artists...</div>
+                      </div>
+                    ) : (
+                      Array.isArray(topArtists) && topArtists.map((artist) => (
+                        <SmallArtistCard
+                          key={artist.ArtistID}
                           id={artist.ArtistID.toString()}
                           name={`${artist.FirstName} ${artist.LastName}`}
                           imageUrl={getArtistImageUrl()}
                           onFollowChange={refreshFollowedArtists}
                           verified={artist.VerifiedStatus === 1}
+                          followerCount={artist.followerCount}
                           onClick={() => handleArtistClick(artist.ArtistID, `${artist.FirstName} ${artist.LastName}`)}
                         />
+                      ))
+                    )}
+                  </BoxContainer>
+                  
+                  {/* Recommended Artists Box */}
+                  <BoxContainer title="Recommended Artists">
+                    {artistsLoading ? (
+                      <div className="flex justify-center items-center py-8 col-span-full">
+                        <div className="text-gray-600">Loading recommended artists...</div>
                       </div>
-                    ))}
-                  </HorizontalScrollContainer>
-                )}
+                    ) : (
+                      Array.isArray(recommendedArtists) && recommendedArtists.map((artist) => (
+                        <SmallArtistCard
+                          key={artist.ArtistID}
+                          id={artist.ArtistID.toString()}
+                          name={`${artist.FirstName} ${artist.LastName}`}
+                          imageUrl={getArtistImageUrl()}
+                          onFollowChange={refreshFollowedArtists}
+                          verified={artist.VerifiedStatus === 1}
+                          followerCount={artist.followerCount}
+                          onClick={() => handleArtistClick(artist.ArtistID, `${artist.FirstName} ${artist.LastName}`)}
+                        />
+                      ))
+                    )}
+                  </BoxContainer>
+                </div>
               </div>
 
               {/* Top Songs Section */}
