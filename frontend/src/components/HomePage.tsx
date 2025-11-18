@@ -110,7 +110,6 @@ function HomePage() {
   const { user, logout } = useAuth()
   const [searchQuery, setSearchQuery] = useState('')
   const [activeTab, setActiveTab] = useState('home')
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true)
   
   // Search functionality state
   const [searchResults, setSearchResults] = useState<any>(null)
@@ -584,11 +583,7 @@ function HomePage() {
   return (
     <div className="flex min-h-screen bg-white">
       {/* Sidebar */}
-      <aside 
-        className={`${isSidebarCollapsed ? 'w-24' : 'w-64'} bg-red-700 shadow-lg transition-all duration-300 ease-in-out`}
-        onMouseEnter={() => setIsSidebarCollapsed(false)}
-        onMouseLeave={() => setIsSidebarCollapsed(true)}
-      >
+      <aside className="w-64 bg-red-700 shadow-lg flex-shrink-0">
         <div className="p-6">
           {/* User Profile Section */}
           <div className="flex flex-col items-center space-y-4">
@@ -596,25 +591,23 @@ function HomePage() {
               <img
                 src={userProfileImage}
                 alt="User profile"
-                className={`${isSidebarCollapsed ? 'w-16 h-16' : 'w-24 h-24'} rounded-full border-4 border-white shadow-md transition-all duration-300 object-cover`}
+                className="w-24 h-24 rounded-full border-4 border-white shadow-md object-cover"
               />
             ) : (
-              <div className={`${isSidebarCollapsed ? 'w-16 h-16' : 'w-24 h-24'} rounded-full border-4 border-white shadow-md transition-all duration-300 bg-white/20 flex items-center justify-center`}>
-                <span className={`${isSidebarCollapsed ? 'text-lg' : 'text-2xl'} font-semibold text-white`}>
+              <div className="w-24 h-24 rounded-full border-4 border-white shadow-md bg-white/20 flex items-center justify-center">
+                <span className="text-2xl font-semibold text-white">
                   {userInitials.toUpperCase()}
                 </span>
               </div>
             )}
-            {!isSidebarCollapsed && (
-              <div className="text-center">
-                <h2 className="text-xl font-semibold text-white">
-                  {user ? `${user.firstName || user.username}` : 'User'}
-                </h2>
-                <p className="text-sm text-white/80">
-                  {user?.userType || 'Member'}
-                </p>
-              </div>
-            )}
+            <div className="text-center">
+              <h2 className="text-xl font-semibold text-white">
+                {user ? `${user.firstName || user.username}` : 'User'}
+              </h2>
+              <p className="text-sm text-white/80">
+                {user?.userType || 'Member'}
+              </p>
+            </div>
           </div>
           
           {/* Navigation Menu */}
@@ -623,79 +616,78 @@ function HomePage() {
               <li>
                 <button
                   onClick={() => setActiveTab('home')}
-                  className={`flex items-center w-full ${isSidebarCollapsed ? 'px-3 py-3 justify-center' : 'px-4 py-3'} rounded-lg transition-colors ${
+                  className={`flex items-center w-full px-4 py-3 rounded-lg transition-colors ${
                     activeTab === 'home'
                       ? 'bg-white text-red-700'
                       : 'text-white hover:bg-white/10'
                   }`}
                 >
-                  <svg className={`w-7 h-7 ${!isSidebarCollapsed ? 'mr-3' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-7 h-7 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
                   </svg>
-                  {!isSidebarCollapsed && 'Home'}
+                  Home
                 </button>
               </li>
               {user?.userType?.toLowerCase() === 'artist' && (
                 <li>
                   <button
                     onClick={() => setActiveTab('my-music')}
-                    className={`flex items-center w-full ${isSidebarCollapsed ? 'px-3 py-3 justify-center' : 'px-4 py-3'} rounded-lg transition-colors ${
+                    className={`flex items-center w-full px-4 py-3 rounded-lg transition-colors ${
                       activeTab === 'my-music'
                         ? 'bg-white text-red-700'
                         : 'text-white hover:bg-white/10'
                     }`}
                   >
-                    <svg className={`w-7 h-7 ${!isSidebarCollapsed ? 'mr-3' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-7 h-7 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
                     </svg>
-                    {!isSidebarCollapsed && 'My Music'}
+                    My Music
                   </button>
                 </li>
               )}
               <li>
                 <button
                   onClick={() => setActiveTab('library')}
-                  className={`flex items-center w-full ${isSidebarCollapsed ? 'px-3 py-3 justify-center' : 'px-4 py-3'} rounded-lg transition-colors ${
+                  className={`flex items-center w-full px-4 py-3 rounded-lg transition-colors ${
                     activeTab === 'library'
                       ? 'bg-white text-red-700'
                       : 'text-white hover:bg-white/10'
                   }`}
                 >
-                   <svg className={`w-7 h-7 ${!isSidebarCollapsed ? 'mr-3' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                   <svg className="w-7 h-7 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z" />
                    </svg>
-                  {!isSidebarCollapsed && 'Your Library'}
+                  Your Library
                 </button>
               </li>
               {user?.userType?.toLowerCase() === 'analyst' && (
                 <li>
                   <button
                     onClick={() => setActiveTab('analytics')}
-                    className={`flex items-center w-full ${isSidebarCollapsed ? 'px-3 py-3 justify-center' : 'px-4 py-3'} rounded-lg transition-colors ${
+                    className={`flex items-center w-full px-4 py-3 rounded-lg transition-colors ${
                       activeTab === 'analytics'
                         ? 'bg-white text-red-700'
                         : 'text-white hover:bg-white/10'
                     }`}
                   >
-                    <span className={`text-xl ${!isSidebarCollapsed ? 'mr-3' : ''}`}>📊</span>
-                    {!isSidebarCollapsed && 'Analytics'}
+                    <span className="text-xl mr-3">📊</span>
+                    Analytics
                   </button>
                 </li>
               )}
               <li>
                 <button
                   onClick={() => setActiveTab('settings')}
-                  className={`flex items-center w-full ${isSidebarCollapsed ? 'px-3 py-3 justify-center' : 'px-4 py-3'} rounded-lg transition-colors ${
+                  className={`flex items-center w-full px-4 py-3 rounded-lg transition-colors ${
                     activeTab === 'settings'
                       ? 'bg-white text-red-700'
                       : 'text-white hover:bg-white/10'
                   }`}
                 >
-                   <svg className={`w-7 h-7 ${!isSidebarCollapsed ? 'mr-3' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                   <svg className="w-7 h-7 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                    </svg>
-                  {!isSidebarCollapsed && 'Settings'}
+                  Your Profile
                 </button>
               </li>
             </ul>
@@ -704,12 +696,12 @@ function HomePage() {
             <div className="mt-8 pt-8 border-t border-white/20">
               <button
                 onClick={logout}
-                className={`flex items-center w-full ${isSidebarCollapsed ? 'px-3 py-3 justify-center' : 'px-4 py-3'} text-white hover:bg-white/10 rounded-lg transition-colors`}
+                className="flex items-center w-full px-4 py-3 text-white hover:bg-white/10 rounded-lg transition-colors"
               >
-                 <svg className={`w-7 h-7 ${!isSidebarCollapsed ? 'mr-3' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                 <svg className="w-7 h-7 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                  </svg>
-                {!isSidebarCollapsed && 'Sign Out'}
+                Sign Out
               </button>
             </div>
           </nav>
@@ -717,10 +709,11 @@ function HomePage() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 p-8">
-        {/* Search Bar */}
-        <div className="mb-8">
-          <div className="relative max-w-xl" ref={searchRef}>
+      <main className="flex-1 p-8 overflow-x-hidden">
+        <div className="max-w-7xl mx-auto">
+          {/* Search Bar */}
+          <div className="mb-8">
+            <div className="relative max-w-xl" ref={searchRef}>
             <input
               type="text"
               placeholder="Search for songs, artists, playlists..."
@@ -775,7 +768,6 @@ function HomePage() {
                           imageUrl={getArtistImageUrl()}
                           onFollowChange={refreshFollowedArtists}
                           verified={artist.VerifiedStatus === 1}
-                          followerCount={artist.followerCount}
                           onClick={() => handleArtistClick(artist.ArtistID, `${artist.FirstName} ${artist.LastName}`)}
                         />
                       ))
@@ -797,7 +789,6 @@ function HomePage() {
                           imageUrl={getArtistImageUrl()}
                           onFollowChange={refreshFollowedArtists}
                           verified={artist.VerifiedStatus === 1}
-                          followerCount={artist.followerCount}
                           onClick={() => handleArtistClick(artist.ArtistID, `${artist.FirstName} ${artist.LastName}`)}
                         />
                       ))
@@ -1070,8 +1061,9 @@ function HomePage() {
           )}
 
           {activeTab === 'settings' && (
-            <Settings />
+            <Settings onPlaySong={handlePlaySong} />
           )}
+        </div>
         </div>
       </main>
 

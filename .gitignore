@@ -119,3 +119,6 @@ setup-env.cjs
 
 # Database backup files
 *.db.backup.*
+
+B_Songs/
+C_James-Songs/

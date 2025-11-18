@@ -73,9 +73,9 @@ export const SmallArtistCard: React.FC<SmallArtistCardProps> = ({
   }
 
   return (
-    <div className="relative">
+    <div className="relative flex-shrink-0">
       <div
-        className="bg-white rounded-lg shadow-md hover:shadow-xl transition-shadow cursor-pointer overflow-hidden w-48"
+        className="bg-white rounded-lg shadow-md hover:shadow-xl transition-shadow cursor-pointer overflow-hidden w-32 border border-gray-200"
         onClick={onClick}
       >
         <div className="aspect-square bg-gray-200 relative">
@@ -86,12 +86,7 @@ export const SmallArtistCard: React.FC<SmallArtistCardProps> = ({
           />
         </div>
         <div className="p-2">
-          <h3 className="font-semibold text-gray-800 truncate text-xs">{name}</h3>
-          {followerCount !== undefined && (
-            <p className="text-xs text-gray-600 mt-1">
-              {followerCount.toLocaleString()} followers
-            </p>
-          )}
+          <h3 className="font-semibold text-gray-800 truncate text-xs text-center">{name}</h3>
         </div>
       </div>
       

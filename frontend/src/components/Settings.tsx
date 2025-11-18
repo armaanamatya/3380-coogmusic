@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { userApi, getFileUrl } from '../services/api';
+import RecentlyPlayedSongs from './RecentlyPlayedSongs';
 
 interface UserProfile {
   UserID: number;
@@ -23,7 +24,17 @@ interface FormErrors {
   [key: string]: string;
 }
 
-function Settings() {
+interface SettingsProps {
+  onPlaySong?: (song: {
+    id: string;
+    title: string;
+    artist: string;
+    audioFilePath?: string;
+    imageUrl?: string;
+  }) => void;
+}
+
+function Settings({ onPlaySong }: SettingsProps) {
   const { user, login } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -285,10 +296,10 @@ function Settings() {
   }
 
   return (
-    <div className="max-w-4xl">
+    <div className="max-w-7xl">
       <div className="mb-8">
-        <h2 className="text-2xl font-bold text-red-700 mb-2">Account Settings</h2>
-        <p className="text-gray-600">Manage your account information and preferences</p>
+        <h2 className="text-2xl font-bold text-red-700 mb-2">Your Profile</h2>
+        <p className="text-gray-600">Manage your account information and view your activity</p>
       </div>
 
       {success && (
@@ -313,8 +324,11 @@ function Settings() {
         </div>
       )}
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-        <form onSubmit={handleSave}>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Profile Edit Form - Takes up 2 columns */}
+        <div className="lg:col-span-2">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+            <form onSubmit={handleSave}>
           {/* Profile Header */}
           <div className="p-6 border-b border-gray-200">
             <div className="flex items-center justify-between">
@@ -588,7 +602,14 @@ function Settings() {
               </button>
             </div>
           )}
-        </form>
+            </form>
+          </div>
+        </div>
+
+        {/* Recently Played Songs - Takes up 1 column */}
+        <div className="lg:col-span-1">
+          <RecentlyPlayedSongs onPlaySong={onPlaySong} />
+        </div>
       </div>
     </div>
   );
