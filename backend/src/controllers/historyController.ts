@@ -65,7 +65,7 @@ export async function getUserListeningHistory(
     WHERE lh.UserID = ?
     ORDER BY lh.ListenedAt DESC
     LIMIT ? OFFSET ?
-  `, [userId, limit, offset]);
+  `, [userId, parseInt(String(limit), 10), parseInt(String(offset), 10)]);
 
   return rows;
 }
