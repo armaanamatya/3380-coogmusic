@@ -86,7 +86,7 @@ export async function getSongListeningHistory(
     WHERE lh.SongID = ?
     ORDER BY lh.ListenedAt DESC
     LIMIT ? OFFSET ?
-  `, [songId, limit, offset]);
+  `, [songId, parseInt(String(limit), 10), parseInt(String(offset), 10)]);
 
   return rows;
 }
