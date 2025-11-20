@@ -25,9 +25,10 @@ interface SongPlayerProps {
   onToggleLike?: (songId: number) => void
   isRatingLoading?: boolean
   isLikeLoading?: boolean
+  onHistoryUpdate?: () => void
 }
 
-export const SongPlayer: React.FC<SongPlayerProps> = ({ isOpen, onClose, song, userId, onRate, onToggleLike, isRatingLoading, isLikeLoading }) => {
+export const SongPlayer: React.FC<SongPlayerProps> = ({ isOpen, onClose, song, userId, onRate, onToggleLike, isRatingLoading, isLikeLoading, onHistoryUpdate }) => {
   const { user } = useAuth()
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)

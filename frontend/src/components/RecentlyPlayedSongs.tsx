@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { userApi, getFileUrl } from '../services/api';
 
@@ -25,9 +25,10 @@ interface RecentlyPlayedSongsProps {
     audioFilePath?: string;
     imageUrl?: string;
   }) => void;
+  refreshTrigger?: number; // Increment this to trigger refresh
 }
 
-function RecentlyPlayedSongs({ onPlaySong }: RecentlyPlayedSongsProps) {
+function RecentlyPlayedSongs({ onPlaySong, refreshTrigger }: RecentlyPlayedSongsProps) {
   const { user } = useAuth();
   const [history, setHistory] = useState<ListeningHistoryItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -55,11 +56,18 @@ function RecentlyPlayedSongs({ onPlaySong }: RecentlyPlayedSongsProps) {
     }
   }, [user]);
 
-  // useEffect(() => {
-  //   if (user?.userId) {
-  //     fetchListeningHistory();
-  //   }
-  // }, [user?.userId, fetchListeningHistory]);
+  useEffect(() => {
+    if (user?.userId) {
+      fetchListeningHistory();
+    }
+  }, [user?.userId, fetchListeningHistory]);
+
+  // Refresh when refreshTrigger changes (when new songs are played)
+  useEffect(() => {
+    if (refreshTrigger && user?.userId) {
+      fetchListeningHistory();
+    }
+  }, [refreshTrigger, user?.userId, fetchListeningHistory]);
 
   const formatTimeAgo = (dateString: string) => {
     const date = new Date(dateString);

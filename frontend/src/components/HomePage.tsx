@@ -121,6 +121,7 @@ function HomePage() {
   const [musicSubTab, setMusicSubTab] = useState<MusicSubTab>('library')
   const [editingSong, setEditingSong] = useState<Song | null>(null)
   const [refreshTrigger, setRefreshTrigger] = useState(0)
+  const [historyRefreshTrigger, setHistoryRefreshTrigger] = useState(0)
   
   // Genres state
   const [genres, setGenres] = useState<GenreWithListens[]>([])
@@ -216,6 +217,10 @@ function HomePage() {
 
   const handleDeleteSong = () => {
     setRefreshTrigger(prev => prev + 1);
+  };
+
+  const handleHistoryUpdate = () => {
+    setHistoryRefreshTrigger(prev => prev + 1);
   };
 
   const handleCancelEdit = () => {
@@ -1216,7 +1221,7 @@ function HomePage() {
           )}
 
           {activeTab === 'settings' && (
-            <Settings onPlaySong={handlePlaySong} />
+            <Settings onPlaySong={handlePlaySong} historyRefreshTrigger={historyRefreshTrigger} />
           )}
         </div>
         </div>
