@@ -32,9 +32,10 @@ interface SettingsProps {
     audioFilePath?: string;
     imageUrl?: string;
   }) => void;
+  historyRefreshTrigger?: number; // Triggers refresh when listening history is updated
 }
 
-function Settings({ onPlaySong }: SettingsProps) {
+function Settings({ onPlaySong, historyRefreshTrigger }: SettingsProps) {
   const { user, login } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -608,7 +609,7 @@ function Settings({ onPlaySong }: SettingsProps) {
 
         {/* Recently Played Songs - Takes up 1 column */}
         <div className="lg:col-span-1">
-          <RecentlyPlayedSongs onPlaySong={onPlaySong} />
+          <RecentlyPlayedSongs onPlaySong={onPlaySong} refreshTrigger={historyRefreshTrigger} />
         </div>
       </div>
     </div>

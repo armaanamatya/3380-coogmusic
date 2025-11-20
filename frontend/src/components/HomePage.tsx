@@ -15,13 +15,14 @@ import { ArtistExpanded } from './ArtistExpanded'
 import { HorizontalScrollContainer } from './HorizontalScrollContainer'
 import { SearchResults } from './SearchResults'
 import type { SearchResult } from './SearchResultItem'
-import { genreApi, artistApi, songApi, albumApi, playlistApi, userApi, getFileUrl, searchApi, ratingApi, likeApi } from '../services/api'
+import { genreApi, artistApi, songApi, albumApi, playlistApi, userApi, getFileUrl, searchApi, ratingApi, likeApi, historyApi } from '../services/api'
 import MusicUploadForm from './MusicUploadForm'
 import MusicLibrary from './MusicLibrary'
 import MusicEditForm from './MusicEditForm'
 import AlbumManager from './AlbumManager'
 import Settings from './Settings'
 import Analytics from './Analytics'
+import RecentlyPlayedSongs from './RecentlyPlayedSongs'
 
 
 interface Song {
@@ -121,6 +122,7 @@ function HomePage() {
   const [musicSubTab, setMusicSubTab] = useState<MusicSubTab>('library')
   const [editingSong, setEditingSong] = useState<Song | null>(null)
   const [refreshTrigger, setRefreshTrigger] = useState(0)
+  const [historyRefreshTrigger, setHistoryRefreshTrigger] = useState(0)
   
   // Genres state
   const [genres, setGenres] = useState<GenreWithListens[]>([])
@@ -218,6 +220,10 @@ function HomePage() {
     setRefreshTrigger(prev => prev + 1);
   };
 
+  const handleHistoryUpdate = () => {
+    setHistoryRefreshTrigger(prev => prev + 1);
+  };
+
   const handleCancelEdit = () => {
     setEditingSong(null);
     setMusicSubTab('library');
@@ -278,6 +284,26 @@ function HomePage() {
           const likeStatus = await likeStatusResponse.json()
           enrichedSong.isLiked = likeStatus.isLiked
           enrichedSong.likeCount = likeStatus.likeCount
+        }
+      }
+
+      // Add song to listening history using centralized API
+      if (user?.userId) {
+        try {
+          const response = await historyApi.add({
+            userId: user.userId,
+            songId: parseInt(song.id),
+            duration: undefined // Will be updated when song finishes
+          });
+          
+          if (response.ok) {
+            // Trigger history refresh to update recently played
+            handleHistoryUpdate();
+          } else {
+            console.error('Failed to add song to listening history');
+          }
+        } catch (historyError) {
+          console.error('Error adding song to listening history:', historyError);
         }
       }
 
@@ -910,9 +936,9 @@ function HomePage() {
         <div className="space-y-8">
           {activeTab === 'home' && (
             <>
-              {/* Artists Section - Two-Column Layout */}
+              {/* Artists and Recently Played Section - Three-Column Layout */}
               <div className="mb-8">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                   {/* Top Artists Box */}
                   <BoxContainer title="Top Artists">
                     {artistsLoading ? (
@@ -954,6 +980,14 @@ function HomePage() {
                       ))
                     )}
                   </BoxContainer>
+
+                  {/* Recently Played Songs Box */}
+                  <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+                    <RecentlyPlayedSongs 
+                      onPlaySong={handlePlaySong} 
+                      refreshTrigger={historyRefreshTrigger} 
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -1216,7 +1250,7 @@ function HomePage() {
           )}
 
           {activeTab === 'settings' && (
-            <Settings onPlaySong={handlePlaySong} />
+            <Settings onPlaySong={handlePlaySong} historyRefreshTrigger={historyRefreshTrigger} />
           )}
         </div>
         </div>
@@ -1274,6 +1308,7 @@ function HomePage() {
         onToggleLike={handleToggleSongLike}
         isRatingLoading={isRatingLoading}
         isLikeLoading={isLikeLoading}
+        onHistoryUpdate={handleHistoryUpdate}
       />
 
       {/* Artist Expanded Modal */}

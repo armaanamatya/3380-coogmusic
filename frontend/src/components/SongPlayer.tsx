@@ -25,9 +25,10 @@ interface SongPlayerProps {
   onToggleLike?: (songId: number) => void
   isRatingLoading?: boolean
   isLikeLoading?: boolean
+  onHistoryUpdate?: () => void
 }
 
-export const SongPlayer: React.FC<SongPlayerProps> = ({ isOpen, onClose, song, userId, onRate, onToggleLike, isRatingLoading, isLikeLoading }) => {
+export const SongPlayer: React.FC<SongPlayerProps> = ({ isOpen, onClose, song, userId, onRate, onToggleLike, isRatingLoading, isLikeLoading, onHistoryUpdate }) => {
   const { user } = useAuth()
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
@@ -62,6 +63,11 @@ export const SongPlayer: React.FC<SongPlayerProps> = ({ isOpen, onClose, song, u
         duration: Math.round(totalListenTimeRef.current)
       })
       console.log('Listening history tracked for song:', song.title)
+      
+      // Trigger refresh of recently played songs
+      if (onHistoryUpdate) {
+        onHistoryUpdate()
+      }
     } catch (error) {
       console.error('Failed to track listening history:', error)
     }
