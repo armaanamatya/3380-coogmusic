@@ -6,6 +6,10 @@ interface AlbumCardProps {
   title: string
   artist: string
   imageUrl?: string
+  listenCount?: number
+  rating?: number
+  likeCount?: number
+  isLiked?: boolean
   onClick?: () => void
 }
 
@@ -14,6 +18,10 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({
   title,
   artist,
   imageUrl,
+  listenCount,
+  rating,
+  likeCount,
+  isLiked,
   onClick
 }) => {
   return (
@@ -23,6 +31,11 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({
       imageUrl={imageUrl}
       type="album"
       artist={artist}
+      listenCount={listenCount}
+      rating={rating}
+      likeCount={likeCount}
+      isLiked={isLiked}
+      showStats={true}
       onClick={onClick}
     />
   )

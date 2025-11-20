@@ -15,7 +15,7 @@ import { ArtistExpanded } from './ArtistExpanded'
 import { HorizontalScrollContainer } from './HorizontalScrollContainer'
 import { SearchResults } from './SearchResults'
 import type { SearchResult } from './SearchResultItem'
-import { genreApi, artistApi, songApi, albumApi, playlistApi, userApi, getFileUrl, searchApi } from '../services/api'
+import { genreApi, artistApi, songApi, albumApi, playlistApi, userApi, getFileUrl, searchApi, ratingApi, likeApi } from '../services/api'
 import MusicUploadForm from './MusicUploadForm'
 import MusicLibrary from './MusicLibrary'
 import MusicEditForm from './MusicEditForm'
@@ -181,6 +181,11 @@ function HomePage() {
     artist: string;
     audioFilePath?: string;
     imageUrl?: string;
+    averageRating?: number;
+    totalRatings?: number;
+    userRating?: number | null;
+    isLiked?: boolean;
+    likeCount?: number;
   } | null>(null)
   const [isSongPlayerOpen, setIsSongPlayerOpen] = useState(false)
 
@@ -236,14 +241,109 @@ function HomePage() {
   }
 
   // Song player handlers
-  const handlePlaySong = (song: { id: string; title: string; artist: string; audioFilePath?: string; imageUrl?: string }) => {
-    setSelectedSong(song)
-    setIsSongPlayerOpen(true)
+  const handlePlaySong = async (song: { id: string; title: string; artist: string; audioFilePath?: string; imageUrl?: string }) => {
+    try {
+      // Set basic song info first
+      const enrichedSong = { ...song }
+      
+      if (user?.userId) {
+        // Fetch rating and like data in parallel
+        const [ratingStatsResponse, userRatingResponse, likeStatusResponse] = await Promise.all([
+          ratingApi.getSongRatingStats(parseInt(song.id)),
+          ratingApi.getUserSongRating(parseInt(song.id), user.userId),
+          likeApi.getUserLikeStatus(user.userId, parseInt(song.id))
+        ])
+
+        if (ratingStatsResponse.ok) {
+          const ratingStats = await ratingStatsResponse.json()
+          enrichedSong.averageRating = ratingStats.averageRating
+          enrichedSong.totalRatings = ratingStats.totalRatings
+        }
+
+        if (userRatingResponse.ok) {
+          const userRating = await userRatingResponse.json()
+          enrichedSong.userRating = userRating.rating
+        }
+
+        if (likeStatusResponse.ok) {
+          const likeStatus = await likeStatusResponse.json()
+          enrichedSong.isLiked = likeStatus.isLiked
+          enrichedSong.likeCount = likeStatus.likeCount
+        }
+      }
+
+      setSelectedSong(enrichedSong)
+      setIsSongPlayerOpen(true)
+    } catch (error) {
+      console.error('Error fetching song data:', error)
+      // Still open player with basic song info if API calls fail
+      setSelectedSong(song)
+      setIsSongPlayerOpen(true)
+    }
   }
 
   const handleCloseSongPlayer = () => {
     setSelectedSong(null)
     setIsSongPlayerOpen(false)
+  }
+
+  const handleRateSong = async (songId: number, rating: number) => {
+    if (!user?.userId) return
+    
+    try {
+      await ratingApi.rateSong(user.userId, songId, rating)
+      
+      // Update selected song if it's the one being rated
+      if (selectedSong && parseInt(selectedSong.id) === songId) {
+        const [ratingStatsResponse] = await Promise.all([
+          ratingApi.getSongRatingStats(songId)
+        ])
+        
+        if (ratingStatsResponse.ok) {
+          const ratingStats = await ratingStatsResponse.json()
+          setSelectedSong(prev => prev ? {
+            ...prev,
+            userRating: rating,
+            averageRating: ratingStats.averageRating,
+            totalRatings: ratingStats.totalRatings
+          } : null)
+        }
+      }
+    } catch (error) {
+      console.error('Error rating song:', error)
+    }
+  }
+
+  const handleToggleSongLike = async (songId: number) => {
+    if (!user?.userId) return
+    
+    try {
+      const currentLikeStatus = selectedSong?.isLiked || false
+      
+      if (currentLikeStatus) {
+        await likeApi.unlikeSong(user.userId, songId)
+      } else {
+        await likeApi.likeSong(user.userId, songId)
+      }
+      
+      // Update selected song if it's the one being liked/unliked
+      if (selectedSong && parseInt(selectedSong.id) === songId) {
+        const [likeStatusResponse] = await Promise.all([
+          likeApi.getUserLikeStatus(user.userId, songId)
+        ])
+        
+        if (likeStatusResponse.ok) {
+          const likeStatus = await likeStatusResponse.json()
+          setSelectedSong(prev => prev ? {
+            ...prev,
+            isLiked: likeStatus.isLiked,
+            likeCount: likeStatus.likeCount
+          } : null)
+        }
+      }
+    } catch (error) {
+      console.error('Error toggling song like:', error)
+    }
   }
 
   // Artist modal handlers
@@ -818,14 +918,6 @@ function HomePage() {
                           audioFilePath={song.FilePath}
                           listenCount={song.ListenCount}
                         />
-                        <div className="text-center mt-2">
-                          <p className="text-xs text-gray-600">
-                            {song.ListenCount?.toLocaleString() || 0} listens
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            {formatDuration(song.Duration)} • {song.GenreName || 'Unknown'}
-                          </p>
-                        </div>
                       </div>
                     ))}
                   </HorizontalScrollContainer>
@@ -848,6 +940,9 @@ function HomePage() {
                           title={album.AlbumName}
                           artist={`${album.ArtistFirstName} ${album.ArtistLastName}`}
                           imageUrl={getAlbumCoverUrl()}
+                          likeCount={album.likeCount}
+                          rating={0}
+                          listenCount={0}
                           onClick={() => setExpandedAlbum({
                             id: album.AlbumID,
                             name: album.AlbumName
@@ -1114,6 +1209,9 @@ function HomePage() {
         isOpen={isSongPlayerOpen}
         onClose={handleCloseSongPlayer}
         song={selectedSong}
+        userId={user?.userId}
+        onRate={handleRateSong}
+        onToggleLike={handleToggleSongLike}
       />
 
       {/* Artist Expanded Modal */}

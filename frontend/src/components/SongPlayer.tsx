@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { getFileUrl, historyApi } from '../services/api'
 import { useAuth } from '../hooks/useAuth'
+import { StarRating } from './StarRating'
+import { LikeButton } from './LikeButton'
 
 interface SongPlayerProps {
   isOpen: boolean
@@ -12,19 +14,40 @@ interface SongPlayerProps {
     audioFilePath?: string
     imageUrl?: string
     duration?: number
+    averageRating?: number
+    totalRatings?: number
+    userRating?: number | null
+    isLiked?: boolean
+    likeCount?: number
   } | null
+  userId?: number
+  onRate?: (songId: number, rating: number) => void
+  onToggleLike?: (songId: number) => void
 }
 
-export const SongPlayer: React.FC<SongPlayerProps> = ({ isOpen, onClose, song }) => {
+export const SongPlayer: React.FC<SongPlayerProps> = ({ isOpen, onClose, song, userId, onRate, onToggleLike }) => {
   const { user } = useAuth()
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
   const [hasAudioFile, setHasAudioFile] = useState(false)
   const [hasStartedPlaying, setHasStartedPlaying] = useState(false)
+  const [showStats, setShowStats] = useState(false)
   const audioRef = useRef<HTMLAudioElement>(null)
   const playStartTimeRef = useRef<number>(0)
   const totalListenTimeRef = useRef<number>(0)
+
+  const handleRate = (rating: number) => {
+    if (onRate && userId && song) {
+      onRate(parseInt(song.id), rating)
+    }
+  }
+
+  const handleToggleLike = () => {
+    if (onToggleLike && userId && song) {
+      onToggleLike(parseInt(song.id))
+    }
+  }
 
   // Function to track listening history
   const trackListeningHistory = async () => {
@@ -191,6 +214,93 @@ export const SongPlayer: React.FC<SongPlayerProps> = ({ isOpen, onClose, song })
           )}
           <h4 className="text-xl font-bold text-gray-800">{song.title}</h4>
           <p className="text-gray-600">{song.artist}</p>
+        </div>
+
+        {/* Ratings and Likes Section */}
+        <div className="mb-6 border-t border-gray-200 pt-4">
+          {/* Quick Actions */}
+          <div className="flex items-center justify-center space-x-6 mb-4">
+            {/* Rating */}
+            <div className="flex flex-col items-center">
+              <StarRating
+                rating={song.averageRating || 0}
+                userRating={song.userRating || null}
+                totalRatings={song.totalRatings || 0}
+                onRate={userId ? handleRate : undefined}
+                readonly={!userId}
+                size="medium"
+                showStats={false}
+              />
+              {song.totalRatings ? (
+                <span className="text-xs text-gray-500 mt-1">
+                  {song.totalRatings} rating{song.totalRatings !== 1 ? 's' : ''}
+                </span>
+              ) : null}
+            </div>
+
+            {/* Like */}
+            <div className="flex flex-col items-center">
+              <LikeButton
+                isLiked={song.isLiked || false}
+                likeCount={song.likeCount || 0}
+                onToggleLike={userId ? handleToggleLike : undefined}
+                size="medium"
+                showCount={false}
+              />
+              {song.likeCount ? (
+                <span className="text-xs text-gray-500 mt-1">
+                  {song.likeCount} like{song.likeCount !== 1 ? 's' : ''}
+                </span>
+              ) : null}
+            </div>
+          </div>
+
+          {/* Stats Toggle */}
+          <div className="text-center">
+            <button
+              onClick={() => setShowStats(!showStats)}
+              className="text-sm text-gray-600 hover:text-gray-800 flex items-center mx-auto"
+            >
+              {showStats ? 'Hide' : 'Show'} Stats
+              <svg 
+                className={`w-4 h-4 ml-1 transform transition-transform ${showStats ? 'rotate-180' : ''}`} 
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Expanded Stats */}
+          {showStats && (
+            <div className="mt-4 bg-gray-50 rounded-lg p-4">
+              <h5 className="font-semibold text-gray-800 mb-3">Song Statistics</h5>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Average Rating:</span>
+                  <span className="font-medium">
+                    {song.averageRating ? `${song.averageRating.toFixed(1)}/5.0` : 'No ratings'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Total Ratings:</span>
+                  <span className="font-medium">{song.totalRatings || 0}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Total Likes:</span>
+                  <span className="font-medium">{song.likeCount || 0}</span>
+                </div>
+                {song.userRating && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Your Rating:</span>
+                    <span className="font-medium">{song.userRating}/5</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Audio Player */}
