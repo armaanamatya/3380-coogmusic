@@ -52,22 +52,44 @@ export async function getUserListeningHistory(
   const { page = 1, limit = 50 } = filters;
   const offset = (page - 1) * limit;
 
-  const [rows] = await pool.execute<RowDataPacket[]>(`
-    SELECT lh.*, s.SongName, s.Duration as SongDuration, s.FilePath,
-           up.FirstName AS ArtistFirstName, up.LastName AS ArtistLastName,
-           al.AlbumName, g.GenreName
-    FROM listening_history lh
-    JOIN song s ON lh.SongID = s.SongID
-    LEFT JOIN album al ON s.AlbumID = al.AlbumID
-    LEFT JOIN artist a ON s.ArtistID = a.ArtistID
-    LEFT JOIN userprofile up ON a.ArtistID = up.UserID
-    LEFT JOIN genre g ON s.GenreID = g.GenreID
-    WHERE lh.UserID = ?
-    ORDER BY lh.ListenedAt DESC
-    LIMIT ? OFFSET ?
-  `, [userId, parseInt(String(limit), 10), parseInt(String(offset), 10)]);
+  // Ensure parameters are integers for MySQL
+  const limitInt = Math.max(1, Math.floor(Number(limit)));
+  const offsetInt = Math.max(0, Math.floor(Number(offset)));
 
-  return rows;
+  try {
+    // Build query with proper parameter handling - use LEFT JOIN to handle missing songs
+    let query = `
+      SELECT lh.*, 
+             COALESCE(s.SongName, 'Unknown Song') as SongName, 
+             s.Duration as SongDuration, 
+             s.FilePath,
+             COALESCE(CONCAT(up.FirstName, ' ', up.LastName), 'Unknown Artist') as ArtistName
+      FROM listening_history lh
+      LEFT JOIN song s ON lh.SongID = s.SongID
+      LEFT JOIN artist a ON s.ArtistID = a.ArtistID
+      LEFT JOIN userprofile up ON a.ArtistID = up.UserID
+      WHERE lh.UserID = ?
+      ORDER BY lh.ListenedAt DESC
+    `;
+    
+    const params: any[] = [userId];
+    
+    // Add LIMIT if specified
+    if (limit) {
+      query += ` LIMIT ${limitInt}`;
+    }
+    
+    // Add OFFSET if specified and > 0
+    if (offset && offsetInt > 0) {
+      query += ` OFFSET ${offsetInt}`;
+    }
+    
+    const [rows] = await pool.execute(query, params) as [any[], any];
+    return rows;
+  } catch (error: any) {
+    console.error('Error in getUserListeningHistory:', error);
+    return [];
+  }
 }
 
 // Get song's listening history
@@ -86,7 +108,7 @@ export async function getSongListeningHistory(
     WHERE lh.SongID = ?
     ORDER BY lh.ListenedAt DESC
     LIMIT ? OFFSET ?
-  `, [songId, parseInt(String(limit), 10), parseInt(String(offset), 10)]);
+  `, [songId, limit, offset]);
 
   return rows;
 }
@@ -144,7 +166,7 @@ export async function getUserMostPlayedSongs(
     GROUP BY s.SongID
     ORDER BY playCount DESC, totalListenTime DESC
     LIMIT ?
-  `, [userId, parseInt(String(limit), 10)]);
+  `, [userId, limit]);
 
   return rows;
 }
@@ -168,7 +190,7 @@ export async function getUserMostPlayedArtists(
     GROUP BY a.ArtistID
     ORDER BY playCount DESC, totalListenTime DESC
     LIMIT ?
-  `, [userId, parseInt(String(limit), 10)]);
+  `, [userId, limit]);
 
   return rows;
 }
@@ -189,7 +211,7 @@ export async function getGlobalMostPlayedSongs(pool: Pool, limit: number): Promi
     GROUP BY s.SongID
     ORDER BY playCount DESC, totalListenTime DESC
     LIMIT ?
-  `, [parseInt(String(limit), 10)]);
+  `, [limit]);
 
   return rows;
 }
@@ -237,7 +259,7 @@ export async function getTrendingSongs(pool: Pool, days: number, limit: number):
     GROUP BY s.SongID
     ORDER BY playCount DESC
     LIMIT ?
-  `, [days, parseInt(String(limit), 10)]);
+  `, [days, limit]);
   
   return rows;
 }

@@ -1320,6 +1320,44 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     return;
   }
 
+  // Add song to user's listening history
+  if (requestPath?.match(/^\/api\/users\/\d+\/history$/) && method === 'POST') {
+    try {
+      const pathParts = requestPath?.split('/') || [];
+      const userId = parseInt(pathParts[3] || '0');
+      
+      let body = '';
+      req.on('data', chunk => {
+        body += chunk.toString();
+      });
+      
+      req.on('end', async () => {
+        try {
+          const { songId, duration } = JSON.parse(body);
+          const pool = await getPool();
+          
+          const result = await historyController.addListeningHistory(pool, {
+            userId,
+            songId,
+            duration
+          });
+          
+          res.writeHead(201, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: true, historyId: result.historyId }));
+        } catch (error: any) {
+          logError(error);
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
+        }
+      });
+    } catch (error: any) {
+      logError(error);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
+    }
+    return;
+  }
+
   // Unified search across all entities
   if (requestPath === '/api/search' && method === 'GET') {
     try {
