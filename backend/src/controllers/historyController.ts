@@ -50,6 +50,7 @@ export async function getUserListeningHistory(
   filters: { page?: number; limit?: number }
 ): Promise<any[]> {
   const { page = 1, limit = 50 } = filters;
+  const offset = (page - 1) * limit;
 
   const [rows] = await pool.execute<RowDataPacket[]>(`
     SELECT lh.*, s.SongName, s.Duration as SongDuration, s.FilePath,
@@ -64,7 +65,7 @@ export async function getUserListeningHistory(
     WHERE lh.UserID = ?
     ORDER BY lh.ListenedAt DESC
     LIMIT ? OFFSET ?
-  `, [userId, parseInt(String(limit), 10), parseInt(String((page - 1) * limit), 10)]);
+  `, [userId, limit, offset]);
 
   return rows;
 }
@@ -76,6 +77,7 @@ export async function getSongListeningHistory(
   filters: { page?: number; limit?: number }
 ): Promise<any[]> {
   const { page = 1, limit = 50 } = filters;
+  const offset = (page - 1) * limit;
 
   const [rows] = await pool.execute<RowDataPacket[]>(`
     SELECT lh.*, u.Username, u.FirstName, u.LastName
@@ -84,7 +86,7 @@ export async function getSongListeningHistory(
     WHERE lh.SongID = ?
     ORDER BY lh.ListenedAt DESC
     LIMIT ? OFFSET ?
-  `, [songId, parseInt(String(limit), 10), parseInt(String((page - 1) * limit), 10)]);
+  `, [songId, limit, offset]);
 
   return rows;
 }
@@ -114,7 +116,7 @@ export async function getRecentListeningHistory(
 
   if (limit) {
     query += ` LIMIT ?`;
-    params.push(parseInt(String(limit), 10));
+    params.push(limit);
   }
 
   const [rows] = await pool.execute<RowDataPacket[]>(query, params);

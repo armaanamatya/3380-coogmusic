@@ -1305,7 +1305,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
       const { page = '1', limit = '50' } = parsedUrl.query;
       const pool = await getPool();
       
-      const history = historyController.getUserListeningHistory(pool, userId, {
+      const history = await historyController.getUserListeningHistory(pool, userId, {
         page: parseInt(page as string),
         limit: parseInt(limit as string)
       });
