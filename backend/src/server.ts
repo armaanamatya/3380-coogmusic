@@ -1761,6 +1761,35 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     return;
   }
 
+  // Get user's like status for a song - /api/likes/songs/{userId}/status/{songId}
+  if (requestPath.startsWith('/api/likes/songs/') && requestPath.includes('/status/') && method === 'GET') {
+    try {
+      // Parse path: /api/likes/songs/{userId}/status/{songId}
+      const pathParts = requestPath.split('/');
+      if (pathParts.length === 7 && pathParts[5] === 'status') {
+        const userId = parseInt(pathParts[4]);
+        const songId = parseInt(pathParts[6]);
+        
+        const pool = await getPool();
+        
+        // Use existing controller functions
+        const isLiked = await likeController.isSongLiked(pool, userId, songId);
+        const likeCount = await likeController.getSongLikeCount(pool, songId);
+        
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ 
+          isLiked,
+          likeCount 
+        }));
+        return;
+      }
+    } catch (error: any) {
+      logError(error);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: error.message }));
+    }
+  }
+
   // Like an album
   if (requestPath === '/api/likes/albums' && method === 'POST') {
     let body = '';

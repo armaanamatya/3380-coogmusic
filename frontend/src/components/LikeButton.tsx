@@ -8,6 +8,7 @@ interface LikeButtonProps {
   size?: 'small' | 'medium' | 'large'
   showCount?: boolean // Show like count next to button
   variant?: 'heart' | 'thumb' // Icon style
+  loading?: boolean // Show loading state
 }
 
 export const LikeButton: React.FC<LikeButtonProps> = ({
@@ -17,7 +18,8 @@ export const LikeButton: React.FC<LikeButtonProps> = ({
   disabled = false,
   size = 'medium',
   showCount = true,
-  variant = 'heart'
+  variant = 'heart',
+  loading = false
 }) => {
   const [isAnimating, setIsAnimating] = useState(false)
 
@@ -46,7 +48,7 @@ export const LikeButton: React.FC<LikeButtonProps> = ({
   const config = sizeConfig[size]
 
   const handleClick = () => {
-    if (!disabled && onToggleLike) {
+    if (!disabled && !loading && onToggleLike) {
       setIsAnimating(true)
       onToggleLike()
       
@@ -62,16 +64,17 @@ export const LikeButton: React.FC<LikeButtonProps> = ({
     if (filled) {
       return (
         <svg 
-          className={`${config.iconSize} ${className} text-red-500 fill-current`} 
+          className={`${config.iconSize} ${className} text-red-500 fill-current drop-shadow-sm`} 
           viewBox="0 0 24 24"
         >
           <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
         </svg>
       )
     } else {
+      const hoverClass = disabled ? '' : 'hover:text-red-400 hover:scale-105'
       return (
         <svg 
-          className={`${config.iconSize} ${className} text-gray-500 hover:text-red-500 transition-colors`} 
+          className={`${config.iconSize} ${className} text-gray-400 ${hoverClass} transition-all duration-200`} 
           viewBox="0 0 24 24" 
           fill="none" 
           stroke="currentColor" 
@@ -120,21 +123,23 @@ export const LikeButton: React.FC<LikeButtonProps> = ({
           flex items-center justify-center
           rounded-full
           transition-all duration-200
-          ${disabled 
+          ${disabled || loading
             ? 'cursor-not-allowed opacity-50' 
-            : 'hover:bg-gray-100 active:scale-95 cursor-pointer'
+            : `hover:bg-gray-100 active:scale-95 cursor-pointer ${
+                isLiked && variant === 'heart' ? 'hover:bg-red-50' : ''
+              }`
           }
-          ${isAnimating ? 'animate-pulse scale-110' : ''}
+          ${isAnimating || loading ? 'animate-pulse scale-110' : ''}
           focus:outline-none focus:ring-2 focus:ring-offset-1 
           ${isLiked 
             ? variant === 'heart' 
-              ? 'focus:ring-red-300' 
-              : 'focus:ring-blue-300'
+              ? 'focus:ring-red-300 bg-red-50/50' 
+              : 'focus:ring-blue-300 bg-blue-50/50'
             : 'focus:ring-gray-300'
           }
         `}
         onClick={handleClick}
-        disabled={disabled}
+        disabled={disabled || loading}
         aria-label={`${isLiked ? 'Unlike' : 'Like'} this song`}
         aria-pressed={isLiked}
       >

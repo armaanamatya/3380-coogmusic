@@ -188,6 +188,8 @@ function HomePage() {
     likeCount?: number;
   } | null>(null)
   const [isSongPlayerOpen, setIsSongPlayerOpen] = useState(false)
+  const [isRatingLoading, setIsRatingLoading] = useState(false)
+  const [isLikeLoading, setIsLikeLoading] = useState(false)
 
   // Artist modal state
   const [selectedArtist, setSelectedArtist] = useState<{
@@ -288,12 +290,26 @@ function HomePage() {
   }
 
   const handleRateSong = async (songId: number, rating: number) => {
-    if (!user?.userId) return
+    if (!user?.userId || isRatingLoading) return
+    
+    setIsRatingLoading(true)
+    
+    // Optimistic update - immediately update UI
+    if (selectedSong && parseInt(selectedSong.id) === songId) {
+      setSelectedSong(prev => prev ? {
+        ...prev,
+        userRating: rating
+      } : null)
+    }
     
     try {
-      await ratingApi.rateSong(user.userId, songId, rating)
+      const response = await ratingApi.rateSong(user.userId, songId, rating)
       
-      // Update selected song if it's the one being rated
+      if (!response.ok) {
+        throw new Error('Failed to submit rating')
+      }
+      
+      // Update selected song with fresh data from server
       if (selectedSong && parseInt(selectedSong.id) === songId) {
         const [ratingStatsResponse] = await Promise.all([
           ratingApi.getSongRatingStats(songId)
@@ -311,26 +327,55 @@ function HomePage() {
       }
     } catch (error) {
       console.error('Error rating song:', error)
+      
+      // Revert optimistic update on error
+      if (selectedSong && parseInt(selectedSong.id) === songId) {
+        // Restore original user rating or null if it was new
+        setSelectedSong(prev => prev ? {
+          ...prev,
+          userRating: selectedSong.userRating
+        } : null)
+      }
+      
+      // TODO: Show error toast/notification to user
+      alert('Failed to submit rating. Please try again.')
+    } finally {
+      setIsRatingLoading(false)
     }
   }
 
   const handleToggleSongLike = async (songId: number) => {
-    if (!user?.userId) return
+    if (!user?.userId || isLikeLoading) return
+    
+    setIsLikeLoading(true)
+    
+    const currentLikeStatus = selectedSong?.isLiked || false
+    const currentLikeCount = selectedSong?.likeCount || 0
+    
+    // Optimistic update - immediately update UI
+    if (selectedSong && parseInt(selectedSong.id) === songId) {
+      setSelectedSong(prev => prev ? {
+        ...prev,
+        isLiked: !currentLikeStatus,
+        likeCount: currentLikeStatus ? currentLikeCount - 1 : currentLikeCount + 1
+      } : null)
+    }
     
     try {
-      const currentLikeStatus = selectedSong?.isLiked || false
-      
+      let response
       if (currentLikeStatus) {
-        await likeApi.unlikeSong(user.userId, songId)
+        response = await likeApi.unlikeSong(user.userId, songId)
       } else {
-        await likeApi.likeSong(user.userId, songId)
+        response = await likeApi.likeSong(user.userId, songId)
       }
       
-      // Update selected song if it's the one being liked/unliked
+      if (!response.ok) {
+        throw new Error('Failed to toggle like')
+      }
+      
+      // Update selected song with fresh data from server
       if (selectedSong && parseInt(selectedSong.id) === songId) {
-        const [likeStatusResponse] = await Promise.all([
-          likeApi.getUserLikeStatus(user.userId, songId)
-        ])
+        const likeStatusResponse = await likeApi.getUserLikeStatus(user.userId, songId)
         
         if (likeStatusResponse.ok) {
           const likeStatus = await likeStatusResponse.json()
@@ -343,6 +388,20 @@ function HomePage() {
       }
     } catch (error) {
       console.error('Error toggling song like:', error)
+      
+      // Revert optimistic update on error
+      if (selectedSong && parseInt(selectedSong.id) === songId) {
+        setSelectedSong(prev => prev ? {
+          ...prev,
+          isLiked: currentLikeStatus,
+          likeCount: currentLikeCount
+        } : null)
+      }
+      
+      // TODO: Show error toast/notification to user
+      alert('Failed to update like status. Please try again.')
+    } finally {
+      setIsLikeLoading(false)
     }
   }
 
@@ -1212,6 +1271,8 @@ function HomePage() {
         userId={user?.userId}
         onRate={handleRateSong}
         onToggleLike={handleToggleSongLike}
+        isRatingLoading={isRatingLoading}
+        isLikeLoading={isLikeLoading}
       />
 
       {/* Artist Expanded Modal */}

@@ -8,6 +8,7 @@ interface StarRatingProps {
   readonly?: boolean // If true, stars are not interactive
   size?: 'small' | 'medium' | 'large'
   showStats?: boolean // Show rating stats text
+  loading?: boolean // Show loading state
 }
 
 export const StarRating: React.FC<StarRatingProps> = ({
@@ -17,7 +18,8 @@ export const StarRating: React.FC<StarRatingProps> = ({
   onRate,
   readonly = false,
   size = 'medium',
-  showStats = true
+  showStats = true,
+  loading = false
 }) => {
   const [hoverRating, setHoverRating] = useState(0)
   const [isHovering, setIsHovering] = useState(false)
@@ -44,13 +46,13 @@ export const StarRating: React.FC<StarRatingProps> = ({
   const config = sizeConfig[size]
 
   const handleStarClick = (starValue: number) => {
-    if (!readonly && onRate) {
+    if (!readonly && onRate && !loading) {
       onRate(starValue)
     }
   }
 
   const handleStarHover = (starValue: number) => {
-    if (!readonly) {
+    if (!readonly && !loading) {
       setHoverRating(starValue)
       setIsHovering(true)
     }
@@ -145,10 +147,14 @@ export const StarRating: React.FC<StarRatingProps> = ({
             <button
               key={starIndex}
               type="button"
-              className={`focus:outline-none ${readonly ? 'cursor-default' : 'cursor-pointer hover:scale-110 transition-transform'}`}
+              className={`focus:outline-none ${
+                readonly || loading 
+                  ? 'cursor-default' 
+                  : 'cursor-pointer hover:scale-110 transition-transform'
+              } ${loading ? 'opacity-50' : ''}`}
               onClick={() => handleStarClick(starIndex)}
               onMouseEnter={() => handleStarHover(starIndex)}
-              disabled={readonly}
+              disabled={readonly || loading}
               aria-label={`Rate ${starIndex} star${starIndex > 1 ? 's' : ''}`}
             >
               <StarIcon 

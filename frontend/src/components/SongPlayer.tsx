@@ -23,9 +23,11 @@ interface SongPlayerProps {
   userId?: number
   onRate?: (songId: number, rating: number) => void
   onToggleLike?: (songId: number) => void
+  isRatingLoading?: boolean
+  isLikeLoading?: boolean
 }
 
-export const SongPlayer: React.FC<SongPlayerProps> = ({ isOpen, onClose, song, userId, onRate, onToggleLike }) => {
+export const SongPlayer: React.FC<SongPlayerProps> = ({ isOpen, onClose, song, userId, onRate, onToggleLike, isRatingLoading, isLikeLoading }) => {
   const { user } = useAuth()
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
@@ -230,6 +232,7 @@ export const SongPlayer: React.FC<SongPlayerProps> = ({ isOpen, onClose, song, u
                 readonly={!userId}
                 size="medium"
                 showStats={false}
+                loading={isRatingLoading}
               />
               {song.totalRatings ? (
                 <span className="text-xs text-gray-500 mt-1">
@@ -246,6 +249,7 @@ export const SongPlayer: React.FC<SongPlayerProps> = ({ isOpen, onClose, song, u
                 onToggleLike={userId ? handleToggleLike : undefined}
                 size="medium"
                 showCount={false}
+                loading={isLikeLoading}
               />
               {song.likeCount ? (
                 <span className="text-xs text-gray-500 mt-1">
