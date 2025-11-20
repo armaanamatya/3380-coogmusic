@@ -63,6 +63,11 @@ export const SongPlayer: React.FC<SongPlayerProps> = ({ isOpen, onClose, song, u
         duration: Math.round(totalListenTimeRef.current)
       })
       console.log('Listening history tracked for song:', song.title)
+      
+      // Trigger refresh of recently played songs
+      if (onHistoryUpdate) {
+        onHistoryUpdate()
+      }
     } catch (error) {
       console.error('Failed to track listening history:', error)
     }

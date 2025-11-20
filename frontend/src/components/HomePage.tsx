@@ -1279,6 +1279,7 @@ function HomePage() {
         onToggleLike={handleToggleSongLike}
         isRatingLoading={isRatingLoading}
         isLikeLoading={isLikeLoading}
+        onHistoryUpdate={handleHistoryUpdate}
       />
 
       {/* Artist Expanded Modal */}
