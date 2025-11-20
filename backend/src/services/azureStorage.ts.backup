@@ -1,0 +1,178 @@
+import { BlobServiceClient, ContainerClient, BlockBlobClient } from '@azure/storage-blob';
+import path from 'path';
+
+export class AzureStorageService {
+  private blobServiceClient: BlobServiceClient;
+  
+  constructor() {
+    const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
+    if (!connectionString) {
+      throw new Error('AZURE_STORAGE_CONNECTION_STRING environment variable is required');
+    }
+    
+    this.blobServiceClient = BlobServiceClient.fromConnectionString(connectionString);
+  }
+
+  /**
+   * Upload a file to Azure Blob Storage
+   */
+  async uploadFile(
+    containerName: string, 
+    fileName: string, 
+    buffer: Buffer, 
+    mimeType?: string
+  ): Promise<{ blobUrl: string; cdnUrl: string }> {
+    try {
+      const containerClient = this.blobServiceClient.getContainerClient(containerName);
+      const blockBlobClient = containerClient.getBlockBlobClient(fileName);
+
+      const options = {
+        blobHTTPHeaders: {
+          blobContentType: mimeType,
+          blobCacheControl: 'public, max-age=31536000', // 1 year cache
+        },
+      };
+
+      await blockBlobClient.upload(buffer, buffer.length, options);
+
+      const blobUrl = blockBlobClient.url;
+      const cdnUrl = this.getCDNUrl(containerName, fileName);
+
+      return { blobUrl, cdnUrl };
+    } catch (error: any) {
+      throw new Error(`Failed to upload file to Azure Blob: ${error.message}`);
+    }
+  }
+
+  /**
+   * Delete a file from Azure Blob Storage
+   */
+  async deleteFile(containerName: string, fileName: string): Promise<boolean> {
+    try {
+      const containerClient = this.blobServiceClient.getContainerClient(containerName);
+      const blockBlobClient = containerClient.getBlockBlobClient(fileName);
+      
+      await blockBlobClient.delete();
+      return true;
+    } catch (error: any) {
+      console.error(`Failed to delete file from Azure Blob: ${error.message}`);
+      return false;
+    }
+  }
+
+  /**
+   * Get CDN URL for a file
+   */
+  getCDNUrl(containerName: string, fileName: string): string {
+    const cdnEndpoint = process.env.AZURE_CDN_ENDPOINT;
+    if (cdnEndpoint) {
+      return `${cdnEndpoint}/${containerName}/${fileName}`;
+    }
+    
+    // Fallback to direct blob URL
+    const storageAccount = process.env.AZURE_STORAGE_ACCOUNT_NAME;
+    return `https://${storageAccount}.blob.core.windows.net/${containerName}/${fileName}`;
+  }
+
+  /**
+   * Generate unique filename for uploads
+   */
+  generateUniqueFileName(originalName: string, prefix: string = 'file'): string {
+    const timestamp = Date.now();
+    const random = Math.floor(Math.random() * 1000000);
+    const extension = path.extname(originalName);
+    return `${prefix}-${timestamp}-${random}${extension}`;
+  }
+
+  /**
+   * Get file container based on file type
+   */
+  getContainerForFileType(fileType: 'music' | 'image' | 'profile'): string {
+    switch (fileType) {
+      case 'music':
+        return 'music-files';
+      case 'image':
+        return 'album-covers';
+      case 'profile':
+        return 'profile-images';
+      default:
+        return 'music-files';
+    }
+  }
+
+  /**
+   * Upload music file with proper naming and container
+   */
+  async uploadMusicFile(fileName: string, buffer: Buffer): Promise<{ blobUrl: string; cdnUrl: string }> {
+    const uniqueName = this.generateUniqueFileName(fileName, 'audio');
+    const mimeType = this.getMimeTypeForAudio(fileName);
+    
+    return this.uploadFile('music-files', uniqueName, buffer, mimeType);
+  }
+
+  /**
+   * Upload image file (profile pictures, album covers)
+   */
+  async uploadImageFile(
+    fileName: string, 
+    buffer: Buffer, 
+    type: 'profile' | 'album'
+  ): Promise<{ blobUrl: string; cdnUrl: string }> {
+    const containerName = type === 'profile' ? 'profile-images' : 'album-covers';
+    const uniqueName = this.generateUniqueFileName(fileName, type === 'profile' ? 'profile' : 'album');
+    const mimeType = this.getMimeTypeForImage(fileName);
+    
+    return this.uploadFile(containerName, uniqueName, buffer, mimeType);
+  }
+
+  /**
+   * Get MIME type for audio files
+   */
+  private getMimeTypeForAudio(fileName: string): string {
+    const ext = path.extname(fileName).toLowerCase();
+    switch (ext) {
+      case '.mp3':
+        return 'audio/mpeg';
+      case '.wav':
+        return 'audio/wav';
+      case '.flac':
+        return 'audio/flac';
+      case '.m4a':
+        return 'audio/mp4';
+      case '.aac':
+        return 'audio/aac';
+      default:
+        return 'audio/mpeg';
+    }
+  }
+
+  /**
+   * Get MIME type for image files
+   */
+  private getMimeTypeForImage(fileName: string): string {
+    const ext = path.extname(fileName).toLowerCase();
+    switch (ext) {
+      case '.jpg':
+      case '.jpeg':
+        return 'image/jpeg';
+      case '.png':
+        return 'image/png';
+      case '.webp':
+        return 'image/webp';
+      case '.gif':
+        return 'image/gif';
+      default:
+        return 'image/jpeg';
+    }
+  }
+}
+
+// Singleton instance
+let azureStorageInstance: AzureStorageService | null = null;
+
+export function getAzureStorage(): AzureStorageService {
+  if (!azureStorageInstance) {
+    azureStorageInstance = new AzureStorageService();
+  }
+  return azureStorageInstance;
+}

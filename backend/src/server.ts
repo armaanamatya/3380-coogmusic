@@ -18,6 +18,7 @@ import * as userController from './controllers/userController.js';
 import * as likeController from './controllers/likeController.js';
 import * as followController from './controllers/followController.js';
 import * as historyController from './controllers/historyController.js';
+// import { getAzureStorage } from './services/azureStorage.js'; // Commented out for local storage deployment
 import * as analyticsController from './controllers/analyticsController.js';
 import { RegisterUserData, LoginCredentials, UploadMusicData, CreateAlbumData } from './types/index.js';
 
@@ -25,7 +26,7 @@ dotenv.config();
 
 const PORT = process.env.PORT || 3001;
 
-// Configure multer for file uploads
+// Configure multer for local file storage
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const uploadDir = 'uploads/profile-pictures';
@@ -54,7 +55,7 @@ const uploadProfilePicture = multer({
   }
 });
 
-// Configure multer for music file uploads
+// Configure multer for music file uploads (local storage)
 const musicStorage = multer.diskStorage({
   destination: (req, file, cb) => {
     let uploadDir;
