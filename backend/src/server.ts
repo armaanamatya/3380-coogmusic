@@ -134,7 +134,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
   // CORS configuration - allow specific origins
   const allowedOrigins = [
     'http://localhost:5173',
-    'http://localhost:3000',
+    'http://localhost:3000', 
     'https://3380-coogmusic.vercel.app',
     'https://3380-coogmusic-git-main-armaa-amatyas-projects.vercel.app',
     'https://3380-coogmusic-git-extradata-armaa-amatyas-projects.vercel.app',
@@ -147,19 +147,29 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
   const isVercelOrigin = origin && (
     origin.includes('3380-coogmusic') && origin.includes('.vercel.app')
   );
+  
+  // Set CORS headers for all requests
   if (origin && (allowedOrigins.includes(origin) || isVercelOrigin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
   } else {
-    // Fallback to wildcard for other origins
+    // Be more permissive for now to fix the CORS issue
     res.setHeader('Access-Control-Allow-Origin', '*');
   }
   
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+  res.setHeader('Access-Control-Max-Age', '86400'); // Cache preflight for 24 hours
 
+  // Handle preflight OPTIONS requests
   if (method === 'OPTIONS') {
-    res.writeHead(200);
+    res.writeHead(200, {
+      'Access-Control-Allow-Origin': origin && (allowedOrigins.includes(origin) || isVercelOrigin) ? origin : '*',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With, Accept, Origin',
+      'Access-Control-Allow-Credentials': 'true',
+      'Access-Control-Max-Age': '86400'
+    });
     res.end();
     return;
   }
