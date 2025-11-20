@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 
 interface StarRatingProps {
   rating?: number // Current average rating (0-5)

@@ -1762,13 +1762,13 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
   }
 
   // Get user's like status for a song - /api/likes/songs/{userId}/status/{songId}
-  if (requestPath.startsWith('/api/likes/songs/') && requestPath.includes('/status/') && method === 'GET') {
+  if (requestPath && requestPath.startsWith('/api/likes/songs/') && requestPath.includes('/status/') && method === 'GET') {
     try {
       // Parse path: /api/likes/songs/{userId}/status/{songId}
       const pathParts = requestPath.split('/');
       if (pathParts.length === 7 && pathParts[5] === 'status') {
-        const userId = parseInt(pathParts[4]);
-        const songId = parseInt(pathParts[6]);
+        const userId = parseInt(pathParts[4] || '0');
+        const songId = parseInt(pathParts[6] || '0');
         
         const pool = await getPool();
         

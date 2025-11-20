@@ -47,7 +47,7 @@ export async function getUserSongRating(pool: Pool, userId: number, songId: numb
     [userId, songId]
   );
 
-  return rows.length > 0 ? rows[0].Rating : null;
+  return rows.length > 0 ? (rows[0]?.Rating ?? null) : null;
 }
 
 // Get song rating statistics (average rating and total count)
@@ -61,9 +61,10 @@ export async function getSongRatingStats(pool: Pool, songId: number): Promise<{ 
     throw new Error('Song not found');
   }
 
+  const row = rows[0];
   return {
-    averageRating: parseFloat(rows[0].AverageRating) || 0,
-    totalRatings: rows[0].TotalRatings || 0
+    averageRating: parseFloat(row?.AverageRating) || 0,
+    totalRatings: row?.TotalRatings || 0
   };
 }
 

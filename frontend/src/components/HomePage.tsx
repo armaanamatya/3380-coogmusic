@@ -246,7 +246,14 @@ function HomePage() {
   const handlePlaySong = async (song: { id: string; title: string; artist: string; audioFilePath?: string; imageUrl?: string }) => {
     try {
       // Set basic song info first
-      const enrichedSong = { ...song }
+      const enrichedSong = { 
+        ...song,
+        averageRating: 0,
+        totalRatings: 0,
+        userRating: null as number | null,
+        isLiked: false,
+        likeCount: 0
+      }
       
       if (user?.userId) {
         // Fetch rating and like data in parallel
@@ -720,12 +727,6 @@ function HomePage() {
     return getFileUrl('profile-pictures/default.jpg')
   }
 
-  // Helper function to format duration
-  const formatDuration = (seconds: number) => {
-    const minutes = Math.floor(seconds / 60)
-    const remainingSeconds = seconds % 60
-    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`
-  }
 
   // Helper function to get album cover URL
   const getAlbumCoverUrl = () => {
