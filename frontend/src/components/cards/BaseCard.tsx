@@ -19,6 +19,7 @@ interface BaseCardProps {
 export const BaseCard: React.FC<BaseCardProps> = ({
   title,
   imageUrl,
+  type,
   artist,
   listenCount,
   rating,
@@ -45,7 +46,7 @@ export const BaseCard: React.FC<BaseCardProps> = ({
           <p className="text-sm text-gray-500 mt-1 truncate">{artist}</p>
         )}
         
-        {showStats && (
+        {showStats && type === 'song' && (
           <div className="mt-2 space-y-1">
             {/* Star Rating */}
             {rating !== undefined && (
