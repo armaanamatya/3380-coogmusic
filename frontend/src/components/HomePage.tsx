@@ -15,7 +15,7 @@ import { ArtistExpanded } from './ArtistExpanded'
 import { HorizontalScrollContainer } from './HorizontalScrollContainer'
 import { SearchResults } from './SearchResults'
 import type { SearchResult } from './SearchResultItem'
-import { genreApi, artistApi, songApi, albumApi, playlistApi, userApi, getFileUrl, searchApi } from '../services/api'
+import { genreApi, artistApi, songApi, albumApi, playlistApi, userApi, getFileUrl, searchApi, ratingApi, likeApi } from '../services/api'
 import MusicUploadForm from './MusicUploadForm'
 import MusicLibrary from './MusicLibrary'
 import MusicEditForm from './MusicEditForm'
@@ -181,8 +181,15 @@ function HomePage() {
     artist: string;
     audioFilePath?: string;
     imageUrl?: string;
+    averageRating?: number;
+    totalRatings?: number;
+    userRating?: number | null;
+    isLiked?: boolean;
+    likeCount?: number;
   } | null>(null)
   const [isSongPlayerOpen, setIsSongPlayerOpen] = useState(false)
+  const [isRatingLoading, setIsRatingLoading] = useState(false)
+  const [isLikeLoading, setIsLikeLoading] = useState(false)
 
   // Artist modal state
   const [selectedArtist, setSelectedArtist] = useState<{
@@ -236,14 +243,173 @@ function HomePage() {
   }
 
   // Song player handlers
-  const handlePlaySong = (song: { id: string; title: string; artist: string; audioFilePath?: string; imageUrl?: string }) => {
-    setSelectedSong(song)
-    setIsSongPlayerOpen(true)
+  const handlePlaySong = async (song: { id: string; title: string; artist: string; audioFilePath?: string; imageUrl?: string }) => {
+    try {
+      // Set basic song info first
+      const enrichedSong = { 
+        ...song,
+        averageRating: 0,
+        totalRatings: 0,
+        userRating: null as number | null,
+        isLiked: false,
+        likeCount: 0
+      }
+      
+      if (user?.userId) {
+        // Fetch rating and like data in parallel
+        const [ratingStatsResponse, userRatingResponse, likeStatusResponse] = await Promise.all([
+          ratingApi.getSongRatingStats(parseInt(song.id)),
+          ratingApi.getUserSongRating(parseInt(song.id), user.userId),
+          likeApi.getUserLikeStatus(user.userId, parseInt(song.id))
+        ])
+
+        if (ratingStatsResponse.ok) {
+          const ratingStats = await ratingStatsResponse.json()
+          enrichedSong.averageRating = ratingStats.averageRating
+          enrichedSong.totalRatings = ratingStats.totalRatings
+        }
+
+        if (userRatingResponse.ok) {
+          const userRating = await userRatingResponse.json()
+          enrichedSong.userRating = userRating.rating
+        }
+
+        if (likeStatusResponse.ok) {
+          const likeStatus = await likeStatusResponse.json()
+          enrichedSong.isLiked = likeStatus.isLiked
+          enrichedSong.likeCount = likeStatus.likeCount
+        }
+      }
+
+      setSelectedSong(enrichedSong)
+      setIsSongPlayerOpen(true)
+    } catch (error) {
+      console.error('Error fetching song data:', error)
+      // Still open player with basic song info if API calls fail
+      setSelectedSong(song)
+      setIsSongPlayerOpen(true)
+    }
   }
 
   const handleCloseSongPlayer = () => {
     setSelectedSong(null)
     setIsSongPlayerOpen(false)
+  }
+
+  const handleRateSong = async (songId: number, rating: number) => {
+    if (!user?.userId || isRatingLoading) return
+    
+    setIsRatingLoading(true)
+    
+    // Optimistic update - immediately update UI
+    if (selectedSong && parseInt(selectedSong.id) === songId) {
+      setSelectedSong(prev => prev ? {
+        ...prev,
+        userRating: rating
+      } : null)
+    }
+    
+    try {
+      const response = await ratingApi.rateSong(user.userId, songId, rating)
+      
+      if (!response.ok) {
+        throw new Error('Failed to submit rating')
+      }
+      
+      // Update selected song with fresh data from server
+      if (selectedSong && parseInt(selectedSong.id) === songId) {
+        const [ratingStatsResponse] = await Promise.all([
+          ratingApi.getSongRatingStats(songId)
+        ])
+        
+        if (ratingStatsResponse.ok) {
+          const ratingStats = await ratingStatsResponse.json()
+          setSelectedSong(prev => prev ? {
+            ...prev,
+            userRating: rating,
+            averageRating: ratingStats.averageRating,
+            totalRatings: ratingStats.totalRatings
+          } : null)
+        }
+      }
+    } catch (error) {
+      console.error('Error rating song:', error)
+      
+      // Revert optimistic update on error
+      if (selectedSong && parseInt(selectedSong.id) === songId) {
+        // Restore original user rating or null if it was new
+        setSelectedSong(prev => prev ? {
+          ...prev,
+          userRating: selectedSong.userRating
+        } : null)
+      }
+      
+      // TODO: Show error toast/notification to user
+      alert('Failed to submit rating. Please try again.')
+    } finally {
+      setIsRatingLoading(false)
+    }
+  }
+
+  const handleToggleSongLike = async (songId: number) => {
+    if (!user?.userId || isLikeLoading) return
+    
+    setIsLikeLoading(true)
+    
+    const currentLikeStatus = selectedSong?.isLiked || false
+    const currentLikeCount = selectedSong?.likeCount || 0
+    
+    // Optimistic update - immediately update UI
+    if (selectedSong && parseInt(selectedSong.id) === songId) {
+      setSelectedSong(prev => prev ? {
+        ...prev,
+        isLiked: !currentLikeStatus,
+        likeCount: currentLikeStatus ? currentLikeCount - 1 : currentLikeCount + 1
+      } : null)
+    }
+    
+    try {
+      let response
+      if (currentLikeStatus) {
+        response = await likeApi.unlikeSong(user.userId, songId)
+      } else {
+        response = await likeApi.likeSong(user.userId, songId)
+      }
+      
+      if (!response.ok) {
+        throw new Error('Failed to toggle like')
+      }
+      
+      // Update selected song with fresh data from server
+      if (selectedSong && parseInt(selectedSong.id) === songId) {
+        const likeStatusResponse = await likeApi.getUserLikeStatus(user.userId, songId)
+        
+        if (likeStatusResponse.ok) {
+          const likeStatus = await likeStatusResponse.json()
+          setSelectedSong(prev => prev ? {
+            ...prev,
+            isLiked: likeStatus.isLiked,
+            likeCount: likeStatus.likeCount
+          } : null)
+        }
+      }
+    } catch (error) {
+      console.error('Error toggling song like:', error)
+      
+      // Revert optimistic update on error
+      if (selectedSong && parseInt(selectedSong.id) === songId) {
+        setSelectedSong(prev => prev ? {
+          ...prev,
+          isLiked: currentLikeStatus,
+          likeCount: currentLikeCount
+        } : null)
+      }
+      
+      // TODO: Show error toast/notification to user
+      alert('Failed to update like status. Please try again.')
+    } finally {
+      setIsLikeLoading(false)
+    }
   }
 
   // Artist modal handlers
@@ -561,12 +727,6 @@ function HomePage() {
     return getFileUrl('profile-pictures/default.jpg')
   }
 
-  // Helper function to format duration
-  const formatDuration = (seconds: number) => {
-    const minutes = Math.floor(seconds / 60)
-    const remainingSeconds = seconds % 60
-    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`
-  }
 
   // Helper function to get album cover URL
   const getAlbumCoverUrl = () => {
@@ -818,14 +978,6 @@ function HomePage() {
                           audioFilePath={song.FilePath}
                           listenCount={song.ListenCount}
                         />
-                        <div className="text-center mt-2">
-                          <p className="text-xs text-gray-600">
-                            {song.ListenCount?.toLocaleString() || 0} listens
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            {formatDuration(song.Duration)} • {song.GenreName || 'Unknown'}
-                          </p>
-                        </div>
                       </div>
                     ))}
                   </HorizontalScrollContainer>
@@ -848,6 +1000,9 @@ function HomePage() {
                           title={album.AlbumName}
                           artist={`${album.ArtistFirstName} ${album.ArtistLastName}`}
                           imageUrl={getAlbumCoverUrl()}
+                          likeCount={album.likeCount}
+                          rating={0}
+                          listenCount={0}
                           onClick={() => setExpandedAlbum({
                             id: album.AlbumID,
                             name: album.AlbumName
@@ -1114,6 +1269,11 @@ function HomePage() {
         isOpen={isSongPlayerOpen}
         onClose={handleCloseSongPlayer}
         song={selectedSong}
+        userId={user?.userId}
+        onRate={handleRateSong}
+        onToggleLike={handleToggleSongLike}
+        isRatingLoading={isRatingLoading}
+        isLikeLoading={isLikeLoading}
       />
 
       {/* Artist Expanded Modal */}

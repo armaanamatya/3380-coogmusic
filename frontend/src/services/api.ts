@@ -366,7 +366,10 @@ export const likeApi = {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId, playlistId })
-    })
+    }),
+
+  getUserLikeStatus: (userId: number, songId: number) =>
+    fetch(`${API_BASE}/api/likes/songs/${userId}/status/${songId}`)
 };
 
 // Follow endpoints
@@ -396,6 +399,55 @@ export const followApi = {
     ).toString() : '';
     return fetch(`${API_BASE}/api/artists/${artistId}/followers${query ? '?' + query : ''}`);
   }
+};
+
+// Rating endpoints
+export const ratingApi = {
+  rateSong: (userId: number, songId: number, rating: number) =>
+    fetch(`${API_BASE}/api/ratings/songs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, songId, rating })
+    }),
+
+  getUserSongRating: (songId: number, userId: number) =>
+    fetch(`${API_BASE}/api/ratings/songs/${songId}/user/${userId}`),
+
+  getSongRatingStats: (songId: number) =>
+    fetch(`${API_BASE}/api/ratings/songs/${songId}/stats`),
+
+  removeRating: (userId: number, songId: number) =>
+    fetch(`${API_BASE}/api/ratings/songs`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, songId })
+    }),
+
+  getSongRatings: (songId: number, params?: { page?: number; limit?: number }) => {
+    const query = params ? new URLSearchParams(
+      Object.entries(params)
+        .filter(([_, value]) => value !== undefined)
+        .map(([key, value]) => [key, String(value)])
+    ).toString() : '';
+    return fetch(`${API_BASE}/api/ratings/songs/${songId}${query ? '?' + query : ''}`);
+  },
+
+  getUserRatings: (userId: number, params?: { page?: number; limit?: number }) => {
+    const query = params ? new URLSearchParams(
+      Object.entries(params)
+        .filter(([_, value]) => value !== undefined)
+        .map(([key, value]) => [key, String(value)])
+    ).toString() : '';
+    return fetch(`${API_BASE}/api/users/${userId}/ratings${query ? '?' + query : ''}`);
+  },
+
+  getTopRatedSongs: (limit?: number) => {
+    const query = limit ? `?limit=${limit}` : '';
+    return fetch(`${API_BASE}/api/songs/top-rated${query}`);
+  },
+
+  getSongRatingDistribution: (songId: number) =>
+    fetch(`${API_BASE}/api/ratings/songs/${songId}/distribution`)
 };
 
 // History endpoints

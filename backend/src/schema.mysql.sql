@@ -72,6 +72,8 @@ CREATE TABLE IF NOT EXISTS song (
     GenreID INT,
     Duration INT NOT NULL, -- Duration in seconds
     ListenCount INT NOT NULL DEFAULT 0,
+    AverageRating DECIMAL(3,2) DEFAULT 0.00, -- Average rating from 1.00 to 5.00
+    TotalRatings INT DEFAULT 0, -- Total number of ratings received
     FilePath VARCHAR(500) NOT NULL,
     FileSize BIGINT NOT NULL, -- File size in bytes
     ReleaseDate DATE NOT NULL,
@@ -163,6 +165,62 @@ CREATE TABLE IF NOT EXISTS listening_history (
     INDEX idx_listening_history_song (SongID),
     INDEX idx_listening_history_date (ListenedAt)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Song Ratings Table
+CREATE TABLE IF NOT EXISTS song_ratings (
+    UserID INT NOT NULL,
+    SongID INT NOT NULL,
+    Rating TINYINT NOT NULL CHECK (Rating >= 1 AND Rating <= 5),
+    RatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UpdatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (UserID, SongID),
+    FOREIGN KEY (UserID) REFERENCES userprofile(UserID) ON DELETE CASCADE,
+    FOREIGN KEY (SongID) REFERENCES song(SongID) ON DELETE CASCADE,
+    INDEX idx_song_ratings_user (UserID),
+    INDEX idx_song_ratings_song (SongID),
+    INDEX idx_song_ratings_rating (Rating)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Triggers for automatic rating statistics updates
+DELIMITER $$
+
+-- Trigger to update song rating stats after INSERT
+CREATE TRIGGER IF NOT EXISTS after_rating_insert
+AFTER INSERT ON song_ratings
+FOR EACH ROW
+BEGIN
+    UPDATE song 
+    SET 
+        TotalRatings = (SELECT COUNT(*) FROM song_ratings WHERE SongID = NEW.SongID),
+        AverageRating = (SELECT AVG(Rating) FROM song_ratings WHERE SongID = NEW.SongID)
+    WHERE SongID = NEW.SongID;
+END$$
+
+-- Trigger to update song rating stats after UPDATE
+CREATE TRIGGER IF NOT EXISTS after_rating_update
+AFTER UPDATE ON song_ratings
+FOR EACH ROW
+BEGIN
+    UPDATE song 
+    SET 
+        TotalRatings = (SELECT COUNT(*) FROM song_ratings WHERE SongID = NEW.SongID),
+        AverageRating = (SELECT AVG(Rating) FROM song_ratings WHERE SongID = NEW.SongID)
+    WHERE SongID = NEW.SongID;
+END$$
+
+-- Trigger to update song rating stats after DELETE
+CREATE TRIGGER IF NOT EXISTS after_rating_delete
+AFTER DELETE ON song_ratings
+FOR EACH ROW
+BEGIN
+    UPDATE song 
+    SET 
+        TotalRatings = (SELECT COUNT(*) FROM song_ratings WHERE SongID = OLD.SongID),
+        AverageRating = COALESCE((SELECT AVG(Rating) FROM song_ratings WHERE SongID = OLD.SongID), 0.00)
+    WHERE SongID = OLD.SongID;
+END$$
+
+DELIMITER ;
 
 -- Trigger to automatically verify artists when they reach 100 followers
 DELIMITER $$

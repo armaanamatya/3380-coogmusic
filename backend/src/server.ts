@@ -16,6 +16,7 @@ import * as genreController from './controllers/genreController.js';
 import * as playlistController from './controllers/playlistController.js';
 import * as userController from './controllers/userController.js';
 import * as likeController from './controllers/likeController.js';
+import * as ratingController from './controllers/ratingController.js';
 import * as followController from './controllers/followController.js';
 import * as historyController from './controllers/historyController.js';
 // import { getAzureStorage } from './services/azureStorage.js'; // Commented out for local storage deployment
@@ -1760,6 +1761,35 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     return;
   }
 
+  // Get user's like status for a song - /api/likes/songs/{userId}/status/{songId}
+  if (requestPath && requestPath.startsWith('/api/likes/songs/') && requestPath.includes('/status/') && method === 'GET') {
+    try {
+      // Parse path: /api/likes/songs/{userId}/status/{songId}
+      const pathParts = requestPath.split('/');
+      if (pathParts.length === 7 && pathParts[5] === 'status') {
+        const userId = parseInt(pathParts[4] || '0');
+        const songId = parseInt(pathParts[6] || '0');
+        
+        const pool = await getPool();
+        
+        // Use existing controller functions
+        const isLiked = await likeController.isSongLiked(pool, userId, songId);
+        const likeCount = await likeController.getSongLikeCount(pool, songId);
+        
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ 
+          isLiked,
+          likeCount 
+        }));
+        return;
+      }
+    } catch (error: any) {
+      logError(error);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: error.message }));
+    }
+  }
+
   // Like an album
   if (requestPath === '/api/likes/albums' && method === 'POST') {
     let body = '';
@@ -1847,6 +1877,177 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
         res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
       }
     });
+    return;
+  }
+
+  // ==================== RATING ROUTES ====================
+  
+  // Rate a song
+  if (requestPath === '/api/ratings/songs' && method === 'POST') {
+    let body = '';
+    req.on('data', (chunk) => { body += chunk.toString(); });
+    req.on('end', async () => {
+      try {
+        const { userId, songId, rating } = JSON.parse(body);
+        const pool = await getPool();
+        
+        await ratingController.rateSong(pool, userId, songId, rating);
+        
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ message: 'Song rated successfully' }));
+      } catch (error: any) {
+        const statusCode = error.message.includes('not found') ? 404 :
+                          error.message.includes('between 1 and 5') ? 400 : 500;
+        res.writeHead(statusCode, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
+      }
+    });
+    return;
+  }
+
+  // Get user's rating for a specific song
+  if (requestPath?.match(/^\/api\/ratings\/songs\/\d+\/user\/\d+$/) && method === 'GET') {
+    try {
+      const pathParts = requestPath?.split('/') || [];
+      const songId = parseInt(pathParts[4] || '0');
+      const userId = parseInt(pathParts[6] || '0');
+      const pool = await getPool();
+      
+      const rating = await ratingController.getUserSongRating(pool, userId, songId);
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ rating }));
+    } catch (error: any) {
+      logError(error);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
+    }
+    return;
+  }
+
+  // Get song rating statistics
+  if (requestPath?.match(/^\/api\/ratings\/songs\/\d+\/stats$/) && method === 'GET') {
+    try {
+      const pathParts = requestPath?.split('/') || [];
+      const songId = parseInt(pathParts[4] || '0');
+      const pool = await getPool();
+      
+      const stats = await ratingController.getSongRatingStats(pool, songId);
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(stats));
+    } catch (error: any) {
+      const statusCode = error.message.includes('not found') ? 404 : 500;
+      logError(error);
+      res.writeHead(statusCode, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
+    }
+    return;
+  }
+
+  // Remove user's rating for a song
+  if (requestPath === '/api/ratings/songs' && method === 'DELETE') {
+    let body = '';
+    req.on('data', (chunk) => { body += chunk.toString(); });
+    req.on('end', async () => {
+      try {
+        const { userId, songId } = JSON.parse(body);
+        const pool = await getPool();
+        
+        await ratingController.removeRating(pool, userId, songId);
+        
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ message: 'Rating removed successfully' }));
+      } catch (error: any) {
+        const statusCode = error.message.includes('not found') ? 404 : 500;
+        logError(error);
+        res.writeHead(statusCode, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
+      }
+    });
+    return;
+  }
+
+  // Get all ratings for a specific song
+  if (requestPath?.match(/^\/api\/ratings\/songs\/\d+$/) && method === 'GET') {
+    try {
+      const pathParts = requestPath?.split('/') || [];
+      const songId = parseInt(pathParts[4] || '0');
+      const { page = '1', limit = '50' } = parsedUrl.query;
+      const pool = await getPool();
+      
+      const ratings = await ratingController.getSongRatings(pool, songId, {
+        page: parseInt(page as string),
+        limit: parseInt(limit as string)
+      });
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ratings }));
+    } catch (error: any) {
+      logError(error);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
+    }
+    return;
+  }
+
+  // Get user's all ratings
+  if (requestPath?.match(/^\/api\/users\/\d+\/ratings$/) && method === 'GET') {
+    try {
+      const pathParts = requestPath?.split('/') || [];
+      const userId = parseInt(pathParts[3] || '0');
+      const { page = '1', limit = '50' } = parsedUrl.query;
+      const pool = await getPool();
+      
+      const ratings = await ratingController.getUserRatings(pool, userId, {
+        page: parseInt(page as string),
+        limit: parseInt(limit as string)
+      });
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ratings }));
+    } catch (error: any) {
+      logError(error);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
+    }
+    return;
+  }
+
+  // Get top rated songs
+  if (requestPath === '/api/songs/top-rated' && method === 'GET') {
+    try {
+      const { limit = '10' } = parsedUrl.query;
+      const pool = await getPool();
+      
+      const topSongs = await ratingController.getTopRatedSongs(pool, parseInt(limit as string));
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ songs: topSongs }));
+    } catch (error: any) {
+      logError(error);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
+    }
+    return;
+  }
+
+  // Get rating distribution for a song
+  if (requestPath?.match(/^\/api\/ratings\/songs\/\d+\/distribution$/) && method === 'GET') {
+    try {
+      const pathParts = requestPath?.split('/') || [];
+      const songId = parseInt(pathParts[4] || '0');
+      const pool = await getPool();
+      
+      const distribution = await ratingController.getSongRatingDistribution(pool, songId);
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(distribution));
+    } catch (error: any) {
+      logError(error);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
+    }
     return;
   }
 

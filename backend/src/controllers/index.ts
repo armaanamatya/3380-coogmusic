@@ -7,6 +7,7 @@ export * as genreController from './genreController.js';
 export * as playlistController from './playlistController.js';
 export * as userController from './userController.js';
 export * as likeController from './likeController.js';
+export * as ratingController from './ratingController.js';
 export * as followController from './followController.js';
 export * as historyController from './historyController.js';
 
