@@ -120,6 +120,11 @@ export const songApi = {
   delete: (id: number) =>
     fetch(`${API_BASE}/api/song/${id}`, {
       method: 'DELETE'
+    }),
+
+  incrementListenCount: (id: number) =>
+    fetch(`${API_BASE}/api/song/${id}/increment-listen-count`, {
+      method: 'POST'
     })
 };
 

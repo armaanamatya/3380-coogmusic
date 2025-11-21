@@ -107,7 +107,8 @@ function RecentlyPlayedSongs({ onPlaySong, refreshTrigger }: RecentlyPlayedSongs
       totalRatings: 0,
       userRating: null,
       isLiked: false,
-      likeCount: 0
+      likeCount: 0,
+      listenCount: (historyItem as any).ListenCount || 0
     }));
     
     const selectedSong: AudioSong = {
@@ -120,7 +121,8 @@ function RecentlyPlayedSongs({ onPlaySong, refreshTrigger }: RecentlyPlayedSongs
       totalRatings: 0,
       userRating: null,
       isLiked: false,
-      likeCount: 0
+      likeCount: 0,
+      listenCount: (item as any).ListenCount || 0
     };
     
     // Use AudioContext to play with queue

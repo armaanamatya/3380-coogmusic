@@ -570,6 +570,40 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     return;
   }
 
+  // Increment song listen count
+  if (requestPath?.match(/^\/api\/song\/(\d+)\/increment-listen-count$/) && method === 'POST') {
+    try {
+      const songId = parseInt(requestPath.split('/')[3] || '0');
+      if (!songId || isNaN(songId)) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Invalid song ID' }));
+        return;
+      }
+
+      const pool = await getPool();
+      
+      // Verify song exists before incrementing
+      const [songs] = await pool.execute('SELECT SongID FROM song WHERE SongID = ?', [songId]);
+      if ((songs as any[]).length === 0) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Song not found' }));
+        return;
+      }
+
+      // Import incrementListenCount dynamically to avoid circular dependency
+      const { incrementListenCount } = await import('./models/songModel.js');
+      await incrementListenCount(pool, songId);
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ message: 'Listen count incremented successfully' }));
+    } catch (error: any) {
+      console.error('Increment listen count error:', error);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Internal server error' }));
+    }
+    return;
+  }
+
   // Get all genres
   if (requestPath === '/api/genres' && method === 'GET') {
     try {

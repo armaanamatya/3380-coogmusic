@@ -1,6 +1,6 @@
-import { createPool } from '../database';
+import { Pool, ResultSetHeader } from 'mysql2/promise';
 
-const pool = createPool();
+// Pool will be passed as parameter to functions
 
 export interface Song {
   songId: number;
@@ -80,7 +80,7 @@ export const validateSongInput = (song: Partial<NewSong>): string[] => {
   return errors;
 };
 
-export const createSong = async (song: NewSong) => {
+export const createSong = async (pool: Pool, song: NewSong) => {
   const validationErrors = validateSongInput(song);
   if (validationErrors.length > 0) {
     throw new Error(`Validation failed: ${validationErrors.join(', ')}`);
@@ -103,17 +103,17 @@ export const createSong = async (song: NewSong) => {
   ];
 
   try {
-    const result = pool.prepare(sql).run(...(values));
+    const [result] = await pool.execute<ResultSetHeader>(sql, values);
     return result;
   } catch (error: any) {
-    if (error.code === error.message && error.message.includes('FOREIGN KEY constraint failed')) {
+    if (error.code === 'ER_NO_REFERENCED_ROW_2') {
       throw new Error('Artist or album does not exist');
     }
     throw error;
   }
 };
 
-export const getSongById = async (songId: number) => {
+export const getSongById = async (pool: Pool, songId: number) => {
   const sql = `
     SELECT s.*, u.Username, u.FirstName, u.LastName, a.AlbumName, g.GenreName
     FROM song s
@@ -123,11 +123,11 @@ export const getSongById = async (songId: number) => {
     LEFT JOIN genre g ON s.GenreID = g.GenreID
     WHERE s.SongID = ?;
   `;
-  const rows = pool.prepare(sql).all(songId);
+  const [rows] = await pool.execute(sql, [songId]);
   return (rows as any[])[0];
 };
 
-export const getSongsByArtist = async (artistId: number) => {
+export const getSongsByArtist = async (pool: Pool, artistId: number) => {
   const sql = `
     SELECT s.*, a.AlbumName, g.GenreName
     FROM song s
@@ -136,23 +136,23 @@ export const getSongsByArtist = async (artistId: number) => {
     WHERE s.ArtistID = ?
     ORDER BY s.ReleaseDate DESC;
   `;
-  const rows = pool.prepare(sql).all(artistId);
+  const [rows] = await pool.execute(sql, [artistId]);
   return rows;
 };
 
 
-export const getSongsByAlbum = async (albumId: number) => {
+export const getSongsByAlbum = async (pool: Pool, albumId: number) => {
   const sql = `
     SELECT s.*, g.GenreName FROM song s
     LEFT JOIN genre g ON s.GenreID = g.GenreID
     WHERE s.AlbumID = ?
     ORDER BY s.SongName;
   `;
-  const rows = pool.prepare(sql).all(albumId);
+  const [rows] = await pool.execute(sql, [albumId]);
   return rows;
 };
 
-export const getAllSongs = async (limit?: number, offset?: number) => {
+export const getAllSongs = async (pool: Pool, limit?: number, offset?: number) => {
   let sql = `
     SELECT s.*, u.Username, u.FirstName, u.LastName, a.AlbumName, g.GenreName
     FROM song s
@@ -170,11 +170,11 @@ export const getAllSongs = async (limit?: number, offset?: number) => {
     }
   }
   
-  const rows = pool.prepare(sql).all();
+  const [rows] = await pool.execute(sql);
   return rows;
 };
 
-export const updateSong = async (songId: number, updates: UpdateSong) => {
+export const updateSong = async (pool: Pool, songId: number, updates: UpdateSong) => {
   const validationErrors = validateSongInput(updates);
   if (validationErrors.length > 0) {
     throw new Error(`Validation failed: ${validationErrors.join(', ')}`);
@@ -227,17 +227,17 @@ export const updateSong = async (songId: number, updates: UpdateSong) => {
 
   const sql = `UPDATE song SET ${setClauses.join(', ')} WHERE SongID = ?`;
 
-  const result = pool.prepare(sql).run(...(params));
+  const [result] = await pool.execute<ResultSetHeader>(sql, params);
   return result;
 };
 
-export const deleteSong = async (songId: number) => {
+export const deleteSong = async (pool: Pool, songId: number) => {
   const sql = `DELETE FROM song WHERE SongID = ?`;
-  const result = pool.prepare(sql).run(...([songId]));
+  const [result] = await pool.execute<ResultSetHeader>(sql, [songId]);
   return result;
 };
 
-export const searchSongs = async (query: string) => {
+export const searchSongs = async (pool: Pool, query: string) => {
   const sql = `
     SELECT s.*, u.Username, u.FirstName, u.LastName, a.AlbumName, g.GenreName
     FROM song s
@@ -250,11 +250,11 @@ export const searchSongs = async (query: string) => {
   `;
   
   const searchTerm = `%${query}%`;
-  const rows = pool.prepare(sql).all(searchTerm, searchTerm, searchTerm, searchTerm);
+  const [rows] = await pool.execute(sql, [searchTerm, searchTerm, searchTerm, searchTerm]);
   return rows;
 };
 
-export const getSongWithGenre = async (songId: number) => {
+export const getSongWithGenre = async (pool: Pool, songId: number) => {
   const sql = `
     SELECT s.*, u.Username, u.FirstName, u.LastName, a.AlbumName, g.GenreName, g.Description as GenreDescription
     FROM song s
@@ -265,11 +265,11 @@ export const getSongWithGenre = async (songId: number) => {
     WHERE s.SongID = ?;
   `;
   
-  const rows = pool.prepare(sql).all(songId);
+  const [rows] = await pool.execute(sql, [songId]);
   return (rows as any[])[0];
 };
 
-export const getSongsByGenre = async (genreId: number) => {
+export const getSongsByGenre = async (pool: Pool, genreId: number) => {
   const sql = `
     SELECT s.*, u.Username, u.FirstName, u.LastName, a.AlbumName, g.GenreName
     FROM song s
@@ -281,17 +281,17 @@ export const getSongsByGenre = async (genreId: number) => {
     ORDER BY s.ReleaseDate DESC;
   `;
   
-  const rows = pool.prepare(sql).all(genreId);
+  const [rows] = await pool.execute(sql, [genreId]);
   return rows;
 };
 
-export const incrementListenCount = async (songId: number) => {
+export const incrementListenCount = async (pool: Pool, songId: number) => {
   const sql = `UPDATE song SET ListenCount = ListenCount + 1 WHERE SongID = ?`;
-  const result = pool.prepare(sql).run(...([songId]));
+  const [result] = await pool.execute<ResultSetHeader>(sql, [songId]);
   return result;
 };
 
-export const getPopularSongs = async (limit: number = 10) => {
+export const getPopularSongs = async (pool: Pool, limit: number = 10) => {
   const sql = `
     SELECT s.*, u.Username, u.FirstName, u.LastName, a.AlbumName, g.GenreName,
            COUNT(ul.UserID) as likeCount
@@ -306,6 +306,6 @@ export const getPopularSongs = async (limit: number = 10) => {
     LIMIT ?;
   `;
   
-  const rows = pool.prepare(sql).all(limit);
+  const [rows] = await pool.execute(sql, [limit]);
   return rows;
 };

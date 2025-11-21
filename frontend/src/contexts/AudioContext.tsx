@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useReducer, useRef, useEffect } from 'react'
-import { historyApi, getFileUrl } from '../services/api'
+import { historyApi, songApi, getFileUrl } from '../services/api'
 import { useAuth } from '../hooks/useAuth'
 
 export interface Song {
@@ -14,6 +14,7 @@ export interface Song {
   userRating?: number | null
   isLiked?: boolean
   likeCount?: number
+  listenCount?: number
 }
 
 export interface AudioState {
@@ -52,6 +53,7 @@ type AudioAction =
   | { type: 'SET_HAS_AUDIO_FILE'; payload: boolean }
   | { type: 'SET_LOADING'; payload: boolean }
   | { type: 'SET_SHOULD_AUTO_PLAY'; payload: boolean }
+  | { type: 'INCREMENT_LISTEN_COUNT' }
   | { type: 'CLEAR_QUEUE' }
 
 const initialState: AudioState = {
@@ -163,6 +165,25 @@ function audioReducer(state: AudioState, action: AudioAction): AudioState {
     case 'SET_SHOULD_AUTO_PLAY':
       return { ...state, shouldAutoPlay: action.payload }
     
+    case 'INCREMENT_LISTEN_COUNT':
+      if (!state.currentSong) return state
+      
+      const updatedSong = {
+        ...state.currentSong,
+        listenCount: (state.currentSong.listenCount || 0) + 1
+      }
+      
+      // Update the current song and also update it in the queue if it exists there
+      const updatedQueue = state.queue.map(song => 
+        song.id === state.currentSong?.id ? updatedSong : song
+      )
+      
+      return {
+        ...state,
+        currentSong: updatedSong,
+        queue: updatedQueue
+      }
+    
     case 'CLEAR_QUEUE':
       return {
         ...state,
@@ -193,6 +214,10 @@ interface AudioContextValue {
   addToQueue: (songs: Song[]) => void
   removeFromQueue: (index: number) => void
   clearQueue: () => void
+  
+  // Listen count callback
+  onListenCountUpdate?: (songId: string, newCount: number) => void
+  setListenCountCallback: (callback: (songId: string, newCount: number) => void) => void
 }
 
 const AudioContext = createContext<AudioContextValue | null>(null)
@@ -219,6 +244,10 @@ export function AudioProvider({ children }: AudioProviderProps) {
   const playStartTimeRef = useRef<number>(0)
   const totalListenTimeRef = useRef<number>(0)
   const hasStartedPlayingRef = useRef<boolean>(false)
+  const hasIncrementedListenCount = useRef<boolean>(false)
+  
+  // Listen count callback
+  const listenCountCallbackRef = useRef<((songId: string, newCount: number) => void) | null>(null)
 
   // Audio event handlers
   useEffect(() => {
@@ -245,10 +274,33 @@ export function AudioProvider({ children }: AudioProviderProps) {
       dispatch({ type: 'SET_CURRENT_TIME', payload: audio.currentTime })
     }
 
-    const handlePlay = () => {
+    const handlePlay = async () => {
       dispatch({ type: 'SET_PLAYING', payload: true })
       hasStartedPlayingRef.current = true
       playStartTimeRef.current = Date.now()
+      
+      // Increment listen count only once per song
+      if (!hasIncrementedListenCount.current && state.currentSong?.id) {
+        hasIncrementedListenCount.current = true
+        const currentSongId = state.currentSong.id
+        const currentListenCount = state.currentSong.listenCount || 0
+        
+        try {
+          await songApi.incrementListenCount(parseInt(currentSongId))
+          // Update the frontend count after successful backend increment
+          dispatch({ type: 'INCREMENT_LISTEN_COUNT' })
+          
+          // Notify callback about the listen count update with the correct new count
+          if (listenCountCallbackRef.current) {
+            const newCount = currentListenCount + 1
+            listenCountCallbackRef.current(currentSongId, newCount)
+          }
+        } catch (error) {
+          console.error('Failed to increment listen count:', error)
+          // Reset flag if API call failed so we can try again
+          hasIncrementedListenCount.current = false
+        }
+      }
     }
 
     const handlePause = () => {
@@ -310,6 +362,7 @@ export function AudioProvider({ children }: AudioProviderProps) {
     totalListenTimeRef.current = 0
     hasStartedPlayingRef.current = false
     playStartTimeRef.current = 0
+    hasIncrementedListenCount.current = false
 
     const audioUrl = getFileUrl(state.currentSong.audioFilePath)
     audio.src = audioUrl
@@ -387,6 +440,10 @@ export function AudioProvider({ children }: AudioProviderProps) {
     dispatch({ type: 'CLEAR_QUEUE' })
   }
 
+  const setListenCountCallback = (callback: (songId: string, newCount: number) => void) => {
+    listenCountCallbackRef.current = callback
+  }
+
   const contextValue: AudioContextValue = {
     state,
     dispatch,
@@ -399,7 +456,8 @@ export function AudioProvider({ children }: AudioProviderProps) {
     setVolume,
     addToQueue,
     removeFromQueue,
-    clearQueue
+    clearQueue,
+    setListenCountCallback
   }
 
   return (

@@ -178,6 +178,10 @@ export const SongPlayer: React.FC<SongPlayerProps> = ({ isOpen, onClose, userId,
                   <span className="text-gray-600">Total Likes:</span>
                   <span className="font-medium">{song.likeCount || 0}</span>
                 </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Listen Count:</span>
+                  <span className="font-medium">{(song.listenCount || 0).toLocaleString()}</span>
+                </div>
                 {song.userRating && (
                   <div className="flex justify-between">
                     <span className="text-gray-600">Your Rating:</span>

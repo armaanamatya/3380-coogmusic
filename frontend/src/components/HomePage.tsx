@@ -111,7 +111,7 @@ type MusicSubTab = 'library' | 'upload' | 'albums' | 'edit';
 
 function HomePage() {
   const { user, logout } = useAuth()
-  const { state: audioState, playSong, dispatch: audioDispatch } = useAudio()
+  const { state: audioState, playSong, dispatch: audioDispatch, setListenCountCallback } = useAudio()
   const [searchQuery, setSearchQuery] = useState('')
   const [activeTab, setActiveTab] = useState('home')
   
@@ -239,7 +239,7 @@ function HomePage() {
   }
 
   // Song player handlers
-  const handlePlaySong = async (song: { id: string; title: string; artist: string; audioFilePath?: string; imageUrl?: string }) => {
+  const handlePlaySong = async (song: { id: string; title: string; artist: string; audioFilePath?: string; imageUrl?: string; ListenCount?: number }) => {
     try {
       // Set basic song info first
       const enrichedSong: AudioSong = { 
@@ -248,7 +248,8 @@ function HomePage() {
         totalRatings: 0,
         userRating: null as number | null,
         isLiked: false,
-        likeCount: 0
+        likeCount: 0,
+        listenCount: (song as any).ListenCount || 0
       }
       
       if (user?.userId) {
@@ -308,7 +309,8 @@ function HomePage() {
           totalRatings: 0,
           userRating: null,
           isLiked: false,
-          likeCount: 0
+          likeCount: 0,
+          listenCount: item.ListenCount || 0
         }))
       }
       
@@ -322,7 +324,8 @@ function HomePage() {
         totalRatings: 0,
         userRating: null as number | null,
         isLiked: false,
-        likeCount: 0
+        likeCount: 0,
+        listenCount: (song as any).ListenCount || 0
       }
       
       if (user?.userId) {
@@ -742,6 +745,41 @@ function HomePage() {
 
     fetchTopSongs()
   }, [])
+
+  // Set up listen count callback
+  useEffect(() => {
+    const handleListenCountUpdate = (songId: string, newCount: number) => {
+      // Update top songs
+      setTopSongs(prevSongs => 
+        prevSongs.map(song => 
+          song.SongID.toString() === songId 
+            ? { ...song, ListenCount: newCount }
+            : song
+        )
+      )
+
+      // Update search results if they exist and contain songs
+      setSearchResults((prevResults: any) => {
+        if (!prevResults || !prevResults.songs) return prevResults
+        
+        return {
+          ...prevResults,
+          songs: prevResults.songs.map((song: any) => 
+            song.SongID?.toString() === songId 
+              ? { ...song, ListenCount: newCount }
+              : song
+          )
+        }
+      })
+    }
+
+    setListenCountCallback(handleListenCountUpdate)
+
+    // Cleanup on unmount
+    return () => {
+      setListenCountCallback(() => {})
+    }
+  }, [setListenCountCallback])
 
   // Fetch top 10 albums by like count
   useEffect(() => {
