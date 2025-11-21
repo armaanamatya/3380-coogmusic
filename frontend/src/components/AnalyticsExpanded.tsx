@@ -150,6 +150,87 @@ export const AnalyticsExpanded: React.FC<AnalyticsExpandedProps> = ({
   const showArtistStats = reportData?.showArtistStats !== false;
   const showAgeDemographics = reportData?.showAgeDemographics !== false;
   const [viewMode, setViewMode] = useState<'summary' | 'userReport' | 'artistActivity' | 'albumActivity' | 'playlistActivity' | 'songActivity'>('summary');
+  const [expandedFollowerKeys, setExpandedFollowerKeys] = useState<Record<string, boolean>>({});
+  const [followerColumnToggles, setFollowerColumnToggles] = useState({
+    showSongListens: false,
+    showSongLikes: false,
+    showListenDuration: false,
+    showAlbumLikes: false
+  });
+  const [listenerDobRange, setListenerDobRange] = useState({ start: '', end: '' });
+  const [artistDobRange, setArtistDobRange] = useState({ start: '', end: '' });
+  const [userActivityColumns, setUserActivityColumns] = useState({
+    showEmail: false,
+    showCountry: false,
+    showCity: false
+  });
+  const [expandedSummaryCharts, setExpandedSummaryCharts] = useState<{ country: boolean; age: boolean }>({
+    country: false,
+    age: false
+  });
+  const countryChartData = useMemo(() => {
+    if (!Array.isArray(reportData.countryStats) || reportData.countryStats.length === 0) {
+      return null;
+    }
+    const rows = [...reportData.countryStats]
+      .map((entry: any) => ({
+        country: entry.country || 'Unknown',
+        count: Number(entry.count ?? 0),
+        ratio: entry.ratio
+      }))
+      .filter((entry) => entry.count > 0);
+    if (!rows.length) {
+      return null;
+    }
+    const sorted = rows.sort((a, b) => b.count - a.count);
+    const maxCount = sorted.reduce((max, entry) => Math.max(max, entry.count), 0);
+    return { rows: sorted, maxCount };
+  }, [reportData.countryStats]);
+  const ageHistogramData = useMemo(() => {
+    if (!Array.isArray(reportData.ageDemographics) || reportData.ageDemographics.length === 0) {
+      return null;
+    }
+    const rows = [...reportData.ageDemographics]
+      .map((entry: any) => ({
+        range: entry.range || 'Unknown',
+        count: Number(entry.count ?? 0),
+        ratio: entry.ratio
+      }))
+      .filter((entry) => entry.count > 0);
+    if (!rows.length) {
+      return null;
+    }
+    const parseRangeStart = (range: string) => {
+      if (!range) return Number.POSITIVE_INFINITY;
+      const numericMatch = range.match(/(\d+)/);
+      if (numericMatch) {
+        return Number(numericMatch[1]);
+      }
+      if (range.toLowerCase().includes('under')) {
+        return 0;
+      }
+      if (range.toLowerCase().includes('over')) {
+        return Number.POSITIVE_INFINITY;
+      }
+      return Number.POSITIVE_INFINITY;
+    };
+
+    const sorted = rows.sort((a, b) => {
+      const startA = parseRangeStart(a.range);
+      const startB = parseRangeStart(b.range);
+      if (startA === startB) {
+        return a.range.localeCompare(b.range);
+      }
+      return startA - startB;
+    });
+    const maxCount = sorted.reduce((max, entry) => Math.max(max, entry.count), 0);
+    return { rows: sorted, maxCount };
+  }, [reportData.ageDemographics]);
+  const [expandedSongListeners, setExpandedSongListeners] = useState<Record<string, boolean>>({});
+  const [expandedAlbumSections, setExpandedAlbumSections] = useState<Record<string, { songs: boolean; liked: boolean }>>({});
+  const [expandedPlaylistSections, setExpandedPlaylistSections] = useState<
+    Record<string, { songs: boolean; liked: boolean }>
+  >({});
 
   // Helper function to format seconds to readable time
   const formatTime = (seconds: number): string => {
@@ -215,6 +296,9 @@ export const AnalyticsExpanded: React.FC<AnalyticsExpandedProps> = ({
       return dateB - dateA;
     });
 
+    const countryExpanded = expandedSummaryCharts.country;
+    const ageExpanded = expandedSummaryCharts.age;
+
     return (
       <div className="analytics-report-section bg-white border border-gray-300 rounded-lg shadow-sm">
         <div className="bg-gray-100 border-b border-gray-300 px-5 py-3">
@@ -225,6 +309,22 @@ export const AnalyticsExpanded: React.FC<AnalyticsExpandedProps> = ({
         {albums.map((album: any, idx: number) => {
           const songs = Array.isArray(album.songs) ? album.songs : [];
           const likedBy = Array.isArray(album.likedBy) ? album.likedBy : [];
+          const albumKey = `album-${album.albumId ?? idx}`;
+          const currentAlbumState = expandedAlbumSections[albumKey] ?? { songs: false, liked: false };
+          const songsExpanded = currentAlbumState.songs;
+          const likesExpanded = currentAlbumState.liked;
+          const toggleAlbumSection = (section: 'songs' | 'liked') => {
+            setExpandedAlbumSections((prev) => {
+              const prior = prev[albumKey] ?? { songs: false, liked: false };
+              return {
+                ...prev,
+                [albumKey]: {
+                  songs: section === 'songs' ? !prior.songs : prior.songs,
+                  liked: section === 'liked' ? !prior.liked : prior.liked
+                }
+              };
+            });
+          };
           const artistLabel =
             album.artistUsername ||
             album.artistName ||
@@ -261,31 +361,38 @@ export const AnalyticsExpanded: React.FC<AnalyticsExpandedProps> = ({
                     </p>
                     <p className="uppercase tracking-wide text-xs text-gray-500">Total Likes</p>
                   </div>
-                  <div className="text-center">
-                    <p className="font-semibold text-lg text-gray-900">
-                      {formatNumber((album.likedBy?.length ?? 0))}
-                    </p>
-                    <p className="uppercase tracking-wide text-xs text-gray-500">Distinct Playlist Likes</p>
-                  </div>
                 </div>
               </div>
 
               <div className="px-5 py-4 space-y-4">
                 <div>
-                  <h5 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-2">
-                    Songs in this Album
-                  </h5>
+                  <div className="flex items-center justify-between gap-3">
+                    <h5 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+                      Songs in this Album
+                    </h5>
+                    {songs.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => toggleAlbumSection('songs')}
+                        className="text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors"
+                        aria-expanded={songsExpanded}
+                      >
+                        {songsExpanded ? 'Hide songs' : 'Show songs'}
+                      </button>
+                    )}
+                  </div>
                   {songs.length === 0 ? (
                     <div className="border border-dashed border-gray-300 rounded-md px-3 py-4 text-center text-sm text-gray-500">
                       No songs were found for this album in the reporting period.
                     </div>
-                  ) : (
+                  ) : songsExpanded ? (
                     <div className="overflow-x-auto">
                       <table className="min-w-full divide-y divide-gray-200 border border-gray-200">
                         <thead className="bg-white">
                           <tr className="text-xs font-semibold text-gray-600 uppercase tracking-wider">
                             <th className="px-3.5 py-2.5 text-left">Song Name</th>
                             <th className="px-3.5 py-2.5 text-left">Length</th>
+                          <th className="px-3.5 py-2.5 text-right">Listens</th>
         </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-100">
@@ -296,23 +403,40 @@ export const AnalyticsExpanded: React.FC<AnalyticsExpandedProps> = ({
                             >
                               <td className="px-3.5 py-2.5 text-sm text-gray-900">{song.songName || 'Unknown Song'}</td>
                               <td className="px-3.5 py-2.5 text-sm text-gray-900">{formatTime(Number(song.duration || 0))}</td>
+                              <td className="px-3.5 py-2.5 text-sm text-gray-900 text-right">{formatNumber(song.listens ?? song.totalListens ?? 0)}</td>
         </tr>
                           ))}
                         </tbody>
                       </table>
                     </div>
+                  ) : (
+                    <div className="text-sm text-gray-500">
+                      Click “Show songs” to reveal this list.
+                    </div>
                   )}
                 </div>
 
                 <div>
-                  <h5 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-2">
-                    Users Who Liked This Album
-                  </h5>
+                  <div className="flex items-center justify-between gap-3">
+                    <h5 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+                      Users Who Liked This Album
+                    </h5>
+                    {likedBy.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => toggleAlbumSection('liked')}
+                        className="text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors"
+                        aria-expanded={likesExpanded}
+                      >
+                        {likesExpanded ? 'Hide likes' : 'Show likes'}
+                      </button>
+                    )}
+                  </div>
                   {likedBy.length === 0 ? (
                     <div className="border border-dashed border-gray-300 rounded-md px-3 py-4 text-center text-sm text-gray-500">
                       No likes were recorded for this album during the selected period.
                     </div>
-                  ) : (
+                  ) : likesExpanded ? (
                     <div className="overflow-x-auto">
                       <table className="min-w-full divide-y divide-gray-200 border border-gray-200">
                         <thead className="bg-white">
@@ -339,6 +463,10 @@ export const AnalyticsExpanded: React.FC<AnalyticsExpandedProps> = ({
                           ))}
                         </tbody>
                       </table>
+                    </div>
+                  ) : (
+                    <div className="text-sm text-gray-500">
+                      Click “Show likes” to reveal this list.
                     </div>
                   )}
                 </div>
@@ -443,6 +571,18 @@ export const AnalyticsExpanded: React.FC<AnalyticsExpandedProps> = ({
             )}
           </div>
           {sorted.map((playlist, idx) => {
+            const playlistKey = `playlist-${playlist.playlistId ?? idx}`;
+            const songsExpanded = expandedPlaylistSections[playlistKey]?.songs ?? false;
+            const likesExpanded = expandedPlaylistSections[playlistKey]?.liked ?? false;
+            const togglePlaylistSection = (section: 'songs' | 'liked') => {
+              setExpandedPlaylistSections((prev) => ({
+                ...prev,
+                [playlistKey]: {
+                  songs: section === 'songs' ? !songsExpanded : songsExpanded,
+                  liked: section === 'liked' ? !likesExpanded : likesExpanded
+                }
+              }));
+            };
             const songs: any[] = Array.isArray(playlist.songs) ? playlist.songs : [];
             const likedBy: any[] = Array.isArray(playlist.likedBy) ? playlist.likedBy : [];
 
@@ -487,14 +627,26 @@ export const AnalyticsExpanded: React.FC<AnalyticsExpandedProps> = ({
 
                 <div className="px-5 space-y-4">
                   <div>
-                    <h5 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-2">
-                      Songs in Playlist
-                    </h5>
+                    <div className="flex items-center justify-between gap-3 mb-2">
+                      <h5 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+                        Songs in Playlist
+                      </h5>
+                      {songs.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => togglePlaylistSection('songs')}
+                          className="text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors"
+                          aria-expanded={songsExpanded}
+                        >
+                          {songsExpanded ? 'Hide songs' : 'Show songs'}
+                        </button>
+                      )}
+                    </div>
                     {songs.length === 0 ? (
                       <div className="border border-dashed border-gray-300 rounded-md px-3 py-4 text-center text-sm text-gray-500">
                         No songs were added to this playlist during the selected period.
                       </div>
-                    ) : (
+                    ) : songsExpanded ? (
                       <div className="overflow-x-auto">
                         <table className="min-w-full divide-y divide-gray-200 border border-gray-200">
                           <thead className="bg-white">
@@ -524,26 +676,42 @@ export const AnalyticsExpanded: React.FC<AnalyticsExpandedProps> = ({
                         </tbody>
                         </table>
                   </div>
-                    )}
+                    ) : (
+                      <div className="text-sm text-gray-500">
+                        Click “Show songs” to reveal this list.
                       </div>
+                    )}
+                  </div>
 
                   {isPublic && (
                     <div>
-                      <h5 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-2">
-                        Users Who Liked This Playlist
-                      </h5>
+                      <div className="flex items-center justify-between gap-3 mb-2">
+                        <h5 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+                          Users Who Liked This Playlist
+                        </h5>
+                        {likedBy.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => togglePlaylistSection('liked')}
+                            className="text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors"
+                            aria-expanded={likesExpanded}
+                          >
+                            {likesExpanded ? 'Hide likes' : 'Show likes'}
+                          </button>
+                        )}
+                      </div>
                       {likedBy.length === 0 ? (
                         <div className="border border-dashed border-gray-300 rounded-md px-3 py-4 text-center text-sm text-gray-500">
                           No likes were recorded for this playlist during the selected period.
-                  </div>
-                      ) : (
+                        </div>
+                      ) : likesExpanded ? (
                         <div className="overflow-x-auto">
                           <table className="min-w-full divide-y divide-gray-200 border border-gray-200">
                             <thead className="bg-white">
                               <tr className="text-xs font-semibold text-gray-600 uppercase tracking-wider">
                                 <th className="px-3.5 py-2.5 text-left">Username</th>
                                 <th className="px-3.5 py-2.5 text-left">Liked On</th>
-            </tr>
+                              </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-100">
                               {likedBy.map((user, likeIdx) => (
@@ -557,6 +725,10 @@ export const AnalyticsExpanded: React.FC<AnalyticsExpandedProps> = ({
                               ))}
                             </tbody>
                           </table>
+                        </div>
+                      ) : (
+                        <div className="text-sm text-gray-500">
+                          Click “Show likes” to reveal this list.
                         </div>
                       )}
                     </div>
@@ -1020,34 +1192,7 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
       });
     }
 
-    const totalAverageSession = reportData.loginTime?.all?.average ?? 0;
-    overviewRows.push({
-      label: 'Total Logins Recorded',
-      value: formatNumber(totalLogins),
-      helper: `Average Session: ${formatTime(totalAverageSession)}`
-    });
-
-    if (includeListeners && !onlyListeners) {
-      overviewRows.push({
-        label: 'Listener Logins',
-        value: formatNumber(totalListenerLogins),
-        helper: `Average Session: ${formatTime(reportData.loginTime?.listeners?.average ?? 0)}`
-      });
-    }
-
-    if (includeArtists) {
-      overviewRows.push({
-        label: 'Artist Logins',
-        value: formatNumber(totalArtistLogins),
-        helper: `Average Session: ${formatTime(reportData.loginTime?.artists?.average ?? 0)}`
-      });
-    }
-
-    overviewRows.push({
-      label: 'All Users Login Time',
-      value: formatTime(reportData.loginTime?.all?.total ?? 0),
-      helper: `Average Session: ${formatTime(totalAverageSession)}`
-    });
+    // Login metrics removed from the summary view per request.
 
     sections.push({
       title: 'User Creation & Engagement',
@@ -1071,10 +1216,6 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
       songRows.push({
         label: 'Song Likes',
         value: formatNumber(reportData.songsLiked ?? 0)
-      });
-      songRows.push({
-        label: 'Distinct Song Likes',
-        value: formatNumber(reportData.distinctSongsLiked ?? 0)
       });
 
       const totalListeningTime =
@@ -1128,10 +1269,6 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
             label: 'Artist Follows',
             value: formatNumber(reportData.artistsFollowed ?? 0)
           },
-          {
-            label: 'Distinct Artists Followed',
-            value: formatNumber(reportData.distinctArtistsFollowed ?? 0)
-          }
         ]
       });
     }
@@ -1161,7 +1298,6 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
             ? [{ label: 'Private Playlists', value: formatNumber(privateCount) }]
             : []),
           { label: 'Playlist Likes', value: formatNumber(reportData.playlistStats.totalLiked ?? 0) },
-          { label: 'Distinct Playlist Likes', value: formatNumber(reportData.playlistStats.distinctLiked ?? 0) }
         ]
       });
     }
@@ -1172,32 +1308,11 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
         rows: [
           { label: 'Albums Created', value: formatNumber(reportData.albumStats.totalCreated ?? 0) },
           { label: 'Album Likes', value: formatNumber(reportData.albumStats.totalLiked ?? 0) },
-          { label: 'Distinct Albums Liked', value: formatNumber(reportData.albumStats.distinctLiked ?? 0) }
         ]
       });
     }
 
-    if (showAgeDemographics && Array.isArray(reportData.ageDemographics) && reportData.ageDemographics.length > 0) {
-      sections.push({
-        title: 'Age Demographics',
-        rows: reportData.ageDemographics.map((demo: any) => ({
-          label: demo.range,
-          value: formatNumber(demo.count ?? 0),
-          helper: demo.ratio
-        }))
-      });
-    }
-
-    if (includeGeographics && Array.isArray(reportData.countryStats) && reportData.countryStats.length > 0) {
-      sections.push({
-        title: 'Country Distribution',
-        rows: reportData.countryStats.map((country: any) => ({
-          label: country.country,
-          value: formatNumber(country.count ?? 0),
-          helper: country.ratio
-        }))
-      });
-    }
+    // Age demographics and country distribution are now visualized via charts below.
 
     return sections;
   }, [
@@ -1408,11 +1523,11 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
     }
 
     const songs = [...reportData.songActivity].sort((a: any, b: any) => {
-      const artistA = (a?.artistName || '').toLowerCase();
-      const artistB = (b?.artistName || '').toLowerCase();
-      const comparison = artistB.localeCompare(artistA);
+      const artistA = (a?.artistUsername || a?.artistName || '').toLowerCase();
+      const artistB = (b?.artistUsername || b?.artistName || '').toLowerCase();
+      const comparison = artistA.localeCompare(artistB);
       if (comparison !== 0) return comparison;
-      return (b?.songName || '').toLowerCase().localeCompare((a?.songName || '').toLowerCase());
+      return (a?.songName || '').toLowerCase().localeCompare((b?.songName || '').toLowerCase());
     });
 
     return (
@@ -1422,82 +1537,119 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
           <p className="text-xs text-gray-600">Detailed engagement for songs played during the reporting period</p>
         </div>
         <div className="px-5 py-4 space-y-4">
-          {songs.map((song: any, idx: number) => (
-            <section
-              key={`${song.songId ?? idx}`}
-              className="report-section bg-white border border-gray-200 rounded-lg shadow-sm"
-            >
-              <div className="bg-gray-100 px-5 py-3.5 flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
-                <div>
-                  <h3 className="text-xl font-semibold text-gray-900">{song.songName || 'Unknown Song'}</h3>
-                  <p className="text-sm text-gray-600">Artist: {song.artistName || 'Unknown Artist'}</p>
-                  <div className="mt-1 text-xs text-gray-500 flex flex-wrap gap-x-6 gap-y-1">
-                    <span>Release Date: {formatDate(song.releaseDate)}</span>
-                    <span>Genre: {song.genre || 'N/A'}</span>
-                    <span>Song Length: {song.duration != null ? formatTime(Number(song.duration)) : 'N/A'}</span>
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-5 text-sm text-gray-700">
-                  <div className="text-center">
-                    <p className="font-semibold text-lg text-gray-900">
-                      {formatNumber(Number(song.totalListens ?? 0))}
-                    </p>
-                    <p className="uppercase tracking-wide text-xs text-gray-500">Total Listens</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="font-semibold text-lg text-gray-900">
-                      {formatNumber(Number(song.totalLikes ?? 0))}
-                    </p>
-                    <p className="uppercase tracking-wide text-xs text-gray-500">Total Likes</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="font-semibold text-lg text-gray-900">
-                      {formatTime(Number(song.averageListeningTime ?? 0))}
-                    </p>
-                    <p className="uppercase tracking-wide text-xs text-gray-500">Average Listen Duration</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="font-semibold text-lg text-gray-900">
-                      {formatTime(Number(song.totalListeningTime ?? 0))}
-                    </p>
-                    <p className="uppercase tracking-wide text-xs text-gray-500 whitespace-nowrap">Total Listen Duration</p>
-                  </div>
-                </div>
-              </div>
+          {songs.map((song: any, idx: number) => {
+            const listenerDetails: any[] = Array.isArray(song.listenerDetails) ? song.listenerDetails : [];
+            const songKey = `song-${song.songId ?? idx}`;
+            const listenersExpanded = expandedSongListeners[songKey] ?? false;
+            const toggleListeners = () => {
+              setExpandedSongListeners((prev) => ({
+                ...prev,
+                [songKey]: !prev[songKey]
+              }));
+            };
 
-              <div className="px-5 py-4 overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200 border border-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr className="text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      <th className="px-3.5 py-2.5 text-left">Listener</th>
-                      <th className="px-3.5 py-2.5 text-left">Email</th>
-                      <th className="px-3.5 py-2.5 text-center">Listens</th>
-                      <th className="px-3.5 py-2.5 text-center">Avg Listen Duration</th>
-                      <th className="px-3.5 py-2.5 text-center">Total Listen Duration</th>
-                      <th className="px-3.5 py-2.5 text-left">Liked?</th>
-                      <th className="px-3.5 py-2.5 text-left">Liked On</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-100">
-                    {song.listenerDetails?.map((listener: any, listenerIdx: number) => (
-                      <tr
-                        key={`${song.songId ?? idx}-listener-${listenerIdx}`}
-                        className={listenerIdx % 2 === 1 ? 'bg-gray-50' : 'bg-white'}
+            return (
+              <section
+                key={`${song.songId ?? idx}`}
+                className="report-section bg-white border border-gray-200 rounded-lg shadow-sm"
+              >
+                <div className="bg-gray-100 px-5 py-3.5 flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <h3 className="text-xl font-semibold text-gray-900">{song.songName || 'Unknown Song'}</h3>
+                    <p className="text-sm text-gray-600">Artist: {song.artistName || 'Unknown Artist'}</p>
+                    <div className="mt-1 text-xs text-gray-500 flex flex-wrap gap-x-6 gap-y-1">
+                      <span>Release Date: {formatDate(song.releaseDate)}</span>
+                      <span>Genre: {song.genre || 'N/A'}</span>
+                      <span>Song Length: {song.duration != null ? formatTime(Number(song.duration)) : 'N/A'}</span>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-5 text-sm text-gray-700">
+                    <div className="text-center">
+                      <p className="font-semibold text-lg text-gray-900">
+                        {formatNumber(Number(song.totalListens ?? 0))}
+                      </p>
+                      <p className="uppercase tracking-wide text-xs text-gray-500">Total Listens</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="font-semibold text-lg text-gray-900">
+                        {formatNumber(Number(song.totalLikes ?? 0))}
+                      </p>
+                      <p className="uppercase tracking-wide text-xs text-gray-500">Total Likes</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="font-semibold text-lg text-gray-900">
+                        {formatTime(Number(song.averageListeningTime ?? 0))}
+                      </p>
+                      <p className="uppercase tracking-wide text-xs text-gray-500">Average Listen Duration</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="font-semibold text-lg text-gray-900">
+                        {formatTime(Number(song.totalListeningTime ?? 0))}
+                      </p>
+                      <p className="uppercase tracking-wide text-xs text-gray-500 whitespace-nowrap">Total Listen Duration</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="px-5 py-4">
+                  <div className="flex items-center justify-between gap-3 mb-2">
+                    <h5 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Listeners</h5>
+                    {listenerDetails.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={toggleListeners}
+                        className="text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors"
+                        aria-expanded={listenersExpanded}
                       >
-                        <td className="px-3.5 py-2.5 text-sm text-gray-900">{listener.username || 'Unknown User'}</td>
-                        <td className="px-3.5 py-2.5 text-sm text-gray-700 break-all">{listener.email || 'N/A'}</td>
-                        <td className="px-3.5 py-2.5 text-sm text-gray-900 text-center">{formatNumber(listener.listenCount || 0)}</td>
-                        <td className="px-3.5 py-2.5 text-sm text-gray-900 text-center">{formatTime(listener.averageListeningTime || 0)}</td>
-                        <td className="px-3.5 py-2.5 text-sm text-gray-900 text-center">{formatTime(listener.totalListeningTime || 0)}</td>
-                        <td className="px-3.5 py-2.5 text-sm text-gray-900">{listener.liked ? 'Liked' : 'Not Liked'}</td>
-                        <td className="px-3.5 py-2.5 text-sm text-gray-900">{formatDate(listener.likedAt)}</td>
-                      </tr>
-                    ))}
-      </tbody>
-                </table>
-              </div>
-            </section>
-          ))}
+                        {listenersExpanded ? 'Hide listeners' : 'Show listeners'}
+                      </button>
+                    )}
+                  </div>
+                  {listenerDetails.length === 0 ? (
+                    <div className="border border-dashed border-gray-300 rounded-md px-3 py-4 text-center text-sm text-gray-500">
+                      No listener details were recorded for this song during the selected period.
+                    </div>
+                  ) : listenersExpanded ? (
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200 border border-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr className="text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                            <th className="px-3.5 py-2.5 text-left">Listener</th>
+                            <th className="px-3.5 py-2.5 text-left">Email</th>
+                            <th className="px-3.5 py-2.5 text-center">Listens</th>
+                            <th className="px-3.5 py-2.5 text-center">Avg Listen Duration</th>
+                            <th className="px-3.5 py-2.5 text-center">Total Listen Duration</th>
+                            <th className="px-3.5 py-2.5 text-left">Liked?</th>
+                            <th className="px-3.5 py-2.5 text-left">Liked On</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-100">
+                          {listenerDetails.map((listener: any, listenerIdx: number) => (
+                            <tr
+                              key={`${song.songId ?? idx}-listener-${listenerIdx}`}
+                              className={listenerIdx % 2 === 1 ? 'bg-gray-50' : 'bg-white'}
+                            >
+                              <td className="px-3.5 py-2.5 text-sm text-gray-900">{listener.username || 'Unknown User'}</td>
+                              <td className="px-3.5 py-2.5 text-sm text-gray-700 break-all">{listener.email || 'N/A'}</td>
+                              <td className="px-3.5 py-2.5 text-sm text-gray-900 text-center">{formatNumber(listener.listenCount || 0)}</td>
+                              <td className="px-3.5 py-2.5 text-sm text-gray-900 text-center">{formatTime(listener.averageListeningTime || 0)}</td>
+                              <td className="px-3.5 py-2.5 text-sm text-gray-900 text-center">{formatTime(listener.totalListeningTime || 0)}</td>
+                              <td className="px-3.5 py-2.5 text-sm text-gray-900">{listener.liked ? 'Liked' : 'Not Liked'}</td>
+                              <td className="px-3.5 py-2.5 text-sm text-gray-900">{formatDate(listener.likedAt)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="text-sm text-gray-500">
+                      Click “Show listeners” to reveal this list.
+                    </div>
+                  )}
+                </div>
+              </section>
+            );
+          })}
         </div>
       </div>
     );
@@ -1552,6 +1704,27 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
               artist.verified && artist.dateVerified ? formatDate(artist.dateVerified) : null;
 
             const followers = Array.isArray(artist.followers) ? artist.followers : [];
+            const followerKey = `followers-${artist.artistId ?? artist.username ?? idx}`;
+            const followersExpanded = !!expandedFollowerKeys[followerKey];
+            const toggleFollowers = () => {
+              setExpandedFollowerKeys((prev) => ({
+                ...prev,
+                [followerKey]: !prev[followerKey]
+              }));
+            };
+            const {
+              showSongListens,
+              showSongLikes,
+              showListenDuration,
+              showAlbumLikes
+            } = followerColumnToggles;
+
+            const toggleFollowerColumn = (column: keyof typeof followerColumnToggles) => {
+              setFollowerColumnToggles((prev) => ({
+                ...prev,
+                [column]: !prev[column]
+              }));
+            };
 
             return (
               <section
@@ -1640,22 +1813,68 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
                   </div>
                 </div>
                 <div className="px-5 py-4">
+                <div className="flex items-center justify-between gap-3">
                   <h5 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-2">
                     Followers
                   </h5>
+                  <div className="flex flex-wrap gap-2 text-[10px]">
+                    {['showSongListens', 'showSongLikes', 'showListenDuration', 'showAlbumLikes'].map((key) =>
+                      followers.length > 0 ? (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => toggleFollowerColumn(key as keyof typeof followerColumnToggles)}
+                          className={`px-2 py-1 rounded-full border ${
+                            followerColumnToggles[key as keyof typeof followerColumnToggles]
+                              ? 'border-red-600 text-red-600 bg-red-50'
+                              : 'border-gray-300 text-gray-600 bg-white'
+                          }`}
+                        >
+                          {{
+                            showSongListens: 'Song Listens',
+                            showSongLikes: 'Song Likes',
+                            showListenDuration: 'Listen Duration',
+                            showAlbumLikes: 'Album Likes'
+                          }[key as keyof typeof followerColumnToggles]}
+                        </button>
+                      ) : null
+                    )}
+                    {followers.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={toggleFollowers}
+                        className="text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors"
+                        aria-expanded={followersExpanded}
+                      >
+                        {followersExpanded ? 'Hide followers' : 'Show followers'}
+                      </button>
+                    )}
+                  </div>
+                </div>
                   {followers.length === 0 ? (
                     <div className="border border-dashed border-gray-300 rounded-md px-3 py-4 text-center text-sm text-gray-500">
                       No followers recorded during the selected period.
                     </div>
-                  ) : (
+                  ) : followersExpanded ? (
                     <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-gray-200 border border-gray-200">
+                    <table className="min-w-full divide-y divide-gray-200 border border-gray-200">
                         <thead className="bg-white">
                           <tr className="text-xs font-semibold text-gray-600 uppercase tracking-wider">
                             <th className="px-3.5 py-2.5 text-left">Username</th>
-                            <th className="px-3.5 py-2.5 text-left">Email</th>
                             <th className="px-3.5 py-2.5 text-left">Followed On</th>
-        </tr>
+                          {showSongListens && (
+                            <th className="px-3.5 py-2.5 text-left">Song Listens</th>
+                          )}
+                          {showSongLikes && (
+                            <th className="px-3.5 py-2.5 text-left">Song Likes</th>
+                          )}
+                          {showListenDuration && (
+                            <th className="px-3.5 py-2.5 text-left">Listen Duration</th>
+                          )}
+                          {showAlbumLikes && (
+                            <th className="px-3.5 py-2.5 text-left">Album Likes</th>
+                          )}
+                          </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-100">
                           {followers.map((follower: any, followerIdx: number) => (
@@ -1664,14 +1883,37 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
                               className={followerIdx % 2 === 1 ? 'bg-gray-50' : 'bg-white'}
                             >
                               <td className="px-3.5 py-2.5 text-sm text-gray-900">{follower.username || 'Unknown'}</td>
-                              <td className="px-3.5 py-2.5 text-sm text-gray-700 break-all">{follower.email || 'N/A'}</td>
                               <td className="px-3.5 py-2.5 text-sm text-gray-900">
                                 {formatDateTime(follower.followedAt)}
-            </td>
-          </tr>
+                              </td>
+                              {showSongListens && (
+                                <td className="px-3.5 py-2.5 text-sm text-gray-900">
+                                  {formatNumber(follower.songsListenedCount ?? follower.listenCount ?? 0)}
+                                </td>
+                              )}
+                              {showSongLikes && (
+                                <td className="px-3.5 py-2.5 text-sm text-gray-900">
+                                  {formatNumber(follower.songsLikedCount ?? follower.likedSongsCount ?? 0)}
+                                </td>
+                              )}
+                              {showListenDuration && (
+                                <td className="px-3.5 py-2.5 text-sm text-gray-900">
+                                  {formatTime(follower.totalListeningDuration ?? follower.listenDuration ?? 0)}
+                                </td>
+                              )}
+                              {showAlbumLikes && (
+                                <td className="px-3.5 py-2.5 text-sm text-gray-900">
+                                  {formatNumber(follower.albumsLikedCount ?? follower.albumLikesCount ?? 0)}
+                                </td>
+                              )}
+                            </tr>
                           ))}
                         </tbody>
                       </table>
+                    </div>
+                  ) : (
+                    <div className="text-sm text-gray-500">
+                      Click “Show followers” to reveal this list.
                     </div>
                   )}
                 </div>
@@ -1687,6 +1929,15 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
     if (isIndividualUser) {
       return renderIndividualUserReport();
     }
+
+    const toggleSummaryChart = (chart: 'country' | 'age') => {
+      setExpandedSummaryCharts((prev) => ({
+        ...prev,
+        [chart]: !prev[chart]
+      }));
+    };
+    const countryExpanded = expandedSummaryCharts.country;
+    const ageExpanded = expandedSummaryCharts.age;
 
     return (
       <div className="space-y-4">
@@ -1712,11 +1963,148 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
             />
           ))
         )}
+        {countryChartData && (
+          <section className="report-section print-keep-together bg-white border border-gray-200 rounded-lg shadow-sm">
+            <div className="bg-gray-100 px-4 py-2 flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-semibold text-gray-800 uppercase tracking-wider">Country Distribution</h3>
+                <p className="text-xs text-gray-600">Top countries by included users</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-[11px] text-gray-500">{countryChartData.rows.length} countries</span>
+                <button
+                  type="button"
+                  onClick={() => toggleSummaryChart('country')}
+                  className="text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors"
+                  aria-expanded={countryExpanded}
+                >
+                  {countryExpanded ? 'Hide chart' : 'Show chart'}
+                </button>
+              </div>
+            </div>
+            {countryExpanded ? (
+              <div className="px-4 py-3 space-y-2">
+                {countryChartData.rows.map((row) => (
+                  <div key={row.country} className="flex items-center gap-3">
+                    <span className="text-xs font-semibold text-gray-700 w-28">{row.country}</span>
+                    <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-red-600 rounded-full transition-all duration-200"
+                        style={{
+                          width:
+                            countryChartData.maxCount > 0
+                              ? `${(row.count / countryChartData.maxCount) * 100}%`
+                              : '0%'
+                        }}
+                      />
+                    </div>
+                    <span className="text-xs text-gray-600 w-32 text-right">{`${row.count.toLocaleString()} (${row.ratio ?? '0%'})`}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="px-4 py-3 text-sm text-gray-500">
+                Click “Show chart” to display country distribution.
+              </div>
+            )}
+          </section>
+        )}
+        {ageHistogramData && (
+          <section className="report-section print-keep-together bg-white border border-gray-200 rounded-lg shadow-sm">
+            <div className="bg-gray-100 px-4 py-2 flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-semibold text-gray-800 uppercase tracking-wider">Age Demographics</h3>
+                <p className="text-xs text-gray-600">Distribution of listeners across ages</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-[11px] text-gray-500">{ageHistogramData.rows.length} ranges</span>
+                <button
+                  type="button"
+                  onClick={() => toggleSummaryChart('age')}
+                  className="text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors"
+                  aria-expanded={ageExpanded}
+                >
+                  {ageExpanded ? 'Hide chart' : 'Show chart'}
+                </button>
+              </div>
+            </div>
+            {ageExpanded ? (
+              <div className="px-4 py-3 space-y-2">
+                {ageHistogramData.rows.map((row) => (
+                  <div key={row.range} className="flex items-center gap-3">
+                    <span className="text-xs font-semibold text-gray-700 w-28">{row.range}</span>
+                    <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-red-500 rounded-full transition-all duration-200"
+                        style={{
+                          width:
+                            ageHistogramData.maxCount > 0
+                              ? `${(row.count / ageHistogramData.maxCount) * 100}%`
+                              : '0%'
+                        }}
+                      />
+                    </div>
+                    <span className="text-xs text-gray-600 w-32 text-right">{`${row.count.toLocaleString()} (${row.ratio ?? '0%'})`}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="px-4 py-3 text-sm text-gray-500">
+                Click “Show chart” to display age demographics.
+              </div>
+            )}
+          </section>
+        )}
       </div>
     );
   };
 
+  const isDateWithinRange = (
+    value?: string | null,
+    range: { start: string; end: string }
+  ) => {
+    const parsed = value ? new Date(value) : null;
+    if (!parsed || Number.isNaN(parsed.getTime())) {
+      return false;
+    }
+    if (range.start) {
+      const start = new Date(range.start);
+      if (!Number.isNaN(start.getTime()) && parsed < start) {
+        return false;
+      }
+    }
+    if (range.end) {
+      const end = new Date(range.end);
+      if (!Number.isNaN(end.getTime()) && parsed > end) {
+        return false;
+      }
+    }
+    return true;
+  };
+
   const renderUserActivityView = () => {
+    const { showEmail, showCountry, showCity } = userActivityColumns;
+    const toggleColumn = (column: 'email' | 'country' | 'city') => {
+      setUserActivityColumns((prev) => ({
+        ...prev,
+        showEmail: column === 'email' ? !prev.showEmail : prev.showEmail,
+        showCountry: column === 'country' ? !prev.showCountry : prev.showCountry,
+        showCity: column === 'city' ? !prev.showCity : prev.showCity
+      }));
+    };
+    const filteredListeners = (reportData.listenerUsers ?? []).filter((user: any) => {
+      if (!listenerDobRange.start && !listenerDobRange.end) {
+        return true;
+      }
+      return isDateWithinRange(user.dateOfBirth, listenerDobRange);
+    });
+    const filteredArtists = (reportData.artistUsers ?? []).filter((user: any) => {
+      if (!artistDobRange.start && !artistDobRange.end) {
+        return true;
+      }
+      return isDateWithinRange(user.dateOfBirth, artistDobRange);
+    });
+
     return (
       <div className="analytics-report-section bg-white border border-gray-300 rounded-lg shadow-sm">
         <div className="bg-gray-100 border-b border-gray-300 px-5 py-3">
@@ -1730,6 +2118,35 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
                   ? `Through ${endDateLabel}`
                   : 'Covering the selected date range for all included users'}
           </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              className={`px-3 py-1 text-xs font-semibold rounded-full border ${
+                showEmail ? 'border-red-600 text-red-600 bg-red-50' : 'border-gray-300 text-gray-600 bg-white'
+              }`}
+              onClick={() => toggleColumn('email')}
+            >
+              {showEmail ? 'Hide Email' : 'Show Email'}
+            </button>
+            <button
+              type="button"
+              className={`px-3 py-1 text-xs font-semibold rounded-full border ${
+                showCountry ? 'border-red-600 text-red-600 bg-red-50' : 'border-gray-300 text-gray-600 bg-white'
+              }`}
+              onClick={() => toggleColumn('country')}
+            >
+              {showCountry ? 'Hide Country' : 'Show Country'}
+            </button>
+            <button
+              type="button"
+              className={`px-3 py-1 text-xs font-semibold rounded-full border ${
+                showCity ? 'border-red-600 text-red-600 bg-red-50' : 'border-gray-300 text-gray-600 bg-white'
+              }`}
+              onClick={() => toggleColumn('city')}
+            >
+              {showCity ? 'Hide City' : 'Show City'}
+            </button>
+          </div>
         </div>
         <div className="p-5 space-y-4">
           {includeListeners && Array.isArray(reportData.listenerUsers) && reportData.listenerUsers.length > 0 && (
@@ -1740,26 +2157,57 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
                     Listener Activity Summary
                   </h4>
                   <span className="inline-flex items-center px-2 py-1 text-[11px] font-semibold text-gray-700 bg-gray-200 rounded-full">
-                    Total Listeners: {reportData.listenerUsers.length}
+                    Total Listeners: {filteredListeners.length}
                   </span>
                 </div>
               </div>
-              <div className="overflow-x-auto">
+              <div className="flex flex-wrap gap-3 text-xs text-gray-600 mb-3">
+                <label className="flex flex-col gap-1 text-[11px]">
+                  Date of Birth Start
+                  <input
+                    type="date"
+                    value={listenerDobRange.start}
+                    onChange={(event) =>
+                      setListenerDobRange((prev) => ({ ...prev, start: event.target.value }))
+                    }
+                    className="rounded border border-gray-300 px-2 py-1 text-[11px]"
+                  />
+                </label>
+                <label className="flex flex-col gap-1 text-[11px]">
+                  Date of Birth End
+                  <input
+                    type="date"
+                    value={listenerDobRange.end}
+                    onChange={(event) =>
+                      setListenerDobRange((prev) => ({ ...prev, end: event.target.value }))
+                    }
+                    className="rounded border border-gray-300 px-2 py-1 text-[11px]"
+                  />
+                </label>
+              </div>
+              {filteredListeners.length === 0 ? (
+                <div className="border border-dashed border-gray-300 rounded-lg px-5 py-8 text-center text-sm text-gray-500">
+                  No listeners match the selected date of birth range.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
                 <table className="min-w-full text-xs md:text-sm border border-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-2.5 py-2 border border-gray-200 text-left font-semibold text-gray-700">Username</th>
                     <th className="px-2.5 py-2 border border-gray-200 text-left font-semibold text-gray-700">Name</th>
                     <th className="px-2.5 py-2 border border-gray-200 text-left font-semibold text-gray-700">Date of Birth</th>
-                    <th className="px-2.5 py-2 border border-gray-200 text-left font-semibold text-gray-700">Email</th>
+                    {showEmail && (
+                      <th className="px-2.5 py-2 border border-gray-200 text-left font-semibold text-gray-700">Email</th>
+                    )}
                     <th className="px-2.5 py-2 border border-gray-200 text-left font-semibold text-gray-700">Date Joined</th>
-                    <th className="px-2.5 py-2 border border-gray-200 text-left font-semibold text-gray-700">Country</th>
-                    <th className="px-2.5 py-2 border border-gray-200 text-left font-semibold text-gray-700">City</th>
-                    <th className="px-2.5 py-2 border border-gray-200 text-right font-semibold text-gray-700">Logins</th>
-                    <th className="px-2.5 py-2 border border-gray-200 text-right font-semibold text-gray-700">Total Login Time</th>
-                    <th className="px-2.5 py-2 border border-gray-200 text-right font-semibold text-gray-700">Avg Login Time</th>
+                    {showCountry && (
+                      <th className="px-2.5 py-2 border border-gray-200 text-left font-semibold text-gray-700">Country</th>
+                    )}
+                    {showCity && (
+                      <th className="px-2.5 py-2 border border-gray-200 text-left font-semibold text-gray-700">City</th>
+                    )}
                     <th className="px-2.5 py-2 border border-gray-200 text-right font-semibold text-gray-700">Songs Played</th>
-                    <th className="px-2.5 py-2 border border-gray-200 text-right font-semibold text-gray-700">Distinct Songs Played</th>
                     <th className="px-2.5 py-2 border border-gray-200 text-right font-semibold text-gray-700">Songs Liked</th>
                     <th className="px-2.5 py-2 border border-gray-200 text-right font-semibold text-gray-700">Artists Followed</th>
                     <th className="px-2.5 py-2 border border-gray-200 text-right font-semibold text-gray-700">Playlists Created</th>
@@ -1767,29 +2215,25 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
           </tr>
                 </thead>
                 <tbody>
-                  {reportData.listenerUsers.map((user: any, idx: number) => (
+                    {filteredListeners.map((user: any, idx: number) => (
                     <tr key={`listener-report-${user.username}-${idx}`} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                       <td className="px-2.5 py-2 border border-gray-200 text-gray-800">{user.username || 'N/A'}</td>
                       <td className="px-2.5 py-2 border border-gray-200 text-gray-800">
                         {[user.firstName, user.lastName].filter(Boolean).join(' ') || 'N/A'}
               </td>
                       <td className="px-2.5 py-2 border border-gray-200 text-gray-800">{formatDate(user.dateOfBirth)}</td>
-                      <td className="px-2.5 py-2 border border-gray-200 text-gray-800">{user.email || 'N/A'}</td>
+                      {showEmail && (
+                        <td className="px-2.5 py-2 border border-gray-200 text-gray-800">{user.email || 'N/A'}</td>
+                      )}
                       <td className="px-2.5 py-2 border border-gray-200 text-gray-800">{formatDate(user.dateJoined)}</td>
-                      <td className="px-2.5 py-2 border border-gray-200 text-gray-800">{user.country || 'N/A'}</td>
-                      <td className="px-2.5 py-2 border border-gray-200 text-gray-800">{user.city || 'N/A'}</td>
-                      <td className="px-2.5 py-2 border border-gray-200 text-right text-gray-800">{formatNumber(user.totalLogins)}</td>
-                      <td className="px-2.5 py-2 border border-gray-200 text-right text-gray-800">
-                        {formatTime(user.totalLoginTime || 0)}
-              </td>
-                      <td className="px-2.5 py-2 border border-gray-200 text-right text-gray-800">
-                        {formatTime(user.averageLoginTime || 0)}
-              </td>
+                      {showCountry && (
+                        <td className="px-2.5 py-2 border border-gray-200 text-gray-800">{user.country || 'N/A'}</td>
+                      )}
+                      {showCity && (
+                        <td className="px-2.5 py-2 border border-gray-200 text-gray-800">{user.city || 'N/A'}</td>
+                      )}
                       <td className="px-2.5 py-2 border border-gray-200 text-right text-gray-800">
                         {formatNumber(user.totalSongsPlayed)}
-              </td>
-                      <td className="px-2.5 py-2 border border-gray-200 text-right text-gray-800">
-                        {formatNumber(user.distinctSongsPlayed)}
               </td>
                       <td className="px-2.5 py-2 border border-gray-200 text-right text-gray-800">
                         {formatNumber(user.songsLiked)}
@@ -1808,6 +2252,7 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
                 </tbody>
                 </table>
               </div>
+              )}
             </div>
           )}
 
@@ -1819,47 +2264,78 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
                     Artist Activity Summary
                   </h4>
                   <span className="inline-flex items-center px-2 py-1 text-[11px] font-semibold text-gray-700 bg-gray-200 rounded-full">
-                    Total Artists: {reportData.artistUsers.length}
+                    Total Artists: {filteredArtists.length}
                   </span>
                 </div>
               </div>
-              <div className="overflow-x-auto">
+              <div className="flex flex-wrap gap-3 text-xs text-gray-600 mb-3">
+                <label className="flex flex-col gap-1 text-[11px]">
+                  Date of Birth Start
+                  <input
+                    type="date"
+                    value={artistDobRange.start}
+                    onChange={(event) =>
+                      setArtistDobRange((prev) => ({ ...prev, start: event.target.value }))
+                    }
+                    className="rounded border border-gray-300 px-2 py-1 text-[11px]"
+                  />
+                </label>
+                <label className="flex flex-col gap-1 text-[11px]">
+                  Date of Birth End
+                  <input
+                    type="date"
+                    value={artistDobRange.end}
+                    onChange={(event) =>
+                      setArtistDobRange((prev) => ({ ...prev, end: event.target.value }))
+                    }
+                    className="rounded border border-gray-300 px-2 py-1 text-[11px]"
+                  />
+                </label>
+              </div>
+              {filteredArtists.length === 0 ? (
+                <div className="border border-dashed border-gray-300 rounded-lg px-5 py-8 text-center text-sm text-gray-500">
+                  No artists match the selected date of birth range.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
                 <table className="min-w-full text-xs md:text-sm border border-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-2.5 py-2 border border-gray-200 text-left font-semibold text-gray-700">Username</th>
                     <th className="px-2.5 py-2 border border-gray-200 text-left font-semibold text-gray-700">Name</th>
                     <th className="px-2.5 py-2 border border-gray-200 text-left font-semibold text-gray-700">Date of Birth</th>
-                    <th className="px-2.5 py-2 border border-gray-200 text-left font-semibold text-gray-700">Email</th>
+                    {showEmail && (
+                      <th className="px-2.5 py-2 border border-gray-200 text-left font-semibold text-gray-700">Email</th>
+                    )}
                     <th className="px-2.5 py-2 border border-gray-200 text-left font-semibold text-gray-700">Date Joined</th>
-                    <th className="px-2.5 py-2 border border-gray-200 text-left font-semibold text-gray-700">Country</th>
-                    <th className="px-2.5 py-2 border border-gray-200 text-left font-semibold text-gray-700">City</th>
-                    <th className="px-2.5 py-2 border border-gray-200 text-right font-semibold text-gray-700">Logins</th>
-                    <th className="px-2.5 py-2 border border-gray-200 text-right font-semibold text-gray-700">Total Login Time</th>
-                    <th className="px-2.5 py-2 border border-gray-200 text-right font-semibold text-gray-700">Avg Login Time</th>
+                    {showCountry && (
+                      <th className="px-2.5 py-2 border border-gray-200 text-left font-semibold text-gray-700">Country</th>
+                    )}
+                    {showCity && (
+                      <th className="px-2.5 py-2 border border-gray-200 text-left font-semibold text-gray-700">City</th>
+                    )}
                     <th className="px-2.5 py-2 border border-gray-200 text-right font-semibold text-gray-700">Songs Released</th>
                     <th className="px-2.5 py-2 border border-gray-200 text-right font-semibold text-gray-700">Albums Released</th>
             </tr>
                 </thead>
                 <tbody>
-                  {reportData.artistUsers.map((user: any, idx: number) => (
+                      {filteredArtists.map((user: any, idx: number) => (
                     <tr key={`artist-report-${user.username}-${idx}`} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                       <td className="px-2.5 py-2 border border-gray-200 text-gray-800">{user.username || 'N/A'}</td>
                       <td className="px-2.5 py-2 border border-gray-200 text-gray-800">
                         {[user.firstName, user.lastName].filter(Boolean).join(' ') || 'N/A'}
               </td>
                       <td className="px-2.5 py-2 border border-gray-200 text-gray-800">{formatDate(user.dateOfBirth)}</td>
-                      <td className="px-2.5 py-2 border border-gray-200 text-gray-800">{user.email || 'N/A'}</td>
+                      {showEmail && (
+                        <td className="px-2.5 py-2 border border-gray-200 text-gray-800">{user.email || 'N/A'}</td>
+                      )}
                       <td className="px-2.5 py-2 border border-gray-200 text-gray-800">{formatDate(user.dateJoined)}</td>
-                      <td className="px-2.5 py-2 border border-gray-200 text-gray-800">{user.country || 'N/A'}</td>
-                      <td className="px-2.5 py-2 border border-gray-200 text-gray-800">{user.city || 'N/A'}</td>
-                      <td className="px-2.5 py-2 border border-gray-200 text-right text-gray-800">{formatNumber(user.totalLogins)}</td>
-                      <td className="px-2.5 py-2 border border-gray-200 text-right text-gray-800">
-                        {formatTime(user.totalLoginTime || 0)}
-              </td>
-                      <td className="px-2.5 py-2 border border-gray-200 text-right text-gray-800">
-                        {formatTime(user.averageLoginTime || 0)}
-              </td>
+                      {showCountry && (
+                        <td className="px-2.5 py-2 border border-gray-200 text-gray-800">{user.country || 'N/A'}</td>
+                      )}
+                      {showCity && (
+                        <td className="px-2.5 py-2 border border-gray-200 text-gray-800">{user.city || 'N/A'}</td>
+                      )}
                       <td className="px-2.5 py-2 border border-gray-200 text-right text-gray-800">
                         {formatNumber(user.songsReleased)}
           </td>
@@ -1871,6 +2347,7 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
                 </tbody>
                 </table>
               </div>
+              )}
             </div>
           )}
 
