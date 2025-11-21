@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { API_BASE_URL } from '../services/api';
+import { API_BASE_URL, getFileUrl } from '../services/api';
 
 interface User {
   UserID: number;
@@ -864,6 +864,7 @@ const AdminDashboard: React.FC = () => {
                   <thead className="bg-red-50 border-b border-red-200">
                     <tr>
                       <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">ID</th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Profile</th>
                       <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Username</th>
                       <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Name</th>
                       <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Email</th>
@@ -883,6 +884,22 @@ const AdminDashboard: React.FC = () => {
                     {users.map((user) => (
                       <tr key={user.UserID} className="hover:bg-red-25 transition-colors">
                         <td className="px-6 py-4 text-sm text-gray-900">{user.UserID}</td>
+                        <td className="px-6 py-4">
+                          {user.ProfilePicture ? (
+                            <img 
+                              src={getFileUrl(user.ProfilePicture)} 
+                              alt={user.Username}
+                              className="w-10 h-10 rounded-full object-cover border-2 border-gray-200"
+                              onError={(e) => {
+                                e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"%3E%3Ccircle cx="12" cy="12" r="12" fill="%23E5E7EB"/%3E%3Cpath d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" fill="%239CA3AF"/%3E%3C/svg%3E';
+                              }}
+                            />
+                          ) : (
+                            <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 font-semibold text-sm border-2 border-gray-300">
+                              {user.FirstName?.[0]}{user.LastName?.[0]}
+                            </div>
+                          )}
+                        </td>
                         <td className="px-6 py-4 text-sm font-medium text-gray-900">{user.Username}</td>
                         <td className="px-6 py-4 text-sm text-gray-900">{user.FirstName} {user.LastName}</td>
                         <td className="px-6 py-4 text-sm text-gray-600">{user.Email}</td>
