@@ -296,9 +296,6 @@ export const AnalyticsExpanded: React.FC<AnalyticsExpandedProps> = ({
       return dateB - dateA;
     });
 
-    const countryExpanded = expandedSummaryCharts.country;
-    const ageExpanded = expandedSummaryCharts.age;
-
     return (
       <div className="analytics-report-section bg-white border border-gray-300 rounded-lg shadow-sm">
         <div className="bg-gray-100 border-b border-gray-300 px-5 py-3">
@@ -1150,9 +1147,6 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
     const listenerPercentage = totalUsers > 0 ? (totalListeners / totalUsers) * 100 : null;
     const artistPercentage = totalUsers > 0 ? (totalArtists / totalUsers) * 100 : null;
 
-    const totalListenerLogins = includeListeners ? Number(reportData.loginCounts?.listeners ?? 0) : 0;
-    const totalArtistLogins = includeArtists ? Number(reportData.loginCounts?.artists ?? 0) : 0;
-    const totalLogins = totalListenerLogins + totalArtistLogins;
 
     const totalUsersHelper = (() => {
       if (onlyListeners || onlyArtists) {
@@ -2060,8 +2054,8 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
   };
 
   const isDateWithinRange = (
-    value?: string | null,
-    range: { start: string; end: string }
+    value: string | null | undefined,
+    range: { start?: string; end?: string }
   ) => {
     const parsed = value ? new Date(value) : null;
     if (!parsed || Number.isNaN(parsed.getTime())) {
