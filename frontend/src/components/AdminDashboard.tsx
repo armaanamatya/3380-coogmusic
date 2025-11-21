@@ -243,12 +243,7 @@ const AdminDashboard: React.FC = () => {
   // Debounced filter states for albums
   const [debouncedAlbumsFilters, setDebouncedAlbumsFilters] = useState(albumsFilters);
 
-  // Filter options state for albums
-  const [albumsFilterOptions, setAlbumsFilterOptions] = useState<{
-    artists: Array<{ id: number; name: string }>;
-  }>({
-    artists: []
-  });
+  // Filter options state for albums (removed unused state)
 
   // Filter panel collapse state for albums
   const [albumsFiltersOpen, setAlbumsFiltersOpen] = useState(false);
