@@ -2799,20 +2799,21 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
         const filterParams = [];
         
         // Combined search logic - prioritize specific filters over legacy search
-        const hasSpecificFilters = albumNameFilter || artistFilter;
+        const hasNameOrArtistFilters = albumNameFilter || artistFilter;
+        const hasAnyFilters = hasNameOrArtistFilters || releaseDateFrom || releaseDateTo || createdAtFrom || createdAtTo || updatedAtFrom || updatedAtTo || hasCover !== undefined;
         
-        if (hasSpecificFilters) {
-          // Use specific filters
-          if (albumNameFilter) {
-            whereConditions.push('a.AlbumName LIKE ?');
-            filterParams.push(`%${albumNameFilter}%`);
-          }
-          if (artistFilter) {
-            whereConditions.push('u.Username LIKE ?');
-            filterParams.push(`%${artistFilter}%`);
-          }
-        } else if (search) {
-          // Only use legacy search if no specific filters
+        // Apply specific name/artist filters
+        if (albumNameFilter) {
+          whereConditions.push('a.AlbumName LIKE ?');
+          filterParams.push(`%${albumNameFilter}%`);
+        }
+        if (artistFilter) {
+          whereConditions.push('u.Username LIKE ?');
+          filterParams.push(`%${artistFilter}%`);
+        }
+        
+        // Use legacy search only if no specific filters at all are being used
+        if (!hasAnyFilters && search) {
           whereConditions.push('(a.AlbumName LIKE ? OR u.Username LIKE ?)');
           filterParams.push(`%${search}%`, `%${search}%`);
         }
@@ -2830,21 +2831,21 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
         // Created At range filter
         if (createdAtFrom) {
           whereConditions.push('a.CreatedAt >= ?');
-          filterParams.push(createdAtFrom);
+          filterParams.push(createdAtFrom + ' 00:00:00');
         }
         if (createdAtTo) {
           whereConditions.push('a.CreatedAt <= ?');
-          filterParams.push(createdAtTo);
+          filterParams.push(createdAtTo + ' 23:59:59');
         }
         
         // Updated At range filter
         if (updatedAtFrom) {
           whereConditions.push('a.UpdatedAt >= ?');
-          filterParams.push(updatedAtFrom);
+          filterParams.push(updatedAtFrom + ' 00:00:00');
         }
         if (updatedAtTo) {
           whereConditions.push('a.UpdatedAt <= ?');
-          filterParams.push(updatedAtTo);
+          filterParams.push(updatedAtTo + ' 23:59:59');
         }
         
         // Cover filter
@@ -2983,30 +2984,89 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
         const limit = parseInt(requestData.limit) || 20;
         const offset = (page - 1) * limit;
         const search = requestData.search || '';
+        
+        // Extract filter parameters
+        const filters = requestData.filters || {};
+        const playlistNameFilter = filters.playlistName || '';
+        const creatorFilter = filters.creator || '';
+        const createdAtFrom = filters.createdAtFrom || '';
+        const createdAtTo = filters.createdAtTo || '';
+        const updatedAtFrom = filters.updatedAtFrom || '';
+        const updatedAtTo = filters.updatedAtTo || '';
+        const isPublicFilter = filters.isPublic;
 
         const pool = await getPool();
         
-        // Build search condition
-        const searchCondition = search 
-          ? `WHERE (p.PlaylistName LIKE ? OR u.Username LIKE ?)` 
+        // Build filter conditions
+        const whereConditions = [];
+        const filterParams = [];
+        
+        // Combined search logic - prioritize specific filters over legacy search
+        const hasNameOrCreatorFilters = playlistNameFilter || creatorFilter;
+        const hasAnyFilters = hasNameOrCreatorFilters || createdAtFrom || createdAtTo || updatedAtFrom || updatedAtTo || isPublicFilter !== undefined;
+        
+        // Apply specific name/creator filters
+        if (playlistNameFilter) {
+          whereConditions.push('p.PlaylistName LIKE ?');
+          filterParams.push(`%${playlistNameFilter}%`);
+        }
+        if (creatorFilter) {
+          whereConditions.push('u.Username LIKE ?');
+          filterParams.push(`%${creatorFilter}%`);
+        }
+        
+        // Use legacy search only if no specific filters at all are being used
+        if (!hasAnyFilters && search) {
+          whereConditions.push('(p.PlaylistName LIKE ? OR u.Username LIKE ?)');
+          filterParams.push(`%${search}%`, `%${search}%`);
+        }
+        
+        // Created At range filter
+        if (createdAtFrom) {
+          whereConditions.push('p.CreatedAt >= ?');
+          filterParams.push(createdAtFrom + ' 00:00:00');
+        }
+        if (createdAtTo) {
+          whereConditions.push('p.CreatedAt <= ?');
+          filterParams.push(createdAtTo + ' 23:59:59');
+        }
+        
+        // Updated At range filter
+        if (updatedAtFrom) {
+          whereConditions.push('p.UpdatedAt >= ?');
+          filterParams.push(updatedAtFrom + ' 00:00:00');
+        }
+        if (updatedAtTo) {
+          whereConditions.push('p.UpdatedAt <= ?');
+          filterParams.push(updatedAtTo + ' 23:59:59');
+        }
+        
+        // IsPublic filter
+        if (isPublicFilter !== undefined) {
+          if (isPublicFilter === true) {
+            whereConditions.push('p.IsPublic = 1');
+          } else if (isPublicFilter === false) {
+            whereConditions.push('p.IsPublic = 0');
+          }
+        }
+        
+        const searchCondition = whereConditions.length > 0 
+          ? `WHERE ${whereConditions.join(' AND ')}` 
           : '';
-        const searchParams = search 
-          ? [`%${search}%`, `%${search}%`] 
-          : [];
         
         // Get total count for pagination
         const [countResult] = await pool.execute(
           `SELECT COUNT(*) as total FROM playlist p
            JOIN userprofile u ON p.UserID = u.UserID
            ${searchCondition}`,
-          searchParams
+          filterParams
         );
         const total = (countResult as any)[0].total;
         
         // Get paginated playlists
         const baseQuery = `
           SELECT 
-            p.PlaylistID, p.PlaylistName, p.CreatedAt as DateCreated, p.IsPublic,
+            p.PlaylistID, p.PlaylistName, p.CreatedAt as DateCreated, p.UpdatedAt, p.IsPublic,
             u.Username as CreatorName, u.FirstName, u.LastName,
             (SELECT COUNT(*) FROM playlist_song WHERE PlaylistID = p.PlaylistID) as SongCount,
             (SELECT COUNT(*) FROM user_likes_playlist WHERE PlaylistID = p.PlaylistID) as LikeCount
@@ -3016,7 +3076,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
           ORDER BY p.PlaylistID DESC
           LIMIT ${limit} OFFSET ${offset}
         `;
-        const [playlists] = await pool.execute(baseQuery, searchParams);
+        const [playlists] = await pool.execute(baseQuery, filterParams);
         
         const totalPages = Math.ceil(total / limit);
         

@@ -58,6 +58,7 @@ interface Playlist {
   PlaylistID: number;
   PlaylistName: string;
   DateCreated: string;
+  UpdatedAt?: string;
   IsPublic: number;
   CreatorName: string;
   FirstName: string;
@@ -248,6 +249,23 @@ const AdminDashboard: React.FC = () => {
   // Filter panel collapse state for albums
   const [albumsFiltersOpen, setAlbumsFiltersOpen] = useState(false);
 
+  // Filter state for playlists
+  const [playlistsFilters, setPlaylistsFilters] = useState({
+    playlistName: '',
+    creator: '',
+    createdAtFrom: '',
+    createdAtTo: '',
+    updatedAtFrom: '',
+    updatedAtTo: '',
+    isPublic: undefined as boolean | undefined
+  });
+
+  // Debounced filter states for playlists
+  const [debouncedPlaylistsFilters, setDebouncedPlaylistsFilters] = useState(playlistsFilters);
+
+  // Filter panel collapse state for playlists
+  const [playlistsFiltersOpen, setPlaylistsFiltersOpen] = useState(false);
+
   const adminCredentials = {
     username: 'admin',
     password: 'admin'
@@ -418,16 +436,18 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
-  const fetchPlaylists = async (page?: number, search?: string) => {
+  const fetchPlaylists = async (page?: number, search?: string, filters?: typeof playlistsFilters) => {
     setLoading(true);
     const currentPage = page || playlistsPagination.page;
     const searchQuery = search !== undefined ? search : playlistsSearch;
+    const currentFilters = filters || debouncedPlaylistsFilters;
     
     try {
       const response = await fetchWithAdminAuth('/api/admin/playlists', {
         page: currentPage,
         limit: 20,
-        search: searchQuery
+        search: searchQuery,
+        filters: currentFilters
       });
       const data = await response.json();
       if (data.playlists && data.pagination) {
@@ -621,6 +641,26 @@ const AdminDashboard: React.FC = () => {
     });
   };
 
+  // Playlist filter handlers
+  const handlePlaylistFilterChange = (filterKey: keyof typeof playlistsFilters, value: string | boolean | undefined) => {
+    setPlaylistsFilters(prev => ({
+      ...prev,
+      [filterKey]: value
+    }));
+  };
+
+  const handleClearPlaylistFilters = () => {
+    setPlaylistsFilters({
+      playlistName: '',
+      creator: '',
+      createdAtFrom: '',
+      createdAtTo: '',
+      updatedAtFrom: '',
+      updatedAtTo: '',
+      isPublic: undefined
+    });
+  };
+
   useEffect(() => {
     if (activeTab === 'overview') {
       fetchStats();
@@ -661,6 +701,14 @@ const AdminDashboard: React.FC = () => {
     return () => clearTimeout(timer);
   }, [albumsFilters]);
 
+  // Debounce filter changes for playlists
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedPlaylistsFilters(playlistsFilters);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [playlistsFilters]);
+
   // Trigger fetch when debounced search OR filters change (combined to prevent duplicate fetches)
   useEffect(() => {
     if (activeTab === 'users') {
@@ -682,9 +730,9 @@ const AdminDashboard: React.FC = () => {
 
   useEffect(() => {
     if (activeTab === 'playlists') {
-      fetchPlaylists(1, debouncedPlaylistsSearch);
+      fetchPlaylists(1, debouncedPlaylistsSearch, debouncedPlaylistsFilters);
     }
-  }, [debouncedPlaylistsSearch, activeTab]);
+  }, [debouncedPlaylistsSearch, debouncedPlaylistsFilters, activeTab]);
 
   if (user?.userType !== 'Administrator') {
     return (
@@ -1604,6 +1652,128 @@ const AdminDashboard: React.FC = () => {
                 onSearch={handlePlaylistsSearch}
                 placeholder="Search playlists by name or creator..."
               />
+              
+              {/* Filters Section */}
+              <div className="border-b border-red-200">
+                <button
+                  onClick={() => setPlaylistsFiltersOpen(!playlistsFiltersOpen)}
+                  className="w-full px-6 py-4 bg-red-50 hover:bg-red-100 transition-colors flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-2">
+                    <svg className="w-5 h-5 text-red-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                    </svg>
+                    <span className="font-semibold text-red-900">Filters</span>
+                  </div>
+                  <svg 
+                    className={`w-5 h-5 text-red-700 transition-transform ${playlistsFiltersOpen ? 'rotate-180' : ''}`}
+                    fill="none" 
+                    stroke="currentColor" 
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                
+                {playlistsFiltersOpen && (
+                  <div className="px-6 py-6 bg-gray-50 border-t border-red-200">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+                      {/* Playlist Name */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Playlist Name</label>
+                        <input
+                          type="text"
+                          value={playlistsFilters.playlistName}
+                          onChange={(e) => handlePlaylistFilterChange('playlistName', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                          placeholder="Search playlist name..."
+                        />
+                      </div>
+                      
+                      {/* Creator */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Creator</label>
+                        <input
+                          type="text"
+                          value={playlistsFilters.creator}
+                          onChange={(e) => handlePlaylistFilterChange('creator', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                          placeholder="Search creator name..."
+                        />
+                      </div>
+                      
+                      {/* Created From */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Created From</label>
+                        <input
+                          type="date"
+                          value={playlistsFilters.createdAtFrom}
+                          onChange={(e) => handlePlaylistFilterChange('createdAtFrom', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                        />
+                      </div>
+                      
+                      {/* Created To */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Created To</label>
+                        <input
+                          type="date"
+                          value={playlistsFilters.createdAtTo}
+                          onChange={(e) => handlePlaylistFilterChange('createdAtTo', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                        />
+                      </div>
+                      
+                      {/* Updated From */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Updated From</label>
+                        <input
+                          type="date"
+                          value={playlistsFilters.updatedAtFrom}
+                          onChange={(e) => handlePlaylistFilterChange('updatedAtFrom', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                        />
+                      </div>
+                      
+                      {/* Updated To */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Updated To</label>
+                        <input
+                          type="date"
+                          value={playlistsFilters.updatedAtTo}
+                          onChange={(e) => handlePlaylistFilterChange('updatedAtTo', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                        />
+                      </div>
+                      
+                      {/* Visibility */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Visibility</label>
+                        <select
+                          value={playlistsFilters.isPublic === undefined ? '' : playlistsFilters.isPublic.toString()}
+                          onChange={(e) => handlePlaylistFilterChange('isPublic', e.target.value === '' ? undefined : e.target.value === 'true')}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                        >
+                          <option value="">All Playlists</option>
+                          <option value="true">Public</option>
+                          <option value="false">Private</option>
+                        </select>
+                      </div>
+                    </div>
+                    
+                    {/* Clear Filters Button */}
+                    <div className="flex justify-end">
+                      <button
+                        onClick={handleClearPlaylistFilters}
+                        className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                      >
+                        Clear Filters
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+              
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-red-50 border-b border-red-200">
@@ -1614,6 +1784,8 @@ const AdminDashboard: React.FC = () => {
                       <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Songs</th>
                       <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Likes</th>
                       <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Public</th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Created At</th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Updated At</th>
                       <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Actions</th>
                     </tr>
                   </thead>
@@ -1639,6 +1811,12 @@ const AdminDashboard: React.FC = () => {
                           }`}>
                             {playlist.IsPublic ? 'Public' : 'Private'}
                           </span>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-600">
+                          {playlist.DateCreated ? new Date(playlist.DateCreated).toLocaleString() : 'N/A'}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-600">
+                          {playlist.UpdatedAt ? new Date(playlist.UpdatedAt).toLocaleString() : 'N/A'}
                         </td>
                         <td className="px-6 py-4 text-sm">
                           <button
