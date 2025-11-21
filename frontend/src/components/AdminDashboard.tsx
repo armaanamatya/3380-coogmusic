@@ -50,6 +50,8 @@ interface Album {
   LastName: string;
   SongCount: number;
   LikeCount: number;
+  CreatedAt?: string;
+  UpdatedAt?: string;
 }
 
 interface Playlist {
@@ -225,6 +227,32 @@ const AdminDashboard: React.FC = () => {
   // Filter panel collapse state for songs
   const [songsFiltersOpen, setSongsFiltersOpen] = useState(false);
 
+  // Filter state for albums
+  const [albumsFilters, setAlbumsFilters] = useState({
+    albumName: '',
+    releaseDateFrom: '',
+    releaseDateTo: '',
+    artist: '',
+    createdAtFrom: '',
+    createdAtTo: '',
+    updatedAtFrom: '',
+    updatedAtTo: '',
+    hasCover: undefined as boolean | undefined
+  });
+
+  // Debounced filter states for albums
+  const [debouncedAlbumsFilters, setDebouncedAlbumsFilters] = useState(albumsFilters);
+
+  // Filter options state for albums
+  const [albumsFilterOptions, setAlbumsFilterOptions] = useState<{
+    artists: Array<{ id: number; name: string }>;
+  }>({
+    artists: []
+  });
+
+  // Filter panel collapse state for albums
+  const [albumsFiltersOpen, setAlbumsFiltersOpen] = useState(false);
+
   const adminCredentials = {
     username: 'admin',
     password: 'admin'
@@ -370,16 +398,18 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
-  const fetchAlbums = async (page?: number, search?: string) => {
+  const fetchAlbums = async (page?: number, search?: string, filters?: typeof albumsFilters) => {
     setLoading(true);
     const currentPage = page || albumsPagination.page;
     const searchQuery = search !== undefined ? search : albumsSearch;
+    const currentFilters = filters || debouncedAlbumsFilters;
     
     try {
       const response = await fetchWithAdminAuth('/api/admin/albums', {
         page: currentPage,
         limit: 20,
-        search: searchQuery
+        search: searchQuery,
+        filters: currentFilters
       });
       const data = await response.json();
       if (data.albums && data.pagination) {
@@ -574,6 +604,28 @@ const AdminDashboard: React.FC = () => {
     });
   };
 
+  // Album filter handlers
+  const handleAlbumFilterChange = (filterKey: keyof typeof albumsFilters, value: string | boolean | undefined) => {
+    setAlbumsFilters(prev => ({
+      ...prev,
+      [filterKey]: value
+    }));
+  };
+
+  const handleClearAlbumFilters = () => {
+    setAlbumsFilters({
+      albumName: '',
+      releaseDateFrom: '',
+      releaseDateTo: '',
+      artist: '',
+      createdAtFrom: '',
+      createdAtTo: '',
+      updatedAtFrom: '',
+      updatedAtTo: '',
+      hasCover: undefined
+    });
+  };
+
   useEffect(() => {
     if (activeTab === 'overview') {
       fetchStats();
@@ -606,6 +658,14 @@ const AdminDashboard: React.FC = () => {
     return () => clearTimeout(timer);
   }, [songsFilters]);
 
+  // Debounce filter changes for albums
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedAlbumsFilters(albumsFilters);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [albumsFilters]);
+
   // Trigger fetch when debounced search OR filters change (combined to prevent duplicate fetches)
   useEffect(() => {
     if (activeTab === 'users') {
@@ -621,9 +681,9 @@ const AdminDashboard: React.FC = () => {
 
   useEffect(() => {
     if (activeTab === 'albums') {
-      fetchAlbums(1, debouncedAlbumsSearch);
+      fetchAlbums(1, debouncedAlbumsSearch, debouncedAlbumsFilters);
     }
-  }, [debouncedAlbumsSearch, activeTab]);
+  }, [debouncedAlbumsSearch, debouncedAlbumsFilters, activeTab]);
 
   useEffect(() => {
     if (activeTab === 'playlists') {
@@ -1266,7 +1326,7 @@ const AdminDashboard: React.FC = () => {
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-600">
                           <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full text-xs font-medium">
-                            {song.AvgRating ? song.AvgRating.toFixed(2) : '0.00'} ⭐
+                            {song.AvgRating && typeof song.AvgRating === 'number' ? song.AvgRating.toFixed(2) : '0.00'} ⭐
                           </span>
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-600">
@@ -1315,16 +1375,163 @@ const AdminDashboard: React.FC = () => {
                 onSearch={handleAlbumsSearch}
                 placeholder="Search albums by title or artist..."
               />
+              
+              {/* Filters Section */}
+              <div className="border-b border-red-200">
+                <button
+                  onClick={() => setAlbumsFiltersOpen(!albumsFiltersOpen)}
+                  className="w-full px-6 py-4 bg-red-50 hover:bg-red-100 transition-colors flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-2">
+                    <svg className="w-5 h-5 text-red-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                    </svg>
+                    <span className="font-semibold text-red-900">Filters</span>
+                  </div>
+                  <svg 
+                    className={`w-5 h-5 text-red-700 transition-transform ${albumsFiltersOpen ? 'rotate-180' : ''}`}
+                    fill="none" 
+                    stroke="currentColor" 
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                
+                {albumsFiltersOpen && (
+                  <div className="px-6 py-6 bg-gray-50 border-t border-red-200">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+                      {/* Album Name */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Album Name</label>
+                        <input
+                          type="text"
+                          value={albumsFilters.albumName}
+                          onChange={(e) => handleAlbumFilterChange('albumName', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                          placeholder="Search album name..."
+                        />
+                      </div>
+                      
+                      {/* Release Date From */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Release Date From</label>
+                        <input
+                          type="date"
+                          value={albumsFilters.releaseDateFrom}
+                          onChange={(e) => handleAlbumFilterChange('releaseDateFrom', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                        />
+                      </div>
+                      
+                      {/* Release Date To */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Release Date To</label>
+                        <input
+                          type="date"
+                          value={albumsFilters.releaseDateTo}
+                          onChange={(e) => handleAlbumFilterChange('releaseDateTo', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                        />
+                      </div>
+                      
+                      {/* Artist */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Artist</label>
+                        <input
+                          type="text"
+                          value={albumsFilters.artist}
+                          onChange={(e) => handleAlbumFilterChange('artist', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                          placeholder="Search artist name..."
+                        />
+                      </div>
+                      
+                      {/* Created At From */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Created From</label>
+                        <input
+                          type="date"
+                          value={albumsFilters.createdAtFrom}
+                          onChange={(e) => handleAlbumFilterChange('createdAtFrom', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                        />
+                      </div>
+                      
+                      {/* Created At To */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Created To</label>
+                        <input
+                          type="date"
+                          value={albumsFilters.createdAtTo}
+                          onChange={(e) => handleAlbumFilterChange('createdAtTo', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                        />
+                      </div>
+                      
+                      {/* Updated At From */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Updated From</label>
+                        <input
+                          type="date"
+                          value={albumsFilters.updatedAtFrom}
+                          onChange={(e) => handleAlbumFilterChange('updatedAtFrom', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                        />
+                      </div>
+                      
+                      {/* Updated At To */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Updated To</label>
+                        <input
+                          type="date"
+                          value={albumsFilters.updatedAtTo}
+                          onChange={(e) => handleAlbumFilterChange('updatedAtTo', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                        />
+                      </div>
+                      
+                      {/* Has Cover */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Cover Image</label>
+                        <select
+                          value={albumsFilters.hasCover === undefined ? '' : albumsFilters.hasCover.toString()}
+                          onChange={(e) => handleAlbumFilterChange('hasCover', e.target.value === '' ? undefined : e.target.value === 'true')}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                        >
+                          <option value="">All Albums</option>
+                          <option value="true">Has Cover</option>
+                          <option value="false">No Cover</option>
+                        </select>
+                      </div>
+                    </div>
+                    
+                    {/* Clear Filters Button */}
+                    <div className="flex justify-end">
+                      <button
+                        onClick={handleClearAlbumFilters}
+                        className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                      >
+                        Clear Filters
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+              
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-red-50 border-b border-red-200">
                     <tr>
                       <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">ID</th>
                       <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Title</th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Cover</th>
                       <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Artist</th>
                       <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Songs</th>
                       <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Likes</th>
                       <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Release Date</th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Created At</th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Updated At</th>
                       <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Actions</th>
                     </tr>
                   </thead>
@@ -1333,6 +1540,25 @@ const AdminDashboard: React.FC = () => {
                       <tr key={album.AlbumID} className="hover:bg-red-25 transition-colors">
                         <td className="px-6 py-4 text-sm text-gray-900">{album.AlbumID}</td>
                         <td className="px-6 py-4 text-sm font-medium text-gray-900">{album.Title}</td>
+                        <td className="px-6 py-4 text-sm">
+                          {album.CoverImagePath ? (
+                            <img 
+                              src={getFileUrl(album.CoverImagePath)} 
+                              alt={`${album.Title} cover`}
+                              className="w-12 h-12 object-cover rounded-lg border border-gray-200"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = 'none';
+                                target.nextElementSibling!.classList.remove('hidden');
+                              }}
+                            />
+                          ) : null}
+                          <div className={`w-12 h-12 bg-gray-100 border border-gray-200 rounded-lg flex items-center justify-center ${album.CoverImagePath ? 'hidden' : ''}`}>
+                            <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                          </div>
+                        </td>
                         <td className="px-6 py-4 text-sm text-gray-600">{album.ArtistName}</td>
                         <td className="px-6 py-4 text-sm">
                           <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium">
@@ -1345,6 +1571,12 @@ const AdminDashboard: React.FC = () => {
                           </span>
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-600">{new Date(album.ReleaseDate).toLocaleDateString()}</td>
+                        <td className="px-6 py-4 text-sm text-gray-600">
+                          {album.CreatedAt ? new Date(album.CreatedAt).toLocaleString() : 'N/A'}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-600">
+                          {album.UpdatedAt ? new Date(album.UpdatedAt).toLocaleString() : 'N/A'}
+                        </td>
                         <td className="px-6 py-4 text-sm">
                           <button
                             onClick={() => deleteAlbum(album.AlbumID)}

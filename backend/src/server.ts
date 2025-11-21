@@ -2779,23 +2779,93 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
         const limit = parseInt(requestData.limit) || 20;
         const offset = (page - 1) * limit;
         const search = requestData.search || '';
+        
+        // Extract filter parameters
+        const filters = requestData.filters || {};
+        const albumNameFilter = filters.albumName || '';
+        const releaseDateFrom = filters.releaseDateFrom || '';
+        const releaseDateTo = filters.releaseDateTo || '';
+        const artistFilter = filters.artist || '';
+        const createdAtFrom = filters.createdAtFrom || '';
+        const createdAtTo = filters.createdAtTo || '';
+        const updatedAtFrom = filters.updatedAtFrom || '';
+        const updatedAtTo = filters.updatedAtTo || '';
+        const hasCover = filters.hasCover;
 
         const pool = await getPool();
         
-        // Build search condition
-        const searchCondition = search 
-          ? `WHERE (a.AlbumName LIKE ? OR u.Username LIKE ?)` 
+        // Build filter conditions
+        const whereConditions = [];
+        const filterParams = [];
+        
+        // Combined search logic - prioritize specific filters over legacy search
+        const hasSpecificFilters = albumNameFilter || artistFilter;
+        
+        if (hasSpecificFilters) {
+          // Use specific filters
+          if (albumNameFilter) {
+            whereConditions.push('a.AlbumName LIKE ?');
+            filterParams.push(`%${albumNameFilter}%`);
+          }
+          if (artistFilter) {
+            whereConditions.push('u.Username LIKE ?');
+            filterParams.push(`%${artistFilter}%`);
+          }
+        } else if (search) {
+          // Only use legacy search if no specific filters
+          whereConditions.push('(a.AlbumName LIKE ? OR u.Username LIKE ?)');
+          filterParams.push(`%${search}%`, `%${search}%`);
+        }
+        
+        // Release date range filter
+        if (releaseDateFrom) {
+          whereConditions.push('a.ReleaseDate >= ?');
+          filterParams.push(releaseDateFrom);
+        }
+        if (releaseDateTo) {
+          whereConditions.push('a.ReleaseDate <= ?');
+          filterParams.push(releaseDateTo);
+        }
+        
+        // Created At range filter
+        if (createdAtFrom) {
+          whereConditions.push('a.CreatedAt >= ?');
+          filterParams.push(createdAtFrom);
+        }
+        if (createdAtTo) {
+          whereConditions.push('a.CreatedAt <= ?');
+          filterParams.push(createdAtTo);
+        }
+        
+        // Updated At range filter
+        if (updatedAtFrom) {
+          whereConditions.push('a.UpdatedAt >= ?');
+          filterParams.push(updatedAtFrom);
+        }
+        if (updatedAtTo) {
+          whereConditions.push('a.UpdatedAt <= ?');
+          filterParams.push(updatedAtTo);
+        }
+        
+        // Cover filter
+        if (hasCover !== undefined) {
+          if (hasCover === true) {
+            whereConditions.push('a.AlbumCover IS NOT NULL AND a.AlbumCover != ""');
+          } else if (hasCover === false) {
+            whereConditions.push('(a.AlbumCover IS NULL OR a.AlbumCover = "")');
+          }
+        }
+        
+        const searchCondition = whereConditions.length > 0 
+          ? `WHERE ${whereConditions.join(' AND ')}` 
           : '';
-        const searchParams = search 
-          ? [`%${search}%`, `%${search}%`] 
-          : [];
         
         // Get total count for pagination
         const [countResult] = await pool.execute(
           `SELECT COUNT(*) as total FROM album a
            JOIN userprofile u ON a.ArtistID = u.UserID
            ${searchCondition}`,
-          searchParams
+          filterParams
         );
         const total = (countResult as any)[0].total;
         
@@ -2803,6 +2873,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
         const baseQuery = `
           SELECT 
             a.AlbumID, a.AlbumName as Title, a.ReleaseDate, a.AlbumCover as CoverImagePath,
+            a.CreatedAt, a.UpdatedAt,
             u.Username as ArtistName, u.FirstName, u.LastName,
             (SELECT COUNT(*) FROM song WHERE AlbumID = a.AlbumID) as SongCount,
             (SELECT COUNT(*) FROM user_likes_album WHERE AlbumID = a.AlbumID) as LikeCount
@@ -2812,7 +2883,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
           ORDER BY a.AlbumID DESC
           LIMIT ${limit} OFFSET ${offset}
         `;
-        const [albums] = await pool.execute(baseQuery, searchParams);
+        const [albums] = await pool.execute(baseQuery, filterParams);
         
         const totalPages = Math.ceil(total / limit);
         
