@@ -2285,20 +2285,70 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
         const offset = (page - 1) * limit;
         const search = requestData.search || '';
 
+        // Extract filter parameters
+        const filters = {
+          dateOfBirthTo: requestData.dateOfBirthTo || '',
+          dateJoinedTo: requestData.dateJoinedTo || '',
+          country: requestData.country || '',
+          city: requestData.city || '',
+          userType: requestData.userType || '',
+          accountStatus: requestData.accountStatus || '',
+          createdAtTo: requestData.createdAtTo || '',
+          updatedAtTo: requestData.updatedAtTo || ''
+        };
+
         const pool = await getPool();
         
-        // Build search condition
-        const searchCondition = search 
-          ? `WHERE (u.Username LIKE ? OR u.FirstName LIKE ? OR u.LastName LIKE ? OR u.Email LIKE ?)` 
-          : '';
-        const searchParams = search 
-          ? [`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`] 
-          : [];
+        // Build WHERE conditions
+        const conditions: string[] = [];
+        const queryParams: any[] = [];
+
+        // Add search condition
+        if (search) {
+          conditions.push('(u.Username LIKE ? OR u.FirstName LIKE ? OR u.LastName LIKE ? OR u.Email LIKE ?)');
+          queryParams.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`);
+        }
+
+        // Add filter conditions
+        if (filters.dateOfBirthTo) {
+          conditions.push('u.DateOfBirth <= ?');
+          queryParams.push(filters.dateOfBirthTo);
+        }
+        if (filters.dateJoinedTo) {
+          conditions.push('u.DateJoined <= ?');
+          queryParams.push(filters.dateJoinedTo);
+        }
+        if (filters.country) {
+          conditions.push('u.Country = ?');
+          queryParams.push(filters.country);
+        }
+        if (filters.city) {
+          conditions.push('u.City = ?');
+          queryParams.push(filters.city);
+        }
+        if (filters.userType) {
+          conditions.push('u.UserType = ?');
+          queryParams.push(filters.userType);
+        }
+        if (filters.accountStatus) {
+          conditions.push('u.AccountStatus = ?');
+          queryParams.push(filters.accountStatus);
+        }
+        if (filters.createdAtTo) {
+          conditions.push('u.CreatedAt <= ?');
+          queryParams.push(filters.createdAtTo);
+        }
+        if (filters.updatedAtTo) {
+          conditions.push('u.UpdatedAt <= ?');
+          queryParams.push(filters.updatedAtTo);
+        }
+
+        const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
         
         // Get total count for pagination
         const [countResult] = await pool.execute(
-          `SELECT COUNT(*) as total FROM userprofile u ${searchCondition}`,
-          searchParams
+          `SELECT COUNT(*) as total FROM userprofile u ${whereClause}`,
+          queryParams
         );
         const total = (countResult as any)[0].total;
         
@@ -2306,8 +2356,8 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
         const baseQuery = `
           SELECT 
             u.UserID, u.Username, u.FirstName, u.LastName, u.Email, 
-            u.UserType, u.DateJoined, u.Country, u.City, u.IsOnline, 
-            u.AccountStatus, u.ProfilePicture,
+            u.UserType, u.DateOfBirth, u.DateJoined, u.Country, u.City, u.IsOnline, 
+            u.AccountStatus, u.ProfilePicture, u.CreatedAt, u.UpdatedAt,
             ul.LoginDate as LastLogin
           FROM userprofile u
           LEFT JOIN (
@@ -2315,11 +2365,11 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
             FROM user_logins 
             GROUP BY UserID
           ) ul ON u.UserID = ul.UserID
-          ${searchCondition}
+          ${whereClause}
           ORDER BY u.UserID
           LIMIT ${limit} OFFSET ${offset}
         `;
-        const [users] = await pool.execute(baseQuery, searchParams);
+        const [users] = await pool.execute(baseQuery, queryParams);
         
         const totalPages = Math.ceil(total / limit);
         
@@ -2334,6 +2384,47 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
             hasNext: page < totalPages,
             hasPrev: page > 1
           }
+        }));
+      } catch (error: any) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: error.message }));
+      }
+    });
+    return;
+  }
+
+  // Admin endpoint: Get filter options for users
+  if (requestPath === '/api/admin/users/filter-options' && method === 'POST') {
+    let body = '';
+    
+    req.on('data', (chunk) => {
+      body += chunk.toString();
+    });
+
+    req.on('end', async () => {
+      try {
+        if (!checkAdminAuth(body)) {
+          res.writeHead(403, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Admin access required' }));
+          return;
+        }
+
+        const pool = await getPool();
+        
+        // Get distinct countries
+        const [countries] = await pool.execute(
+          `SELECT DISTINCT Country FROM userprofile WHERE Country IS NOT NULL ORDER BY Country`
+        );
+        
+        // Get distinct cities
+        const [cities] = await pool.execute(
+          `SELECT DISTINCT City FROM userprofile WHERE City IS NOT NULL ORDER BY City`
+        );
+        
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ 
+          countries: (countries as any[]).map(row => row.Country),
+          cities: (cities as any[]).map(row => row.City)
         }));
       } catch (error: any) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -2444,15 +2535,63 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
         const offset = (page - 1) * limit;
         const search = requestData.search || '';
 
+        // Extract filter parameters
+        const filters = {
+          durationTo: requestData.durationTo || '',
+          listenCountTo: requestData.listenCountTo || '',
+          avgRatingTo: requestData.avgRatingTo || '',
+          totalRatingsTo: requestData.totalRatingsTo || '',
+          releaseDateTo: requestData.releaseDateTo || '',
+          createdAtTo: requestData.createdAtTo || '',
+          updatedAtTo: requestData.updatedAtTo || '',
+          artistId: requestData.artistId || '',
+          albumId: requestData.albumId || '',
+          genreId: requestData.genreId || ''
+        };
+
         const pool = await getPool();
         
-        // Build search condition
-        const searchCondition = search 
-          ? `WHERE (s.SongName LIKE ? OR u.Username LIKE ? OR a.AlbumName LIKE ? OR g.GenreName LIKE ?)` 
-          : '';
-        const searchParams = search 
-          ? [`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`] 
-          : [];
+        // Build WHERE conditions
+        const conditions: string[] = [];
+        const queryParams: any[] = [];
+
+        // Add search condition
+        if (search) {
+          conditions.push('(s.SongName LIKE ? OR u.Username LIKE ? OR a.AlbumName LIKE ? OR g.GenreName LIKE ?)');
+          queryParams.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`);
+        }
+
+        // Add filter conditions
+        if (filters.durationTo) {
+          conditions.push('s.Duration <= ?');
+          queryParams.push(filters.durationTo);
+        }
+        if (filters.releaseDateTo) {
+          conditions.push('s.ReleaseDate <= ?');
+          queryParams.push(filters.releaseDateTo);
+        }
+        if (filters.createdAtTo) {
+          conditions.push('s.CreatedAt <= ?');
+          queryParams.push(filters.createdAtTo);
+        }
+        if (filters.updatedAtTo) {
+          conditions.push('s.UpdatedAt <= ?');
+          queryParams.push(filters.updatedAtTo);
+        }
+        if (filters.artistId) {
+          conditions.push('s.ArtistID = ?');
+          queryParams.push(filters.artistId);
+        }
+        if (filters.albumId) {
+          conditions.push('s.AlbumID = ?');
+          queryParams.push(filters.albumId);
+        }
+        if (filters.genreId) {
+          conditions.push('s.GenreID = ?');
+          queryParams.push(filters.genreId);
+        }
+
+        const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
         
         // Get total count for pagination
         const [countResult] = await pool.execute(
@@ -2460,28 +2599,33 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
            JOIN userprofile u ON s.ArtistID = u.UserID
            LEFT JOIN album a ON s.AlbumID = a.AlbumID
            LEFT JOIN genre g ON s.GenreID = g.GenreID
-           ${searchCondition}`,
-          searchParams
+           ${whereClause}`,
+          queryParams
         );
         const total = (countResult as any)[0].total;
         
-        // Get paginated songs
+        // Get paginated songs with ratings
         const baseQuery = `
           SELECT 
-            s.SongID, s.SongName as Title, s.Duration, s.ReleaseDate, s.FilePath,
+            s.SongID, s.SongName as Title, s.Duration, s.ReleaseDate, s.FilePath, s.CreatedAt, s.UpdatedAt,
             u.Username as ArtistName, u.FirstName, u.LastName,
             a.AlbumName as AlbumTitle, g.GenreName,
             (SELECT COUNT(*) FROM user_likes_song WHERE SongID = s.SongID) as LikeCount,
-            (SELECT COUNT(*) FROM listening_history WHERE SongID = s.SongID) as PlayCount
+            (SELECT COUNT(*) FROM listening_history WHERE SongID = s.SongID) as PlayCount,
+            COALESCE((SELECT AVG(Rating) FROM song_ratings WHERE SongID = s.SongID), 0) as AvgRating,
+            COALESCE((SELECT COUNT(*) FROM song_ratings WHERE SongID = s.SongID), 0) as TotalRatings
           FROM song s
           JOIN userprofile u ON s.ArtistID = u.UserID
           LEFT JOIN album a ON s.AlbumID = a.AlbumID
           LEFT JOIN genre g ON s.GenreID = g.GenreID
-          ${searchCondition}
+          ${whereClause}
+          ${filters.listenCountTo ? `HAVING PlayCount <= ${parseInt(filters.listenCountTo)}` : ''}
+          ${filters.avgRatingTo ? `${filters.listenCountTo ? 'AND' : 'HAVING'} AvgRating <= ${parseFloat(filters.avgRatingTo)}` : ''}
+          ${filters.totalRatingsTo ? `${filters.listenCountTo || filters.avgRatingTo ? 'AND' : 'HAVING'} TotalRatings <= ${parseInt(filters.totalRatingsTo)}` : ''}
           ORDER BY s.SongID DESC
           LIMIT ${limit} OFFSET ${offset}
         `;
-        const [songs] = await pool.execute(baseQuery, searchParams);
+        const [songs] = await pool.execute(baseQuery, queryParams);
         
         const totalPages = Math.ceil(total / limit);
         
@@ -2496,6 +2640,71 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
             hasNext: page < totalPages,
             hasPrev: page > 1
           }
+        }));
+      } catch (error: any) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: error.message }));
+      }
+    });
+    return;
+  }
+
+  // Admin endpoint: Get filter options for songs
+  if (requestPath === '/api/admin/songs/filter-options' && method === 'POST') {
+    let body = '';
+    
+    req.on('data', (chunk) => {
+      body += chunk.toString();
+    });
+
+    req.on('end', async () => {
+      try {
+        if (!checkAdminAuth(body)) {
+          res.writeHead(403, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Admin access required' }));
+          return;
+        }
+
+        const pool = await getPool();
+        
+        // Get distinct artists
+        const [artists] = await pool.execute(
+          `SELECT DISTINCT a.ArtistID, u.FirstName, u.LastName
+           FROM artist a
+           JOIN userprofile u ON a.ArtistID = u.UserID
+           ORDER BY u.FirstName, u.LastName`
+        );
+        
+        // Get distinct albums
+        const [albums] = await pool.execute(
+          `SELECT DISTINCT AlbumID, AlbumName
+           FROM album
+           WHERE AlbumID IS NOT NULL
+           ORDER BY AlbumName`
+        );
+        
+        // Get distinct genres
+        const [genres] = await pool.execute(
+          `SELECT DISTINCT GenreID, GenreName
+           FROM genre
+           WHERE GenreID IS NOT NULL
+           ORDER BY GenreName`
+        );
+        
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ 
+          artists: (artists as any[]).map(row => ({
+            id: row.ArtistID,
+            name: `${row.FirstName} ${row.LastName}`
+          })),
+          albums: (albums as any[]).map(row => ({
+            id: row.AlbumID,
+            name: row.AlbumName
+          })),
+          genres: (genres as any[]).map(row => ({
+            id: row.GenreID,
+            name: row.GenreName
+          }))
         }));
       } catch (error: any) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -2570,23 +2779,94 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
         const limit = parseInt(requestData.limit) || 20;
         const offset = (page - 1) * limit;
         const search = requestData.search || '';
+        
+        // Extract filter parameters
+        const filters = requestData.filters || {};
+        const albumNameFilter = filters.albumName || '';
+        const releaseDateFrom = filters.releaseDateFrom || '';
+        const releaseDateTo = filters.releaseDateTo || '';
+        const artistFilter = filters.artist || '';
+        const createdAtFrom = filters.createdAtFrom || '';
+        const createdAtTo = filters.createdAtTo || '';
+        const updatedAtFrom = filters.updatedAtFrom || '';
+        const updatedAtTo = filters.updatedAtTo || '';
+        const hasCover = filters.hasCover;
 
         const pool = await getPool();
         
-        // Build search condition
-        const searchCondition = search 
-          ? `WHERE (a.AlbumName LIKE ? OR u.Username LIKE ?)` 
+        // Build filter conditions
+        const whereConditions = [];
+        const filterParams = [];
+        
+        // Combined search logic - prioritize specific filters over legacy search
+        const hasNameOrArtistFilters = albumNameFilter || artistFilter;
+        const hasAnyFilters = hasNameOrArtistFilters || releaseDateFrom || releaseDateTo || createdAtFrom || createdAtTo || updatedAtFrom || updatedAtTo || hasCover !== undefined;
+        
+        // Apply specific name/artist filters
+        if (albumNameFilter) {
+          whereConditions.push('a.AlbumName LIKE ?');
+          filterParams.push(`%${albumNameFilter}%`);
+        }
+        if (artistFilter) {
+          whereConditions.push('u.Username LIKE ?');
+          filterParams.push(`%${artistFilter}%`);
+        }
+        
+        // Use legacy search only if no specific filters at all are being used
+        if (!hasAnyFilters && search) {
+          whereConditions.push('(a.AlbumName LIKE ? OR u.Username LIKE ?)');
+          filterParams.push(`%${search}%`, `%${search}%`);
+        }
+        
+        // Release date range filter
+        if (releaseDateFrom) {
+          whereConditions.push('a.ReleaseDate >= ?');
+          filterParams.push(releaseDateFrom);
+        }
+        if (releaseDateTo) {
+          whereConditions.push('a.ReleaseDate <= ?');
+          filterParams.push(releaseDateTo);
+        }
+        
+        // Created At range filter
+        if (createdAtFrom) {
+          whereConditions.push('a.CreatedAt >= ?');
+          filterParams.push(createdAtFrom + ' 00:00:00');
+        }
+        if (createdAtTo) {
+          whereConditions.push('a.CreatedAt <= ?');
+          filterParams.push(createdAtTo + ' 23:59:59');
+        }
+        
+        // Updated At range filter
+        if (updatedAtFrom) {
+          whereConditions.push('a.UpdatedAt >= ?');
+          filterParams.push(updatedAtFrom + ' 00:00:00');
+        }
+        if (updatedAtTo) {
+          whereConditions.push('a.UpdatedAt <= ?');
+          filterParams.push(updatedAtTo + ' 23:59:59');
+        }
+        
+        // Cover filter
+        if (hasCover !== undefined) {
+          if (hasCover === true) {
+            whereConditions.push('a.AlbumCover IS NOT NULL AND a.AlbumCover != ""');
+          } else if (hasCover === false) {
+            whereConditions.push('(a.AlbumCover IS NULL OR a.AlbumCover = "")');
+          }
+        }
+        
+        const searchCondition = whereConditions.length > 0 
+          ? `WHERE ${whereConditions.join(' AND ')}` 
           : '';
-        const searchParams = search 
-          ? [`%${search}%`, `%${search}%`] 
-          : [];
         
         // Get total count for pagination
         const [countResult] = await pool.execute(
           `SELECT COUNT(*) as total FROM album a
            JOIN userprofile u ON a.ArtistID = u.UserID
            ${searchCondition}`,
-          searchParams
+          filterParams
         );
         const total = (countResult as any)[0].total;
         
@@ -2594,6 +2874,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
         const baseQuery = `
           SELECT 
             a.AlbumID, a.AlbumName as Title, a.ReleaseDate, a.AlbumCover as CoverImagePath,
+            a.CreatedAt, a.UpdatedAt,
             u.Username as ArtistName, u.FirstName, u.LastName,
             (SELECT COUNT(*) FROM song WHERE AlbumID = a.AlbumID) as SongCount,
             (SELECT COUNT(*) FROM user_likes_album WHERE AlbumID = a.AlbumID) as LikeCount
@@ -2603,7 +2884,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
           ORDER BY a.AlbumID DESC
           LIMIT ${limit} OFFSET ${offset}
         `;
-        const [albums] = await pool.execute(baseQuery, searchParams);
+        const [albums] = await pool.execute(baseQuery, filterParams);
         
         const totalPages = Math.ceil(total / limit);
         
@@ -2703,30 +2984,89 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
         const limit = parseInt(requestData.limit) || 20;
         const offset = (page - 1) * limit;
         const search = requestData.search || '';
+        
+        // Extract filter parameters
+        const filters = requestData.filters || {};
+        const playlistNameFilter = filters.playlistName || '';
+        const creatorFilter = filters.creator || '';
+        const createdAtFrom = filters.createdAtFrom || '';
+        const createdAtTo = filters.createdAtTo || '';
+        const updatedAtFrom = filters.updatedAtFrom || '';
+        const updatedAtTo = filters.updatedAtTo || '';
+        const isPublicFilter = filters.isPublic;
 
         const pool = await getPool();
         
-        // Build search condition
-        const searchCondition = search 
-          ? `WHERE (p.PlaylistName LIKE ? OR u.Username LIKE ?)` 
+        // Build filter conditions
+        const whereConditions = [];
+        const filterParams = [];
+        
+        // Combined search logic - prioritize specific filters over legacy search
+        const hasNameOrCreatorFilters = playlistNameFilter || creatorFilter;
+        const hasAnyFilters = hasNameOrCreatorFilters || createdAtFrom || createdAtTo || updatedAtFrom || updatedAtTo || isPublicFilter !== undefined;
+        
+        // Apply specific name/creator filters
+        if (playlistNameFilter) {
+          whereConditions.push('p.PlaylistName LIKE ?');
+          filterParams.push(`%${playlistNameFilter}%`);
+        }
+        if (creatorFilter) {
+          whereConditions.push('u.Username LIKE ?');
+          filterParams.push(`%${creatorFilter}%`);
+        }
+        
+        // Use legacy search only if no specific filters at all are being used
+        if (!hasAnyFilters && search) {
+          whereConditions.push('(p.PlaylistName LIKE ? OR u.Username LIKE ?)');
+          filterParams.push(`%${search}%`, `%${search}%`);
+        }
+        
+        // Created At range filter
+        if (createdAtFrom) {
+          whereConditions.push('p.CreatedAt >= ?');
+          filterParams.push(createdAtFrom + ' 00:00:00');
+        }
+        if (createdAtTo) {
+          whereConditions.push('p.CreatedAt <= ?');
+          filterParams.push(createdAtTo + ' 23:59:59');
+        }
+        
+        // Updated At range filter
+        if (updatedAtFrom) {
+          whereConditions.push('p.UpdatedAt >= ?');
+          filterParams.push(updatedAtFrom + ' 00:00:00');
+        }
+        if (updatedAtTo) {
+          whereConditions.push('p.UpdatedAt <= ?');
+          filterParams.push(updatedAtTo + ' 23:59:59');
+        }
+        
+        // IsPublic filter
+        if (isPublicFilter !== undefined) {
+          if (isPublicFilter === true) {
+            whereConditions.push('p.IsPublic = 1');
+          } else if (isPublicFilter === false) {
+            whereConditions.push('p.IsPublic = 0');
+          }
+        }
+        
+        const searchCondition = whereConditions.length > 0 
+          ? `WHERE ${whereConditions.join(' AND ')}` 
           : '';
-        const searchParams = search 
-          ? [`%${search}%`, `%${search}%`] 
-          : [];
         
         // Get total count for pagination
         const [countResult] = await pool.execute(
           `SELECT COUNT(*) as total FROM playlist p
            JOIN userprofile u ON p.UserID = u.UserID
            ${searchCondition}`,
-          searchParams
+          filterParams
         );
         const total = (countResult as any)[0].total;
         
         // Get paginated playlists
         const baseQuery = `
           SELECT 
-            p.PlaylistID, p.PlaylistName, p.CreatedAt as DateCreated, p.IsPublic,
+            p.PlaylistID, p.PlaylistName, p.CreatedAt as DateCreated, p.UpdatedAt, p.IsPublic,
             u.Username as CreatorName, u.FirstName, u.LastName,
             (SELECT COUNT(*) FROM playlist_song WHERE PlaylistID = p.PlaylistID) as SongCount,
             (SELECT COUNT(*) FROM user_likes_playlist WHERE PlaylistID = p.PlaylistID) as LikeCount
@@ -2736,7 +3076,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
           ORDER BY p.PlaylistID DESC
           LIMIT ${limit} OFFSET ${offset}
         `;
-        const [playlists] = await pool.execute(baseQuery, searchParams);
+        const [playlists] = await pool.execute(baseQuery, filterParams);
         
         const totalPages = Math.ceil(total / limit);
         

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { API_BASE_URL } from '../services/api';
+import { API_BASE_URL, getFileUrl } from '../services/api';
 
 interface User {
   UserID: number;
@@ -9,6 +9,7 @@ interface User {
   LastName: string;
   Email: string;
   UserType: string;
+  DateOfBirth?: string;
   DateJoined: string;
   Country: string;
   City?: string;
@@ -16,6 +17,8 @@ interface User {
   AccountStatus: string;
   ProfilePicture?: string;
   LastLogin?: string;
+  CreatedAt?: string;
+  UpdatedAt?: string;
 }
 
 interface Song {
@@ -31,6 +34,10 @@ interface Song {
   GenreName?: string;
   LikeCount: number;
   PlayCount: number;
+  AvgRating: number;
+  TotalRatings: number;
+  CreatedAt?: string;
+  UpdatedAt?: string;
 }
 
 interface Album {
@@ -43,12 +50,15 @@ interface Album {
   LastName: string;
   SongCount: number;
   LikeCount: number;
+  CreatedAt?: string;
+  UpdatedAt?: string;
 }
 
 interface Playlist {
   PlaylistID: number;
   PlaylistName: string;
   DateCreated: string;
+  UpdatedAt?: string;
   IsPublic: number;
   CreatorName: string;
   FirstName: string;
@@ -74,6 +84,64 @@ interface Pagination {
   hasPrev: boolean;
 }
 
+// Pagination component - defined outside to prevent recreation on each render
+const PaginationControls: React.FC<{
+  pagination: Pagination;
+  onPageChange: (page: number) => void;
+}> = ({ pagination, onPageChange }) => (
+  <div className="flex items-center justify-between px-6 py-3 bg-red-50 border-t border-red-200">
+    <div className="flex items-center text-sm text-gray-600">
+      <span>
+        Showing {((pagination.page - 1) * pagination.limit) + 1} to {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} results
+      </span>
+    </div>
+    <div className="flex items-center space-x-2">
+      <button
+        onClick={() => onPageChange(pagination.page - 1)}
+        disabled={!pagination.hasPrev}
+        className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+          pagination.hasPrev 
+            ? 'bg-white text-red-700 border border-red-300 hover:bg-red-50' 
+            : 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed'
+        }`}
+      >
+        ← Previous
+      </button>
+      <span className="px-3 py-2 text-sm font-medium text-gray-700">
+        Page {pagination.page} of {pagination.totalPages}
+      </span>
+      <button
+        onClick={() => onPageChange(pagination.page + 1)}
+        disabled={!pagination.hasNext}
+        className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+          pagination.hasNext 
+            ? 'bg-white text-red-700 border border-red-300 hover:bg-red-50' 
+            : 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed'
+        }`}
+      >
+        Next →
+      </button>
+    </div>
+  </div>
+);
+
+// Search component - defined outside to prevent recreation on each render
+const SearchInput: React.FC<{
+  value: string;
+  onSearch: (value: string) => void;
+  placeholder: string;
+}> = ({ value, onSearch, placeholder }) => (
+  <div className="px-6 py-4 bg-red-50 border-b border-red-200">
+    <input
+      type="text"
+      placeholder={placeholder}
+      value={value}
+      onChange={(e) => onSearch(e.target.value)}
+      className="w-full px-4 py-2 border border-red-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+    />
+  </div>
+);
+
 const AdminDashboard: React.FC = () => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'songs' | 'albums' | 'playlists'>('overview');
@@ -96,10 +164,141 @@ const AdminDashboard: React.FC = () => {
   const [albumsSearch, setAlbumsSearch] = useState('');
   const [playlistsSearch, setPlaylistsSearch] = useState('');
 
+  // Debounced search states
+  const [debouncedUsersSearch, setDebouncedUsersSearch] = useState('');
+  const [debouncedSongsSearch, setDebouncedSongsSearch] = useState('');
+  const [debouncedAlbumsSearch, setDebouncedAlbumsSearch] = useState('');
+  const [debouncedPlaylistsSearch, setDebouncedPlaylistsSearch] = useState('');
+
+  // Filter state for users
+  const [usersFilters, setUsersFilters] = useState({
+    dateOfBirthTo: '',
+    dateJoinedTo: '',
+    country: '',
+    city: '',
+    userType: '',
+    accountStatus: '',
+    createdAtTo: '',
+    updatedAtTo: ''
+  });
+
+  // Debounced filter states
+  const [debouncedUsersFilters, setDebouncedUsersFilters] = useState(usersFilters);
+
+  // Filter options state
+  const [filterOptions, setFilterOptions] = useState<{
+    countries: string[];
+    cities: string[];
+  }>({
+    countries: [],
+    cities: []
+  });
+
+  // Filter panel collapse state
+  const [usersFiltersOpen, setUsersFiltersOpen] = useState(false);
+
+  // Filter state for songs
+  const [songsFilters, setSongsFilters] = useState({
+    durationTo: '',
+    listenCountTo: '',
+    avgRatingTo: '',
+    totalRatingsTo: '',
+    releaseDateTo: '',
+    createdAtTo: '',
+    updatedAtTo: '',
+    artistId: '',
+    albumId: '',
+    genreId: ''
+  });
+
+  // Debounced filter states for songs
+  const [debouncedSongsFilters, setDebouncedSongsFilters] = useState(songsFilters);
+
+  // Filter options state for songs
+  const [songsFilterOptions, setSongsFilterOptions] = useState<{
+    artists: Array<{ id: number; name: string }>;
+    albums: Array<{ id: number; name: string }>;
+    genres: Array<{ id: number; name: string }>;
+  }>({
+    artists: [],
+    albums: [],
+    genres: []
+  });
+
+  // Filter panel collapse state for songs
+  const [songsFiltersOpen, setSongsFiltersOpen] = useState(false);
+
+  // Filter state for albums
+  const [albumsFilters, setAlbumsFilters] = useState({
+    albumName: '',
+    releaseDateFrom: '',
+    releaseDateTo: '',
+    artist: '',
+    createdAtFrom: '',
+    createdAtTo: '',
+    updatedAtFrom: '',
+    updatedAtTo: '',
+    hasCover: undefined as boolean | undefined
+  });
+
+  // Debounced filter states for albums
+  const [debouncedAlbumsFilters, setDebouncedAlbumsFilters] = useState(albumsFilters);
+
+  // Filter options state for albums (removed unused state)
+
+  // Filter panel collapse state for albums
+  const [albumsFiltersOpen, setAlbumsFiltersOpen] = useState(false);
+
+  // Filter state for playlists
+  const [playlistsFilters, setPlaylistsFilters] = useState({
+    playlistName: '',
+    creator: '',
+    createdAtFrom: '',
+    createdAtTo: '',
+    updatedAtFrom: '',
+    updatedAtTo: '',
+    isPublic: undefined as boolean | undefined
+  });
+
+  // Debounced filter states for playlists
+  const [debouncedPlaylistsFilters, setDebouncedPlaylistsFilters] = useState(playlistsFilters);
+
+  // Filter panel collapse state for playlists
+  const [playlistsFiltersOpen, setPlaylistsFiltersOpen] = useState(false);
+
   const adminCredentials = {
     username: 'admin',
     password: 'admin'
   };
+
+  // Debounce search inputs
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedUsersSearch(usersSearch);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [usersSearch]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSongsSearch(songsSearch);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [songsSearch]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedAlbumsSearch(albumsSearch);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [albumsSearch]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedPlaylistsSearch(playlistsSearch);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [playlistsSearch]);
 
   const fetchWithAdminAuth = async (url: string, additionalData?: any) => {
     const requestBody = {
@@ -131,16 +330,33 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
-  const fetchUsers = async (page?: number, search?: string) => {
+  const fetchUserFilterOptions = async () => {
+    try {
+      const response = await fetchWithAdminAuth('/api/admin/users/filter-options');
+      const data = await response.json();
+      if (data.countries && data.cities) {
+        setFilterOptions({
+          countries: data.countries,
+          cities: data.cities
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching filter options:', error);
+    }
+  };
+
+  const fetchUsers = async (page?: number, search?: string, filters?: typeof usersFilters) => {
     setLoading(true);
     const currentPage = page || usersPagination.page;
     const searchQuery = search !== undefined ? search : usersSearch;
+    const currentFilters = filters || debouncedUsersFilters;
     
     try {
       const response = await fetchWithAdminAuth('/api/admin/users', {
         page: currentPage,
         limit: 20,
-        search: searchQuery
+        search: searchQuery,
+        ...currentFilters
       });
       const data = await response.json();
       if (data.users && data.pagination) {
@@ -154,16 +370,34 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
-  const fetchSongs = async (page?: number, search?: string) => {
+  const fetchSongFilterOptions = async () => {
+    try {
+      const response = await fetchWithAdminAuth('/api/admin/songs/filter-options');
+      const data = await response.json();
+      if (data.artists && data.albums && data.genres) {
+        setSongsFilterOptions({
+          artists: data.artists,
+          albums: data.albums,
+          genres: data.genres
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching song filter options:', error);
+    }
+  };
+
+  const fetchSongs = async (page?: number, search?: string, filters?: typeof songsFilters) => {
     setLoading(true);
     const currentPage = page || songsPagination.page;
     const searchQuery = search !== undefined ? search : songsSearch;
+    const currentFilters = filters || debouncedSongsFilters;
     
     try {
       const response = await fetchWithAdminAuth('/api/admin/songs', {
         page: currentPage,
         limit: 20,
-        search: searchQuery
+        search: searchQuery,
+        ...currentFilters
       });
       const data = await response.json();
       if (data.songs && data.pagination) {
@@ -177,16 +411,18 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
-  const fetchAlbums = async (page?: number, search?: string) => {
+  const fetchAlbums = async (page?: number, search?: string, filters?: typeof albumsFilters) => {
     setLoading(true);
     const currentPage = page || albumsPagination.page;
     const searchQuery = search !== undefined ? search : albumsSearch;
+    const currentFilters = filters || debouncedAlbumsFilters;
     
     try {
       const response = await fetchWithAdminAuth('/api/admin/albums', {
         page: currentPage,
         limit: 20,
-        search: searchQuery
+        search: searchQuery,
+        filters: currentFilters
       });
       const data = await response.json();
       if (data.albums && data.pagination) {
@@ -200,16 +436,18 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
-  const fetchPlaylists = async (page?: number, search?: string) => {
+  const fetchPlaylists = async (page?: number, search?: string, filters?: typeof playlistsFilters) => {
     setLoading(true);
     const currentPage = page || playlistsPagination.page;
     const searchQuery = search !== undefined ? search : playlistsSearch;
+    const currentFilters = filters || debouncedPlaylistsFilters;
     
     try {
       const response = await fetchWithAdminAuth('/api/admin/playlists', {
         page: currentPage,
         limit: 20,
-        search: searchQuery
+        search: searchQuery,
+        filters: currentFilters
       });
       const data = await response.json();
       if (data.playlists && data.pagination) {
@@ -320,98 +558,181 @@ const AdminDashboard: React.FC = () => {
     fetchPlaylists(page);
   };
 
-  // Search handlers
+  // Search handlers - only update state, fetching is triggered by debounced values
   const handleUsersSearch = (search: string) => {
     setUsersSearch(search);
-    fetchUsers(1, search);
   };
 
   const handleSongsSearch = (search: string) => {
     setSongsSearch(search);
-    fetchSongs(1, search);
   };
 
   const handleAlbumsSearch = (search: string) => {
     setAlbumsSearch(search);
-    fetchAlbums(1, search);
   };
 
   const handlePlaylistsSearch = (search: string) => {
     setPlaylistsSearch(search);
-    fetchPlaylists(1, search);
   };
 
-  // Pagination component
-  const PaginationControls: React.FC<{
-    pagination: Pagination;
-    onPageChange: (page: number) => void;
-  }> = ({ pagination, onPageChange }) => (
-    <div className="flex items-center justify-between px-6 py-3 bg-red-50 border-t border-red-200">
-      <div className="flex items-center text-sm text-gray-600">
-        <span>
-          Showing {((pagination.page - 1) * pagination.limit) + 1} to {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} results
-        </span>
-      </div>
-      <div className="flex items-center space-x-2">
-        <button
-          onClick={() => onPageChange(pagination.page - 1)}
-          disabled={!pagination.hasPrev}
-          className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
-            pagination.hasPrev 
-              ? 'bg-white text-red-700 border border-red-300 hover:bg-red-50' 
-              : 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed'
-          }`}
-        >
-          ← Previous
-        </button>
-        <span className="px-3 py-2 text-sm font-medium text-gray-700">
-          Page {pagination.page} of {pagination.totalPages}
-        </span>
-        <button
-          onClick={() => onPageChange(pagination.page + 1)}
-          disabled={!pagination.hasNext}
-          className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
-            pagination.hasNext 
-              ? 'bg-white text-red-700 border border-red-300 hover:bg-red-50' 
-              : 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed'
-          }`}
-        >
-          Next →
-        </button>
-      </div>
-    </div>
-  );
+  // Filter handlers
+  const handleFilterChange = (filterKey: keyof typeof usersFilters, value: string) => {
+    setUsersFilters(prev => ({
+      ...prev,
+      [filterKey]: value
+    }));
+  };
 
-  // Search component
-  const SearchInput: React.FC<{
-    value: string;
-    onSearch: (value: string) => void;
-    placeholder: string;
-  }> = ({ value, onSearch, placeholder }) => (
-    <div className="px-6 py-4 bg-red-50 border-b border-red-200">
-      <input
-        type="text"
-        placeholder={placeholder}
-        value={value}
-        onChange={(e) => onSearch(e.target.value)}
-        className="w-full px-4 py-2 border border-red-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-      />
-    </div>
-  );
+  const handleClearFilters = () => {
+    setUsersFilters({
+      dateOfBirthTo: '',
+      dateJoinedTo: '',
+      country: '',
+      city: '',
+      userType: '',
+      accountStatus: '',
+      createdAtTo: '',
+      updatedAtTo: ''
+    });
+  };
+
+  // Song filter handlers
+  const handleSongFilterChange = (filterKey: keyof typeof songsFilters, value: string) => {
+    setSongsFilters(prev => ({
+      ...prev,
+      [filterKey]: value
+    }));
+  };
+
+  const handleClearSongFilters = () => {
+    setSongsFilters({
+      durationTo: '',
+      listenCountTo: '',
+      avgRatingTo: '',
+      totalRatingsTo: '',
+      releaseDateTo: '',
+      createdAtTo: '',
+      updatedAtTo: '',
+      artistId: '',
+      albumId: '',
+      genreId: ''
+    });
+  };
+
+  // Album filter handlers
+  const handleAlbumFilterChange = (filterKey: keyof typeof albumsFilters, value: string | boolean | undefined) => {
+    setAlbumsFilters(prev => ({
+      ...prev,
+      [filterKey]: value
+    }));
+  };
+
+  const handleClearAlbumFilters = () => {
+    setAlbumsFilters({
+      albumName: '',
+      releaseDateFrom: '',
+      releaseDateTo: '',
+      artist: '',
+      createdAtFrom: '',
+      createdAtTo: '',
+      updatedAtFrom: '',
+      updatedAtTo: '',
+      hasCover: undefined
+    });
+  };
+
+  // Playlist filter handlers
+  const handlePlaylistFilterChange = (filterKey: keyof typeof playlistsFilters, value: string | boolean | undefined) => {
+    setPlaylistsFilters(prev => ({
+      ...prev,
+      [filterKey]: value
+    }));
+  };
+
+  const handleClearPlaylistFilters = () => {
+    setPlaylistsFilters({
+      playlistName: '',
+      creator: '',
+      createdAtFrom: '',
+      createdAtTo: '',
+      updatedAtFrom: '',
+      updatedAtTo: '',
+      isPublic: undefined
+    });
+  };
 
   useEffect(() => {
     if (activeTab === 'overview') {
       fetchStats();
     } else if (activeTab === 'users') {
-      fetchUsers();
+      fetchUserFilterOptions();
+      // Don't fetch users here - let the debounced effect handle it
     } else if (activeTab === 'songs') {
-      fetchSongs();
+      fetchSongFilterOptions();
+      // Don't fetch songs here - let the debounced effect handle it
     } else if (activeTab === 'albums') {
-      fetchAlbums();
+      // Don't fetch albums here - let the debounced effect handle it
     } else if (activeTab === 'playlists') {
-      fetchPlaylists();
+      // Don't fetch playlists here - let the debounced effect handle it
     }
   }, [activeTab]);
+
+  // Debounce filter changes for users
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedUsersFilters(usersFilters);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [usersFilters]);
+
+  // Debounce filter changes for songs
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSongsFilters(songsFilters);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [songsFilters]);
+
+  // Debounce filter changes for albums
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedAlbumsFilters(albumsFilters);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [albumsFilters]);
+
+  // Debounce filter changes for playlists
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedPlaylistsFilters(playlistsFilters);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [playlistsFilters]);
+
+  // Trigger fetch when debounced search OR filters change (combined to prevent duplicate fetches)
+  useEffect(() => {
+    if (activeTab === 'users') {
+      fetchUsers(1, debouncedUsersSearch, debouncedUsersFilters);
+    }
+  }, [debouncedUsersSearch, debouncedUsersFilters, activeTab]);
+
+  useEffect(() => {
+    if (activeTab === 'songs') {
+      fetchSongs(1, debouncedSongsSearch, debouncedSongsFilters);
+    }
+  }, [debouncedSongsSearch, debouncedSongsFilters, activeTab]);
+
+  useEffect(() => {
+    if (activeTab === 'albums') {
+      fetchAlbums(1, debouncedAlbumsSearch, debouncedAlbumsFilters);
+    }
+  }, [debouncedAlbumsSearch, debouncedAlbumsFilters, activeTab]);
+
+  useEffect(() => {
+    if (activeTab === 'playlists') {
+      fetchPlaylists(1, debouncedPlaylistsSearch, debouncedPlaylistsFilters);
+    }
+  }, [debouncedPlaylistsSearch, debouncedPlaylistsFilters, activeTab]);
 
   if (user?.userType !== 'Administrator') {
     return (
@@ -576,6 +897,151 @@ const AdminDashboard: React.FC = () => {
                 <h2 className="text-xl font-bold text-white">User Management</h2>
                 <p className="text-red-100">Manage all platform users and their permissions</p>
               </div>
+              
+              {/* Filters Section */}
+              <div className="border-b border-red-200">
+                <button
+                  onClick={() => setUsersFiltersOpen(!usersFiltersOpen)}
+                  className="w-full px-6 py-4 bg-red-50 hover:bg-red-100 transition-colors flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-2">
+                    <svg className="w-5 h-5 text-red-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                    </svg>
+                    <span className="font-semibold text-red-900">Filters</span>
+                  </div>
+                  <svg 
+                    className={`w-5 h-5 text-red-700 transition-transform ${usersFiltersOpen ? 'rotate-180' : ''}`}
+                    fill="none" 
+                    stroke="currentColor" 
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                
+                {usersFiltersOpen && (
+                  <div className="px-6 py-6 bg-gray-50 border-t border-red-200">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+                      {/* Date of Birth (up to) */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth (up to)</label>
+                        <input
+                          type="date"
+                          value={usersFilters.dateOfBirthTo}
+                          onChange={(e) => handleFilterChange('dateOfBirthTo', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                        />
+                      </div>
+
+                      {/* Date Joined (up to) */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Date Joined (up to)</label>
+                        <input
+                          type="date"
+                          value={usersFilters.dateJoinedTo}
+                          onChange={(e) => handleFilterChange('dateJoinedTo', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                        />
+                      </div>
+
+                      {/* Country Dropdown */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
+                        <select
+                          value={usersFilters.country}
+                          onChange={(e) => handleFilterChange('country', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                        >
+                          <option value="">All Countries</option>
+                          {filterOptions.countries.map((country) => (
+                            <option key={country} value={country}>{country}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* City Dropdown */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
+                        <select
+                          value={usersFilters.city}
+                          onChange={(e) => handleFilterChange('city', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                        >
+                          <option value="">All Cities</option>
+                          {filterOptions.cities.map((city) => (
+                            <option key={city} value={city}>{city}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* User Type Dropdown */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">User Type</label>
+                        <select
+                          value={usersFilters.userType}
+                          onChange={(e) => handleFilterChange('userType', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                        >
+                          <option value="">All Types</option>
+                          <option value="Listener">Listener</option>
+                          <option value="Artist">Artist</option>
+                          <option value="Administrator">Administrator</option>
+                          <option value="Analyst">Analyst</option>
+                        </select>
+                      </div>
+
+                      {/* Account Status Dropdown */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Account Status</label>
+                        <select
+                          value={usersFilters.accountStatus}
+                          onChange={(e) => handleFilterChange('accountStatus', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                        >
+                          <option value="">All Statuses</option>
+                          <option value="Active">Active</option>
+                          <option value="Suspended">Suspended</option>
+                          <option value="Banned">Banned</option>
+                        </select>
+                      </div>
+
+                      {/* Created At (up to) */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Created At (up to)</label>
+                        <input
+                          type="date"
+                          value={usersFilters.createdAtTo}
+                          onChange={(e) => handleFilterChange('createdAtTo', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                        />
+                      </div>
+
+                      {/* Updated At (up to) */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Updated At (up to)</label>
+                        <input
+                          type="date"
+                          value={usersFilters.updatedAtTo}
+                          onChange={(e) => handleFilterChange('updatedAtTo', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                        />
+                      </div>
+                    </div>
+                    
+                    {/* Clear Filters Button */}
+                    <div className="flex justify-end">
+                      <button
+                        onClick={handleClearFilters}
+                        className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg font-medium transition-colors"
+                      >
+                        Clear All Filters
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <SearchInput
                 value={usersSearch}
                 onSearch={handleUsersSearch}
@@ -586,11 +1052,18 @@ const AdminDashboard: React.FC = () => {
                   <thead className="bg-red-50 border-b border-red-200">
                     <tr>
                       <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">ID</th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Profile</th>
                       <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Username</th>
                       <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Name</th>
                       <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Email</th>
                       <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Type</th>
                       <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Status</th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Date of Birth</th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Date Joined</th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Country</th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">City</th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Created At</th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Updated At</th>
                       <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Last Login</th>
                       <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Actions</th>
                     </tr>
@@ -599,6 +1072,22 @@ const AdminDashboard: React.FC = () => {
                     {users.map((user) => (
                       <tr key={user.UserID} className="hover:bg-red-25 transition-colors">
                         <td className="px-6 py-4 text-sm text-gray-900">{user.UserID}</td>
+                        <td className="px-6 py-4">
+                          {user.ProfilePicture ? (
+                            <img 
+                              src={getFileUrl(user.ProfilePicture)} 
+                              alt={user.Username}
+                              className="w-10 h-10 rounded-full object-cover border-2 border-gray-200"
+                              onError={(e) => {
+                                e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"%3E%3Ccircle cx="12" cy="12" r="12" fill="%23E5E7EB"/%3E%3Cpath d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" fill="%239CA3AF"/%3E%3C/svg%3E';
+                              }}
+                            />
+                          ) : (
+                            <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 font-semibold text-sm border-2 border-gray-300">
+                              {user.FirstName?.[0]}{user.LastName?.[0]}
+                            </div>
+                          )}
+                        </td>
                         <td className="px-6 py-4 text-sm font-medium text-gray-900">{user.Username}</td>
                         <td className="px-6 py-4 text-sm text-gray-900">{user.FirstName} {user.LastName}</td>
                         <td className="px-6 py-4 text-sm text-gray-600">{user.Email}</td>
@@ -616,6 +1105,20 @@ const AdminDashboard: React.FC = () => {
                           }`}>
                             {user.AccountStatus}
                           </span>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-600">
+                          {user.DateOfBirth ? new Date(user.DateOfBirth).toLocaleDateString() : 'N/A'}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-600">
+                          {new Date(user.DateJoined).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-600">{user.Country}</td>
+                        <td className="px-6 py-4 text-sm text-gray-600">{user.City || 'N/A'}</td>
+                        <td className="px-6 py-4 text-sm text-gray-600">
+                          {user.CreatedAt ? new Date(user.CreatedAt).toLocaleString() : 'N/A'}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-600">
+                          {user.UpdatedAt ? new Date(user.UpdatedAt).toLocaleString() : 'N/A'}
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-600">
                           {user.LastLogin ? new Date(user.LastLogin).toLocaleString() : 'Never'}
@@ -649,6 +1152,175 @@ const AdminDashboard: React.FC = () => {
                 <h2 className="text-xl font-bold text-white">Song Management</h2>
                 <p className="text-red-100">Monitor and manage all songs on the platform</p>
               </div>
+              
+              {/* Filters Section */}
+              <div className="border-b border-red-200">
+                <button
+                  onClick={() => setSongsFiltersOpen(!songsFiltersOpen)}
+                  className="w-full px-6 py-4 bg-red-50 hover:bg-red-100 transition-colors flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-2">
+                    <svg className="w-5 h-5 text-red-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                    </svg>
+                    <span className="font-semibold text-red-900">Filters</span>
+                  </div>
+                  <svg 
+                    className={`w-5 h-5 text-red-700 transition-transform ${songsFiltersOpen ? 'rotate-180' : ''}`}
+                    fill="none" 
+                    stroke="currentColor" 
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                
+                {songsFiltersOpen && (
+                  <div className="px-6 py-6 bg-gray-50 border-t border-red-200">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+                      {/* Duration (up to) */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Duration (seconds, up to)</label>
+                        <input
+                          type="number"
+                          value={songsFilters.durationTo}
+                          onChange={(e) => handleSongFilterChange('durationTo', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                          placeholder="e.g. 300"
+                        />
+                      </div>
+
+                      {/* Listen Count (up to) */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Listen Count (up to)</label>
+                        <input
+                          type="number"
+                          value={songsFilters.listenCountTo}
+                          onChange={(e) => handleSongFilterChange('listenCountTo', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                          placeholder="e.g. 1000"
+                        />
+                      </div>
+
+                      {/* Avg Rating (up to) */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Avg Rating (up to)</label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          max="5"
+                          value={songsFilters.avgRatingTo}
+                          onChange={(e) => handleSongFilterChange('avgRatingTo', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                          placeholder="e.g. 4.5"
+                        />
+                      </div>
+
+                      {/* Total Ratings (up to) */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Total Ratings (up to)</label>
+                        <input
+                          type="number"
+                          value={songsFilters.totalRatingsTo}
+                          onChange={(e) => handleSongFilterChange('totalRatingsTo', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                          placeholder="e.g. 100"
+                        />
+                      </div>
+
+                      {/* Release Date (up to) */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Release Date (up to)</label>
+                        <input
+                          type="date"
+                          value={songsFilters.releaseDateTo}
+                          onChange={(e) => handleSongFilterChange('releaseDateTo', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                        />
+                      </div>
+
+                      {/* Artist Dropdown */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Artist</label>
+                        <select
+                          value={songsFilters.artistId}
+                          onChange={(e) => handleSongFilterChange('artistId', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                        >
+                          <option value="">All Artists</option>
+                          {songsFilterOptions.artists.map((artist) => (
+                            <option key={artist.id} value={artist.id}>{artist.name}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Album Dropdown */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Album</label>
+                        <select
+                          value={songsFilters.albumId}
+                          onChange={(e) => handleSongFilterChange('albumId', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                        >
+                          <option value="">All Albums</option>
+                          {songsFilterOptions.albums.map((album) => (
+                            <option key={album.id} value={album.id}>{album.name}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Genre Dropdown */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Genre</label>
+                        <select
+                          value={songsFilters.genreId}
+                          onChange={(e) => handleSongFilterChange('genreId', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                        >
+                          <option value="">All Genres</option>
+                          {songsFilterOptions.genres.map((genre) => (
+                            <option key={genre.id} value={genre.id}>{genre.name}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Created At (up to) */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Created At (up to)</label>
+                        <input
+                          type="date"
+                          value={songsFilters.createdAtTo}
+                          onChange={(e) => handleSongFilterChange('createdAtTo', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                        />
+                      </div>
+
+                      {/* Updated At (up to) */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Updated At (up to)</label>
+                        <input
+                          type="date"
+                          value={songsFilters.updatedAtTo}
+                          onChange={(e) => handleSongFilterChange('updatedAtTo', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                        />
+                      </div>
+                    </div>
+                    
+                    {/* Clear Filters Button */}
+                    <div className="flex justify-end">
+                      <button
+                        onClick={handleClearSongFilters}
+                        className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg font-medium transition-colors"
+                      >
+                        Clear All Filters
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <SearchInput
                 value={songsSearch}
                 onSearch={handleSongsSearch}
@@ -663,8 +1335,14 @@ const AdminDashboard: React.FC = () => {
                       <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Artist</th>
                       <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Album</th>
                       <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Genre</th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Duration</th>
                       <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Likes</th>
                       <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Plays</th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Avg Rating</th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Total Ratings</th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Release Date</th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Created At</th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Updated At</th>
                       <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Actions</th>
                     </tr>
                   </thead>
@@ -676,6 +1354,9 @@ const AdminDashboard: React.FC = () => {
                         <td className="px-6 py-4 text-sm text-gray-600">{song.ArtistName}</td>
                         <td className="px-6 py-4 text-sm text-gray-600">{song.AlbumTitle || 'N/A'}</td>
                         <td className="px-6 py-4 text-sm text-gray-600">{song.GenreName || 'N/A'}</td>
+                        <td className="px-6 py-4 text-sm text-gray-600">
+                          {Math.floor(song.Duration / 60)}:{(song.Duration % 60).toString().padStart(2, '0')}
+                        </td>
                         <td className="px-6 py-4 text-sm">
                           <span className="bg-red-100 text-red-800 px-2 py-1 rounded-full text-xs font-medium">
                             {song.LikeCount}
@@ -685,6 +1366,25 @@ const AdminDashboard: React.FC = () => {
                           <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium">
                             {song.PlayCount}
                           </span>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-600">
+                          <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full text-xs font-medium">
+                            {song.AvgRating && typeof song.AvgRating === 'number' ? song.AvgRating.toFixed(2) : '0.00'} ⭐
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-600">
+                          <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium">
+                            {song.TotalRatings}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-600">
+                          {new Date(song.ReleaseDate).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-600">
+                          {song.CreatedAt ? new Date(song.CreatedAt).toLocaleString() : 'N/A'}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-600">
+                          {song.UpdatedAt ? new Date(song.UpdatedAt).toLocaleString() : 'N/A'}
                         </td>
                         <td className="px-6 py-4 text-sm">
                           <button
@@ -718,16 +1418,163 @@ const AdminDashboard: React.FC = () => {
                 onSearch={handleAlbumsSearch}
                 placeholder="Search albums by title or artist..."
               />
+              
+              {/* Filters Section */}
+              <div className="border-b border-red-200">
+                <button
+                  onClick={() => setAlbumsFiltersOpen(!albumsFiltersOpen)}
+                  className="w-full px-6 py-4 bg-red-50 hover:bg-red-100 transition-colors flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-2">
+                    <svg className="w-5 h-5 text-red-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                    </svg>
+                    <span className="font-semibold text-red-900">Filters</span>
+                  </div>
+                  <svg 
+                    className={`w-5 h-5 text-red-700 transition-transform ${albumsFiltersOpen ? 'rotate-180' : ''}`}
+                    fill="none" 
+                    stroke="currentColor" 
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                
+                {albumsFiltersOpen && (
+                  <div className="px-6 py-6 bg-gray-50 border-t border-red-200">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+                      {/* Album Name */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Album Name</label>
+                        <input
+                          type="text"
+                          value={albumsFilters.albumName}
+                          onChange={(e) => handleAlbumFilterChange('albumName', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                          placeholder="Search album name..."
+                        />
+                      </div>
+                      
+                      {/* Release Date From */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Release Date From</label>
+                        <input
+                          type="date"
+                          value={albumsFilters.releaseDateFrom}
+                          onChange={(e) => handleAlbumFilterChange('releaseDateFrom', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                        />
+                      </div>
+                      
+                      {/* Release Date To */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Release Date To</label>
+                        <input
+                          type="date"
+                          value={albumsFilters.releaseDateTo}
+                          onChange={(e) => handleAlbumFilterChange('releaseDateTo', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                        />
+                      </div>
+                      
+                      {/* Artist */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Artist</label>
+                        <input
+                          type="text"
+                          value={albumsFilters.artist}
+                          onChange={(e) => handleAlbumFilterChange('artist', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                          placeholder="Search artist name..."
+                        />
+                      </div>
+                      
+                      {/* Created At From */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Created From</label>
+                        <input
+                          type="date"
+                          value={albumsFilters.createdAtFrom}
+                          onChange={(e) => handleAlbumFilterChange('createdAtFrom', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                        />
+                      </div>
+                      
+                      {/* Created At To */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Created To</label>
+                        <input
+                          type="date"
+                          value={albumsFilters.createdAtTo}
+                          onChange={(e) => handleAlbumFilterChange('createdAtTo', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                        />
+                      </div>
+                      
+                      {/* Updated At From */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Updated From</label>
+                        <input
+                          type="date"
+                          value={albumsFilters.updatedAtFrom}
+                          onChange={(e) => handleAlbumFilterChange('updatedAtFrom', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                        />
+                      </div>
+                      
+                      {/* Updated At To */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Updated To</label>
+                        <input
+                          type="date"
+                          value={albumsFilters.updatedAtTo}
+                          onChange={(e) => handleAlbumFilterChange('updatedAtTo', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                        />
+                      </div>
+                      
+                      {/* Has Cover */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Cover Image</label>
+                        <select
+                          value={albumsFilters.hasCover === undefined ? '' : albumsFilters.hasCover.toString()}
+                          onChange={(e) => handleAlbumFilterChange('hasCover', e.target.value === '' ? undefined : e.target.value === 'true')}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                        >
+                          <option value="">All Albums</option>
+                          <option value="true">Has Cover</option>
+                          <option value="false">No Cover</option>
+                        </select>
+                      </div>
+                    </div>
+                    
+                    {/* Clear Filters Button */}
+                    <div className="flex justify-end">
+                      <button
+                        onClick={handleClearAlbumFilters}
+                        className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                      >
+                        Clear Filters
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+              
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-red-50 border-b border-red-200">
                     <tr>
                       <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">ID</th>
                       <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Title</th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Cover</th>
                       <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Artist</th>
                       <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Songs</th>
                       <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Likes</th>
                       <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Release Date</th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Created At</th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Updated At</th>
                       <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Actions</th>
                     </tr>
                   </thead>
@@ -736,6 +1583,25 @@ const AdminDashboard: React.FC = () => {
                       <tr key={album.AlbumID} className="hover:bg-red-25 transition-colors">
                         <td className="px-6 py-4 text-sm text-gray-900">{album.AlbumID}</td>
                         <td className="px-6 py-4 text-sm font-medium text-gray-900">{album.Title}</td>
+                        <td className="px-6 py-4 text-sm">
+                          {album.CoverImagePath ? (
+                            <img 
+                              src={getFileUrl(album.CoverImagePath)} 
+                              alt={`${album.Title} cover`}
+                              className="w-12 h-12 object-cover rounded-lg border border-gray-200"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = 'none';
+                                target.nextElementSibling!.classList.remove('hidden');
+                              }}
+                            />
+                          ) : null}
+                          <div className={`w-12 h-12 bg-gray-100 border border-gray-200 rounded-lg flex items-center justify-center ${album.CoverImagePath ? 'hidden' : ''}`}>
+                            <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                          </div>
+                        </td>
                         <td className="px-6 py-4 text-sm text-gray-600">{album.ArtistName}</td>
                         <td className="px-6 py-4 text-sm">
                           <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium">
@@ -748,6 +1614,12 @@ const AdminDashboard: React.FC = () => {
                           </span>
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-600">{new Date(album.ReleaseDate).toLocaleDateString()}</td>
+                        <td className="px-6 py-4 text-sm text-gray-600">
+                          {album.CreatedAt ? new Date(album.CreatedAt).toLocaleString() : 'N/A'}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-600">
+                          {album.UpdatedAt ? new Date(album.UpdatedAt).toLocaleString() : 'N/A'}
+                        </td>
                         <td className="px-6 py-4 text-sm">
                           <button
                             onClick={() => deleteAlbum(album.AlbumID)}
@@ -780,6 +1652,128 @@ const AdminDashboard: React.FC = () => {
                 onSearch={handlePlaylistsSearch}
                 placeholder="Search playlists by name or creator..."
               />
+              
+              {/* Filters Section */}
+              <div className="border-b border-red-200">
+                <button
+                  onClick={() => setPlaylistsFiltersOpen(!playlistsFiltersOpen)}
+                  className="w-full px-6 py-4 bg-red-50 hover:bg-red-100 transition-colors flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-2">
+                    <svg className="w-5 h-5 text-red-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                    </svg>
+                    <span className="font-semibold text-red-900">Filters</span>
+                  </div>
+                  <svg 
+                    className={`w-5 h-5 text-red-700 transition-transform ${playlistsFiltersOpen ? 'rotate-180' : ''}`}
+                    fill="none" 
+                    stroke="currentColor" 
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                
+                {playlistsFiltersOpen && (
+                  <div className="px-6 py-6 bg-gray-50 border-t border-red-200">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+                      {/* Playlist Name */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Playlist Name</label>
+                        <input
+                          type="text"
+                          value={playlistsFilters.playlistName}
+                          onChange={(e) => handlePlaylistFilterChange('playlistName', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                          placeholder="Search playlist name..."
+                        />
+                      </div>
+                      
+                      {/* Creator */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Creator</label>
+                        <input
+                          type="text"
+                          value={playlistsFilters.creator}
+                          onChange={(e) => handlePlaylistFilterChange('creator', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                          placeholder="Search creator name..."
+                        />
+                      </div>
+                      
+                      {/* Created From */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Created From</label>
+                        <input
+                          type="date"
+                          value={playlistsFilters.createdAtFrom}
+                          onChange={(e) => handlePlaylistFilterChange('createdAtFrom', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                        />
+                      </div>
+                      
+                      {/* Created To */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Created To</label>
+                        <input
+                          type="date"
+                          value={playlistsFilters.createdAtTo}
+                          onChange={(e) => handlePlaylistFilterChange('createdAtTo', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                        />
+                      </div>
+                      
+                      {/* Updated From */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Updated From</label>
+                        <input
+                          type="date"
+                          value={playlistsFilters.updatedAtFrom}
+                          onChange={(e) => handlePlaylistFilterChange('updatedAtFrom', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                        />
+                      </div>
+                      
+                      {/* Updated To */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Updated To</label>
+                        <input
+                          type="date"
+                          value={playlistsFilters.updatedAtTo}
+                          onChange={(e) => handlePlaylistFilterChange('updatedAtTo', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                        />
+                      </div>
+                      
+                      {/* Visibility */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Visibility</label>
+                        <select
+                          value={playlistsFilters.isPublic === undefined ? '' : playlistsFilters.isPublic.toString()}
+                          onChange={(e) => handlePlaylistFilterChange('isPublic', e.target.value === '' ? undefined : e.target.value === 'true')}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                        >
+                          <option value="">All Playlists</option>
+                          <option value="true">Public</option>
+                          <option value="false">Private</option>
+                        </select>
+                      </div>
+                    </div>
+                    
+                    {/* Clear Filters Button */}
+                    <div className="flex justify-end">
+                      <button
+                        onClick={handleClearPlaylistFilters}
+                        className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                      >
+                        Clear Filters
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+              
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-red-50 border-b border-red-200">
@@ -790,6 +1784,8 @@ const AdminDashboard: React.FC = () => {
                       <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Songs</th>
                       <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Likes</th>
                       <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Public</th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Created At</th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Updated At</th>
                       <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Actions</th>
                     </tr>
                   </thead>
@@ -815,6 +1811,12 @@ const AdminDashboard: React.FC = () => {
                           }`}>
                             {playlist.IsPublic ? 'Public' : 'Private'}
                           </span>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-600">
+                          {playlist.DateCreated ? new Date(playlist.DateCreated).toLocaleString() : 'N/A'}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-600">
+                          {playlist.UpdatedAt ? new Date(playlist.UpdatedAt).toLocaleString() : 'N/A'}
                         </td>
                         <td className="px-6 py-4 text-sm">
                           <button
