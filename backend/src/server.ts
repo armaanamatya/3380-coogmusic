@@ -2535,15 +2535,63 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
         const offset = (page - 1) * limit;
         const search = requestData.search || '';
 
+        // Extract filter parameters
+        const filters = {
+          durationTo: requestData.durationTo || '',
+          listenCountTo: requestData.listenCountTo || '',
+          avgRatingTo: requestData.avgRatingTo || '',
+          totalRatingsTo: requestData.totalRatingsTo || '',
+          releaseDateTo: requestData.releaseDateTo || '',
+          createdAtTo: requestData.createdAtTo || '',
+          updatedAtTo: requestData.updatedAtTo || '',
+          artistId: requestData.artistId || '',
+          albumId: requestData.albumId || '',
+          genreId: requestData.genreId || ''
+        };
+
         const pool = await getPool();
         
-        // Build search condition
-        const searchCondition = search 
-          ? `WHERE (s.SongName LIKE ? OR u.Username LIKE ? OR a.AlbumName LIKE ? OR g.GenreName LIKE ?)` 
-          : '';
-        const searchParams = search 
-          ? [`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`] 
-          : [];
+        // Build WHERE conditions
+        const conditions: string[] = [];
+        const queryParams: any[] = [];
+
+        // Add search condition
+        if (search) {
+          conditions.push('(s.SongName LIKE ? OR u.Username LIKE ? OR a.AlbumName LIKE ? OR g.GenreName LIKE ?)');
+          queryParams.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`);
+        }
+
+        // Add filter conditions
+        if (filters.durationTo) {
+          conditions.push('s.Duration <= ?');
+          queryParams.push(filters.durationTo);
+        }
+        if (filters.releaseDateTo) {
+          conditions.push('s.ReleaseDate <= ?');
+          queryParams.push(filters.releaseDateTo);
+        }
+        if (filters.createdAtTo) {
+          conditions.push('s.CreatedAt <= ?');
+          queryParams.push(filters.createdAtTo);
+        }
+        if (filters.updatedAtTo) {
+          conditions.push('s.UpdatedAt <= ?');
+          queryParams.push(filters.updatedAtTo);
+        }
+        if (filters.artistId) {
+          conditions.push('s.ArtistID = ?');
+          queryParams.push(filters.artistId);
+        }
+        if (filters.albumId) {
+          conditions.push('s.AlbumID = ?');
+          queryParams.push(filters.albumId);
+        }
+        if (filters.genreId) {
+          conditions.push('s.GenreID = ?');
+          queryParams.push(filters.genreId);
+        }
+
+        const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
         
         // Get total count for pagination
         const [countResult] = await pool.execute(
@@ -2551,28 +2599,33 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
            JOIN userprofile u ON s.ArtistID = u.UserID
            LEFT JOIN album a ON s.AlbumID = a.AlbumID
            LEFT JOIN genre g ON s.GenreID = g.GenreID
-           ${searchCondition}`,
-          searchParams
+           ${whereClause}`,
+          queryParams
         );
         const total = (countResult as any)[0].total;
         
-        // Get paginated songs
+        // Get paginated songs with ratings
         const baseQuery = `
           SELECT 
-            s.SongID, s.SongName as Title, s.Duration, s.ReleaseDate, s.FilePath,
+            s.SongID, s.SongName as Title, s.Duration, s.ReleaseDate, s.FilePath, s.CreatedAt, s.UpdatedAt,
             u.Username as ArtistName, u.FirstName, u.LastName,
             a.AlbumName as AlbumTitle, g.GenreName,
             (SELECT COUNT(*) FROM user_likes_song WHERE SongID = s.SongID) as LikeCount,
-            (SELECT COUNT(*) FROM listening_history WHERE SongID = s.SongID) as PlayCount
+            (SELECT COUNT(*) FROM listening_history WHERE SongID = s.SongID) as PlayCount,
+            COALESCE((SELECT AVG(Rating) FROM song_ratings WHERE SongID = s.SongID), 0) as AvgRating,
+            COALESCE((SELECT COUNT(*) FROM song_ratings WHERE SongID = s.SongID), 0) as TotalRatings
           FROM song s
           JOIN userprofile u ON s.ArtistID = u.UserID
           LEFT JOIN album a ON s.AlbumID = a.AlbumID
           LEFT JOIN genre g ON s.GenreID = g.GenreID
-          ${searchCondition}
+          ${whereClause}
+          ${filters.listenCountTo ? `HAVING PlayCount <= ${parseInt(filters.listenCountTo)}` : ''}
+          ${filters.avgRatingTo ? `${filters.listenCountTo ? 'AND' : 'HAVING'} AvgRating <= ${parseFloat(filters.avgRatingTo)}` : ''}
+          ${filters.totalRatingsTo ? `${filters.listenCountTo || filters.avgRatingTo ? 'AND' : 'HAVING'} TotalRatings <= ${parseInt(filters.totalRatingsTo)}` : ''}
           ORDER BY s.SongID DESC
           LIMIT ${limit} OFFSET ${offset}
         `;
-        const [songs] = await pool.execute(baseQuery, searchParams);
+        const [songs] = await pool.execute(baseQuery, queryParams);
         
         const totalPages = Math.ceil(total / limit);
         
@@ -2587,6 +2640,71 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
             hasNext: page < totalPages,
             hasPrev: page > 1
           }
+        }));
+      } catch (error: any) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: error.message }));
+      }
+    });
+    return;
+  }
+
+  // Admin endpoint: Get filter options for songs
+  if (requestPath === '/api/admin/songs/filter-options' && method === 'POST') {
+    let body = '';
+    
+    req.on('data', (chunk) => {
+      body += chunk.toString();
+    });
+
+    req.on('end', async () => {
+      try {
+        if (!checkAdminAuth(body)) {
+          res.writeHead(403, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Admin access required' }));
+          return;
+        }
+
+        const pool = await getPool();
+        
+        // Get distinct artists
+        const [artists] = await pool.execute(
+          `SELECT DISTINCT a.ArtistID, u.FirstName, u.LastName
+           FROM artist a
+           JOIN userprofile u ON a.ArtistID = u.UserID
+           ORDER BY u.FirstName, u.LastName`
+        );
+        
+        // Get distinct albums
+        const [albums] = await pool.execute(
+          `SELECT DISTINCT AlbumID, AlbumName
+           FROM album
+           WHERE AlbumID IS NOT NULL
+           ORDER BY AlbumName`
+        );
+        
+        // Get distinct genres
+        const [genres] = await pool.execute(
+          `SELECT DISTINCT GenreID, GenreName
+           FROM genre
+           WHERE GenreID IS NOT NULL
+           ORDER BY GenreName`
+        );
+        
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ 
+          artists: (artists as any[]).map(row => ({
+            id: row.ArtistID,
+            name: `${row.FirstName} ${row.LastName}`
+          })),
+          albums: (albums as any[]).map(row => ({
+            id: row.AlbumID,
+            name: row.AlbumName
+          })),
+          genres: (genres as any[]).map(row => ({
+            id: row.GenreID,
+            name: row.GenreName
+          }))
         }));
       } catch (error: any) {
         res.writeHead(500, { 'Content-Type': 'application/json' });

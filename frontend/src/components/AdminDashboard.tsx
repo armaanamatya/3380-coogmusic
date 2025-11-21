@@ -34,6 +34,10 @@ interface Song {
   GenreName?: string;
   LikeCount: number;
   PlayCount: number;
+  AvgRating: number;
+  TotalRatings: number;
+  CreatedAt?: string;
+  UpdatedAt?: string;
 }
 
 interface Album {
@@ -190,6 +194,37 @@ const AdminDashboard: React.FC = () => {
   // Filter panel collapse state
   const [usersFiltersOpen, setUsersFiltersOpen] = useState(false);
 
+  // Filter state for songs
+  const [songsFilters, setSongsFilters] = useState({
+    durationTo: '',
+    listenCountTo: '',
+    avgRatingTo: '',
+    totalRatingsTo: '',
+    releaseDateTo: '',
+    createdAtTo: '',
+    updatedAtTo: '',
+    artistId: '',
+    albumId: '',
+    genreId: ''
+  });
+
+  // Debounced filter states for songs
+  const [debouncedSongsFilters, setDebouncedSongsFilters] = useState(songsFilters);
+
+  // Filter options state for songs
+  const [songsFilterOptions, setSongsFilterOptions] = useState<{
+    artists: Array<{ id: number; name: string }>;
+    albums: Array<{ id: number; name: string }>;
+    genres: Array<{ id: number; name: string }>;
+  }>({
+    artists: [],
+    albums: [],
+    genres: []
+  });
+
+  // Filter panel collapse state for songs
+  const [songsFiltersOpen, setSongsFiltersOpen] = useState(false);
+
   const adminCredentials = {
     username: 'admin',
     password: 'admin'
@@ -294,16 +329,34 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
-  const fetchSongs = async (page?: number, search?: string) => {
+  const fetchSongFilterOptions = async () => {
+    try {
+      const response = await fetchWithAdminAuth('/api/admin/songs/filter-options');
+      const data = await response.json();
+      if (data.artists && data.albums && data.genres) {
+        setSongsFilterOptions({
+          artists: data.artists,
+          albums: data.albums,
+          genres: data.genres
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching song filter options:', error);
+    }
+  };
+
+  const fetchSongs = async (page?: number, search?: string, filters?: typeof songsFilters) => {
     setLoading(true);
     const currentPage = page || songsPagination.page;
     const searchQuery = search !== undefined ? search : songsSearch;
+    const currentFilters = filters || debouncedSongsFilters;
     
     try {
       const response = await fetchWithAdminAuth('/api/admin/songs', {
         page: currentPage,
         limit: 20,
-        search: searchQuery
+        search: searchQuery,
+        ...currentFilters
       });
       const data = await response.json();
       if (data.songs && data.pagination) {
@@ -498,6 +551,29 @@ const AdminDashboard: React.FC = () => {
     });
   };
 
+  // Song filter handlers
+  const handleSongFilterChange = (filterKey: keyof typeof songsFilters, value: string) => {
+    setSongsFilters(prev => ({
+      ...prev,
+      [filterKey]: value
+    }));
+  };
+
+  const handleClearSongFilters = () => {
+    setSongsFilters({
+      durationTo: '',
+      listenCountTo: '',
+      avgRatingTo: '',
+      totalRatingsTo: '',
+      releaseDateTo: '',
+      createdAtTo: '',
+      updatedAtTo: '',
+      artistId: '',
+      albumId: '',
+      genreId: ''
+    });
+  };
+
   useEffect(() => {
     if (activeTab === 'overview') {
       fetchStats();
@@ -505,6 +581,7 @@ const AdminDashboard: React.FC = () => {
       fetchUserFilterOptions();
       // Don't fetch users here - let the debounced effect handle it
     } else if (activeTab === 'songs') {
+      fetchSongFilterOptions();
       // Don't fetch songs here - let the debounced effect handle it
     } else if (activeTab === 'albums') {
       // Don't fetch albums here - let the debounced effect handle it
@@ -513,13 +590,21 @@ const AdminDashboard: React.FC = () => {
     }
   }, [activeTab]);
 
-  // Debounce filter changes
+  // Debounce filter changes for users
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedUsersFilters(usersFilters);
     }, 300);
     return () => clearTimeout(timer);
   }, [usersFilters]);
+
+  // Debounce filter changes for songs
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSongsFilters(songsFilters);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [songsFilters]);
 
   // Trigger fetch when debounced search OR filters change (combined to prevent duplicate fetches)
   useEffect(() => {
@@ -530,9 +615,9 @@ const AdminDashboard: React.FC = () => {
 
   useEffect(() => {
     if (activeTab === 'songs') {
-      fetchSongs(1, debouncedSongsSearch);
+      fetchSongs(1, debouncedSongsSearch, debouncedSongsFilters);
     }
-  }, [debouncedSongsSearch, activeTab]);
+  }, [debouncedSongsSearch, debouncedSongsFilters, activeTab]);
 
   useEffect(() => {
     if (activeTab === 'albums') {
