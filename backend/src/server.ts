@@ -2285,20 +2285,70 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
         const offset = (page - 1) * limit;
         const search = requestData.search || '';
 
+        // Extract filter parameters
+        const filters = {
+          dateOfBirthTo: requestData.dateOfBirthTo || '',
+          dateJoinedTo: requestData.dateJoinedTo || '',
+          country: requestData.country || '',
+          city: requestData.city || '',
+          userType: requestData.userType || '',
+          accountStatus: requestData.accountStatus || '',
+          createdAtTo: requestData.createdAtTo || '',
+          updatedAtTo: requestData.updatedAtTo || ''
+        };
+
         const pool = await getPool();
         
-        // Build search condition
-        const searchCondition = search 
-          ? `WHERE (u.Username LIKE ? OR u.FirstName LIKE ? OR u.LastName LIKE ? OR u.Email LIKE ?)` 
-          : '';
-        const searchParams = search 
-          ? [`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`] 
-          : [];
+        // Build WHERE conditions
+        const conditions: string[] = [];
+        const queryParams: any[] = [];
+
+        // Add search condition
+        if (search) {
+          conditions.push('(u.Username LIKE ? OR u.FirstName LIKE ? OR u.LastName LIKE ? OR u.Email LIKE ?)');
+          queryParams.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`);
+        }
+
+        // Add filter conditions
+        if (filters.dateOfBirthTo) {
+          conditions.push('u.DateOfBirth <= ?');
+          queryParams.push(filters.dateOfBirthTo);
+        }
+        if (filters.dateJoinedTo) {
+          conditions.push('u.DateJoined <= ?');
+          queryParams.push(filters.dateJoinedTo);
+        }
+        if (filters.country) {
+          conditions.push('u.Country = ?');
+          queryParams.push(filters.country);
+        }
+        if (filters.city) {
+          conditions.push('u.City = ?');
+          queryParams.push(filters.city);
+        }
+        if (filters.userType) {
+          conditions.push('u.UserType = ?');
+          queryParams.push(filters.userType);
+        }
+        if (filters.accountStatus) {
+          conditions.push('u.AccountStatus = ?');
+          queryParams.push(filters.accountStatus);
+        }
+        if (filters.createdAtTo) {
+          conditions.push('u.CreatedAt <= ?');
+          queryParams.push(filters.createdAtTo);
+        }
+        if (filters.updatedAtTo) {
+          conditions.push('u.UpdatedAt <= ?');
+          queryParams.push(filters.updatedAtTo);
+        }
+
+        const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
         
         // Get total count for pagination
         const [countResult] = await pool.execute(
-          `SELECT COUNT(*) as total FROM userprofile u ${searchCondition}`,
-          searchParams
+          `SELECT COUNT(*) as total FROM userprofile u ${whereClause}`,
+          queryParams
         );
         const total = (countResult as any)[0].total;
         
@@ -2306,8 +2356,8 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
         const baseQuery = `
           SELECT 
             u.UserID, u.Username, u.FirstName, u.LastName, u.Email, 
-            u.UserType, u.DateJoined, u.Country, u.City, u.IsOnline, 
-            u.AccountStatus, u.ProfilePicture,
+            u.UserType, u.DateOfBirth, u.DateJoined, u.Country, u.City, u.IsOnline, 
+            u.AccountStatus, u.ProfilePicture, u.CreatedAt, u.UpdatedAt,
             ul.LoginDate as LastLogin
           FROM userprofile u
           LEFT JOIN (
@@ -2315,11 +2365,11 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
             FROM user_logins 
             GROUP BY UserID
           ) ul ON u.UserID = ul.UserID
-          ${searchCondition}
+          ${whereClause}
           ORDER BY u.UserID
           LIMIT ${limit} OFFSET ${offset}
         `;
-        const [users] = await pool.execute(baseQuery, searchParams);
+        const [users] = await pool.execute(baseQuery, queryParams);
         
         const totalPages = Math.ceil(total / limit);
         
@@ -2334,6 +2384,47 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
             hasNext: page < totalPages,
             hasPrev: page > 1
           }
+        }));
+      } catch (error: any) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: error.message }));
+      }
+    });
+    return;
+  }
+
+  // Admin endpoint: Get filter options for users
+  if (requestPath === '/api/admin/users/filter-options' && method === 'POST') {
+    let body = '';
+    
+    req.on('data', (chunk) => {
+      body += chunk.toString();
+    });
+
+    req.on('end', async () => {
+      try {
+        if (!checkAdminAuth(body)) {
+          res.writeHead(403, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Admin access required' }));
+          return;
+        }
+
+        const pool = await getPool();
+        
+        // Get distinct countries
+        const [countries] = await pool.execute(
+          `SELECT DISTINCT Country FROM userprofile WHERE Country IS NOT NULL ORDER BY Country`
+        );
+        
+        // Get distinct cities
+        const [cities] = await pool.execute(
+          `SELECT DISTINCT City FROM userprofile WHERE City IS NOT NULL ORDER BY City`
+        );
+        
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ 
+          countries: (countries as any[]).map(row => row.Country),
+          cities: (cities as any[]).map(row => row.City)
         }));
       } catch (error: any) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
