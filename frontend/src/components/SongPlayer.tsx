@@ -1,44 +1,25 @@
-import React, { useState, useEffect, useRef } from 'react'
-import { getFileUrl, historyApi } from '../services/api'
-import { useAuth } from '../hooks/useAuth'
+import React, { useState } from 'react'
+import { getFileUrl } from '../services/api'
+import { useAudio } from '../contexts/AudioContext'
 import { StarRating } from './StarRating'
 import { LikeButton } from './LikeButton'
 
 interface SongPlayerProps {
   isOpen: boolean
   onClose: () => void
-  song: {
-    id: string
-    title: string
-    artist: string
-    audioFilePath?: string
-    imageUrl?: string
-    duration?: number
-    averageRating?: number
-    totalRatings?: number
-    userRating?: number | null
-    isLiked?: boolean
-    likeCount?: number
-  } | null
   userId?: number
   onRate?: (songId: number, rating: number) => void
   onToggleLike?: (songId: number) => void
   isRatingLoading?: boolean
   isLikeLoading?: boolean
-  onHistoryUpdate?: () => void
 }
 
-export const SongPlayer: React.FC<SongPlayerProps> = ({ isOpen, onClose, song, userId, onRate, onToggleLike, isRatingLoading, isLikeLoading, onHistoryUpdate }) => {
-  const { user } = useAuth()
-  const [isPlaying, setIsPlaying] = useState(false)
-  const [currentTime, setCurrentTime] = useState(0)
-  const [duration, setDuration] = useState(0)
-  const [hasAudioFile, setHasAudioFile] = useState(false)
-  const [hasStartedPlaying, setHasStartedPlaying] = useState(false)
+export const SongPlayer: React.FC<SongPlayerProps> = ({ isOpen, onClose, userId, onRate, onToggleLike, isRatingLoading, isLikeLoading }) => {
+  const { state, togglePlayPause, playNext, playPrevious, seek, dispatch } = useAudio()
   const [showStats, setShowStats] = useState(false)
-  const audioRef = useRef<HTMLAudioElement>(null)
-  const playStartTimeRef = useRef<number>(0)
-  const totalListenTimeRef = useRef<number>(0)
+  const [showQueue, setShowQueue] = useState(false)
+  
+  const song = state.currentSong
 
   const handleRate = (rating: number) => {
     if (onRate && userId && song) {
@@ -52,137 +33,30 @@ export const SongPlayer: React.FC<SongPlayerProps> = ({ isOpen, onClose, song, u
     }
   }
 
-  // Function to track listening history
-  const trackListeningHistory = async () => {
-    if (!user?.userId || !song?.id || !hasStartedPlaying) return
-    
-    try {
-      await historyApi.add({
-        userId: user.userId,
-        songId: parseInt(song.id),
-        duration: Math.round(totalListenTimeRef.current)
-      })
-      console.log('Listening history tracked for song:', song.title)
-      
-      // Trigger refresh of recently played songs
-      if (onHistoryUpdate) {
-        onHistoryUpdate()
-      }
-    } catch (error) {
-      console.error('Failed to track listening history:', error)
-    }
-  }
+  // Note: History tracking is now handled by AudioContext automatically
 
-  // Reset history tracking when song changes
-  useEffect(() => {
-    setHasStartedPlaying(false)
-    totalListenTimeRef.current = 0
-    playStartTimeRef.current = 0
-  }, [song?.id])
+  // Note: History tracking is now handled by AudioContext automatically
 
-  // Track listening when component unmounts or song changes
-  useEffect(() => {
-    return () => {
-      if (hasStartedPlaying && totalListenTimeRef.current > 0) {
-        trackListeningHistory()
-      }
-    }
-  }, [song?.id, hasStartedPlaying, user?.userId])
-
-  useEffect(() => {
-    if (song?.audioFilePath && audioRef.current) {
-      const audio = audioRef.current
-      
-      // Check if audio file actually exists/loads
-      const handleLoadedData = () => {
-        setHasAudioFile(true)
-        setDuration(audio.duration)
-      }
-      
-      const handleError = () => {
-        setHasAudioFile(false)
-        console.error('Failed to load audio file:', song.audioFilePath)
-      }
-      
-      const handleTimeUpdate = () => {
-        setCurrentTime(audio.currentTime)
-      }
-
-      const handlePlay = () => {
-        setIsPlaying(true)
-        if (!hasStartedPlaying) {
-          setHasStartedPlaying(true)
-        }
-        playStartTimeRef.current = Date.now()
-      }
-
-      const handlePause = () => {
-        setIsPlaying(false)
-        if (playStartTimeRef.current > 0) {
-          const sessionDuration = (Date.now() - playStartTimeRef.current) / 1000
-          totalListenTimeRef.current += sessionDuration
-        }
-      }
-
-      const handleEnded = async () => {
-        setIsPlaying(false)
-        if (playStartTimeRef.current > 0) {
-          const sessionDuration = (Date.now() - playStartTimeRef.current) / 1000
-          totalListenTimeRef.current += sessionDuration
-        }
-        
-        // Track full listening history when song ends
-        if (hasStartedPlaying && totalListenTimeRef.current > 0) {
-          await trackListeningHistory()
-        }
-      }
-
-      audio.addEventListener('loadeddata', handleLoadedData)
-      audio.addEventListener('error', handleError)
-      audio.addEventListener('timeupdate', handleTimeUpdate)
-      audio.addEventListener('play', handlePlay)
-      audio.addEventListener('pause', handlePause)
-      audio.addEventListener('ended', handleEnded)
-      
-      // Reset state when song changes
-      setIsPlaying(false)
-      setCurrentTime(0)
-      setHasAudioFile(false)
-      
-      return () => {
-        audio.removeEventListener('loadeddata', handleLoadedData)
-        audio.removeEventListener('error', handleError)
-        audio.removeEventListener('timeupdate', handleTimeUpdate)
-        audio.removeEventListener('play', handlePlay)
-        audio.removeEventListener('pause', handlePause)
-        audio.removeEventListener('ended', handleEnded)
-      }
-    }
-  }, [song?.audioFilePath])
-
-  const handleClose = async () => {
-    // Track listening history before closing
-    if (hasStartedPlaying && totalListenTimeRef.current > 0) {
-      await trackListeningHistory()
-    }
+  const handleClose = () => {
+    dispatch({ type: 'TOGGLE_PLAYER', payload: false })
     onClose()
   }
 
-  const togglePlayPause = () => {
-    if (!audioRef.current || !hasAudioFile) return
-    
-    if (isPlaying) {
-      audioRef.current.pause()
-    } else {
-      audioRef.current.play()
-    }
+  const handleTogglePlayPause = () => {
+    togglePlayPause()
   }
 
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!audioRef.current) return
     const newTime = parseFloat(e.target.value)
-    audioRef.current.currentTime = newTime
-    setCurrentTime(newTime)
+    seek(newTime)
+  }
+
+  const handlePrevious = () => {
+    playPrevious()
+  }
+
+  const handleNext = () => {
+    playNext()
   }
 
   const formatTime = (time: number) => {
@@ -194,10 +68,12 @@ export const SongPlayer: React.FC<SongPlayerProps> = ({ isOpen, onClose, song, u
   if (!isOpen || !song) return null
 
   const audioUrl = song.audioFilePath ? getFileUrl(song.audioFilePath) : null
+  const hasNextSong = state.currentIndex < state.queue.length - 1
+  const hasPrevSong = state.currentIndex > 0
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+      <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-semibold">Now Playing</h3>
@@ -313,36 +189,48 @@ export const SongPlayer: React.FC<SongPlayerProps> = ({ isOpen, onClose, song, u
           )}
         </div>
 
-        {/* Audio Player */}
+        {/* Audio Player Controls */}
         {audioUrl ? (
           <>
-            <audio ref={audioRef} src={audioUrl} />
-            
-            {hasAudioFile ? (
-              <div className="space-y-4">
+            {state.hasAudioFile ? (
+              <div className="space-y-6">
                 {/* Progress Bar */}
                 <div className="w-full">
                   <input
                     type="range"
                     min="0"
-                    max={duration || 0}
-                    value={currentTime}
+                    max={state.duration || 0}
+                    value={state.currentTime}
                     onChange={handleSeek}
-                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
                   />
                   <div className="flex justify-between text-sm text-gray-500 mt-1">
-                    <span>{formatTime(currentTime)}</span>
-                    <span>{formatTime(duration)}</span>
+                    <span>{formatTime(state.currentTime)}</span>
+                    <span>{formatTime(state.duration)}</span>
                   </div>
                 </div>
 
-                {/* Play/Pause Button */}
-                <div className="flex justify-center">
+
+                {/* Main Controls */}
+                <div className="flex justify-center items-center space-x-6">
+                  {/* Previous */}
                   <button
-                    onClick={togglePlayPause}
-                    className="bg-red-500 hover:bg-red-600 text-white rounded-full p-4 flex items-center justify-center"
+                    onClick={handlePrevious}
+                    disabled={!hasPrevSong}
+                    className="p-3 rounded-full text-gray-600 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50 disabled:hover:text-gray-600 disabled:hover:bg-transparent"
+                    title="Previous"
                   >
-                    {isPlaying ? (
+                    <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" />
+                    </svg>
+                  </button>
+
+                  {/* Play/Pause */}
+                  <button
+                    onClick={handleTogglePlayPause}
+                    className="bg-red-500 hover:bg-red-600 text-white rounded-full p-4 flex items-center justify-center transition-colors"
+                  >
+                    {state.isPlaying ? (
                       <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
                       </svg>
@@ -352,7 +240,61 @@ export const SongPlayer: React.FC<SongPlayerProps> = ({ isOpen, onClose, song, u
                       </svg>
                     )}
                   </button>
+
+                  {/* Next */}
+                  <button
+                    onClick={handleNext}
+                    disabled={!hasNextSong}
+                    className="p-3 rounded-full text-gray-600 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50 disabled:hover:text-gray-600 disabled:hover:bg-transparent"
+                    title="Next"
+                  >
+                    <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M16 18h2V6h-2v12zM6 18l8.5-6L6 6v12z" />
+                    </svg>
+                  </button>
                 </div>
+
+
+                {/* Queue Info */}
+                {state.queue.length > 1 && (
+                  <div className="flex items-center justify-between text-sm text-gray-600 bg-gray-50 rounded-lg p-3">
+                    <span>Playing {state.currentIndex + 1} of {state.queue.length}</span>
+                    <button
+                      onClick={() => setShowQueue(!showQueue)}
+                      className="text-red-600 hover:text-red-700 font-medium"
+                    >
+                      {showQueue ? 'Hide' : 'Show'} Queue
+                    </button>
+                  </div>
+                )}
+
+                {/* Queue Display */}
+                {showQueue && state.queue.length > 1 && (
+                  <div className="bg-gray-50 rounded-lg p-4 max-h-48 overflow-y-auto">
+                    <h4 className="font-semibold text-gray-800 mb-3">Up Next</h4>
+                    <div className="space-y-2">
+                      {state.queue.map((queueSong, index) => (
+                        <div
+                          key={`${queueSong.id}-${index}`}
+                          className={`flex items-center space-x-3 p-2 rounded ${index === state.currentIndex ? 'bg-red-50 text-red-600' : 'hover:bg-white'}`}
+                        >
+                          <span className="text-sm w-6 text-center">{index + 1}</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{queueSong.title}</p>
+                            <p className="text-xs text-gray-500 truncate">{queueSong.artist}</p>
+                          </div>
+                          {index === state.currentIndex && (
+                            <div className="text-red-600">
+                              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M8 5v14l11-7z" />
+                              </svg>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="text-center py-8">
@@ -372,6 +314,7 @@ export const SongPlayer: React.FC<SongPlayerProps> = ({ isOpen, onClose, song, u
             <p className="text-gray-400 text-sm mt-1">This song doesn't have an uploaded audio file</p>
           </div>
         )}
+        
       </div>
     </div>
   )

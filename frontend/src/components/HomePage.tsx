@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '../hooks/useAuth'
+import { useAudio } from '../contexts/AudioContext'
 import { ArtistCard, SongCard, AlbumCard, PlaylistCard } from './cards'
 import { GenreCard } from './cards/GenreCard'
 import { SmallArtistCard } from './cards/SmallArtistCard'
@@ -15,7 +16,8 @@ import { ArtistExpanded } from './ArtistExpanded'
 import { HorizontalScrollContainer } from './HorizontalScrollContainer'
 import { SearchResults } from './SearchResults'
 import type { SearchResult } from './SearchResultItem'
-import { genreApi, artistApi, songApi, albumApi, playlistApi, userApi, getFileUrl, searchApi, ratingApi, likeApi, historyApi } from '../services/api'
+import type { Song as AudioSong } from '../contexts/AudioContext'
+import { genreApi, artistApi, songApi, albumApi, playlistApi, userApi, getFileUrl, searchApi, ratingApi, likeApi } from '../services/api'
 import MusicUploadForm from './MusicUploadForm'
 import MusicLibrary from './MusicLibrary'
 import MusicEditForm from './MusicEditForm'
@@ -109,6 +111,7 @@ type MusicSubTab = 'library' | 'upload' | 'albums' | 'edit';
 
 function HomePage() {
   const { user, logout } = useAuth()
+  const { state: audioState, playSong, dispatch: audioDispatch } = useAudio()
   const [searchQuery, setSearchQuery] = useState('')
   const [activeTab, setActiveTab] = useState('home')
   
@@ -176,20 +179,7 @@ function HomePage() {
   } | null>(null)
   const [playlistRefreshTrigger, setPlaylistRefreshTrigger] = useState(0)
 
-  // Song player state
-  const [selectedSong, setSelectedSong] = useState<{
-    id: string;
-    title: string;
-    artist: string;
-    audioFilePath?: string;
-    imageUrl?: string;
-    averageRating?: number;
-    totalRatings?: number;
-    userRating?: number | null;
-    isLiked?: boolean;
-    likeCount?: number;
-  } | null>(null)
-  const [isSongPlayerOpen, setIsSongPlayerOpen] = useState(false)
+  // Player state (now managed by AudioContext)
   const [isRatingLoading, setIsRatingLoading] = useState(false)
   const [isLikeLoading, setIsLikeLoading] = useState(false)
 
@@ -252,7 +242,7 @@ function HomePage() {
   const handlePlaySong = async (song: { id: string; title: string; artist: string; audioFilePath?: string; imageUrl?: string }) => {
     try {
       // Set basic song info first
-      const enrichedSong = { 
+      const enrichedSong: AudioSong = { 
         ...song,
         averageRating: 0,
         totalRatings: 0,
@@ -287,39 +277,96 @@ function HomePage() {
         }
       }
 
-      // Add song to listening history using centralized API
+      // Use AudioContext to play the song
+      playSong(enrichedSong)
+      audioDispatch({ type: 'TOGGLE_PLAYER', payload: true })
+      
+      // Update history list when a new song starts playing  
+      handleHistoryUpdate()
+    } catch (error) {
+      console.error('Error fetching song data:', error)
+      // Still play song with basic info if API calls fail
+      playSong(song as AudioSong)
+      audioDispatch({ type: 'TOGGLE_PLAYER', payload: true })
+    }
+  }
+  
+  // Enhanced handler for playing songs from a collection (creates queue)
+  const handlePlaySongFromCollection = async (song: { id: string; title: string; artist: string; audioFilePath?: string; imageUrl?: string }, collection: any[], collectionType: 'topSongs' | 'searchResults' = 'topSongs') => {
+    try {
+      // Convert collection to AudioSong objects
+      let queueSongs: AudioSong[] = []
+      
+      if (collectionType === 'topSongs') {
+        queueSongs = collection.map(item => ({
+          id: item.SongID.toString(),
+          title: item.SongName,
+          artist: `${item.ArtistFirstName} ${item.ArtistLastName}`,
+          audioFilePath: item.FilePath,
+          imageUrl: getFileUrl('profile-pictures/default.jpg'),
+          averageRating: 0,
+          totalRatings: 0,
+          userRating: null,
+          isLiked: false,
+          likeCount: 0
+        }))
+      }
+      
+      // Find the index of the selected song in the queue
+      const startIndex = queueSongs.findIndex(queueSong => queueSong.id === song.id)
+      
+      // Set basic song info first
+      const enrichedSong: AudioSong = { 
+        ...song,
+        averageRating: 0,
+        totalRatings: 0,
+        userRating: null as number | null,
+        isLiked: false,
+        likeCount: 0
+      }
+      
       if (user?.userId) {
-        try {
-          const response = await historyApi.add({
-            userId: user.userId,
-            songId: parseInt(song.id),
-            duration: undefined // Will be updated when song finishes
-          });
-          
-          if (response.ok) {
-            // Trigger history refresh to update recently played
-            handleHistoryUpdate();
-          } else {
-            console.error('Failed to add song to listening history');
-          }
-        } catch (historyError) {
-          console.error('Error adding song to listening history:', historyError);
+        // Fetch rating and like data in parallel
+        const [ratingStatsResponse, userRatingResponse, likeStatusResponse] = await Promise.all([
+          ratingApi.getSongRatingStats(parseInt(song.id)),
+          ratingApi.getUserSongRating(parseInt(song.id), user.userId),
+          likeApi.getUserLikeStatus(user.userId, parseInt(song.id))
+        ])
+
+        if (ratingStatsResponse.ok) {
+          const ratingStats = await ratingStatsResponse.json()
+          enrichedSong.averageRating = ratingStats.averageRating
+          enrichedSong.totalRatings = ratingStats.totalRatings
+        }
+
+        if (userRatingResponse.ok) {
+          const userRating = await userRatingResponse.json()
+          enrichedSong.userRating = userRating.rating
+        }
+
+        if (likeStatusResponse.ok) {
+          const likeStatus = await likeStatusResponse.json()
+          enrichedSong.isLiked = likeStatus.isLiked
+          enrichedSong.likeCount = likeStatus.likeCount
         }
       }
 
-      setSelectedSong(enrichedSong)
-      setIsSongPlayerOpen(true)
+      // Use AudioContext to play the song with queue
+      playSong(enrichedSong, queueSongs, startIndex >= 0 ? startIndex : 0)
+      audioDispatch({ type: 'TOGGLE_PLAYER', payload: true })
+      
+      // Update history list when a new song starts playing
+      handleHistoryUpdate()
     } catch (error) {
       console.error('Error fetching song data:', error)
-      // Still open player with basic song info if API calls fail
-      setSelectedSong(song)
-      setIsSongPlayerOpen(true)
+      // Still play song with basic info if API calls fail
+      playSong(song as AudioSong)
+      audioDispatch({ type: 'TOGGLE_PLAYER', payload: true })
     }
   }
 
   const handleCloseSongPlayer = () => {
-    setSelectedSong(null)
-    setIsSongPlayerOpen(false)
+    audioDispatch({ type: 'TOGGLE_PLAYER', payload: false })
   }
 
   const handleRateSong = async (songId: number, rating: number) => {
@@ -328,11 +375,14 @@ function HomePage() {
     setIsRatingLoading(true)
     
     // Optimistic update - immediately update UI
-    if (selectedSong && parseInt(selectedSong.id) === songId) {
-      setSelectedSong(prev => prev ? {
-        ...prev,
-        userRating: rating
-      } : null)
+    if (audioState.currentSong && parseInt(audioState.currentSong.id) === songId) {
+      audioDispatch({ 
+        type: 'SET_CURRENT_SONG', 
+        payload: {
+          ...audioState.currentSong,
+          userRating: rating
+        }
+      })
     }
     
     try {
@@ -342,32 +392,46 @@ function HomePage() {
         throw new Error('Failed to submit rating')
       }
       
-      // Update selected song with fresh data from server
-      if (selectedSong && parseInt(selectedSong.id) === songId) {
+      // Update current song with fresh data from server
+      if (audioState.currentSong && parseInt(audioState.currentSong.id) === songId) {
         const [ratingStatsResponse] = await Promise.all([
           ratingApi.getSongRatingStats(songId)
         ])
         
         if (ratingStatsResponse.ok) {
           const ratingStats = await ratingStatsResponse.json()
-          setSelectedSong(prev => prev ? {
-            ...prev,
-            userRating: rating,
-            averageRating: ratingStats.averageRating,
-            totalRatings: ratingStats.totalRatings
-          } : null)
+          audioDispatch({ 
+            type: 'SET_CURRENT_SONG', 
+            payload: {
+              ...audioState.currentSong,
+              userRating: rating,
+              averageRating: ratingStats.averageRating,
+              totalRatings: ratingStats.totalRatings
+            }
+          })
         }
       }
     } catch (error) {
       console.error('Error rating song:', error)
       
       // Revert optimistic update on error
-      if (selectedSong && parseInt(selectedSong.id) === songId) {
-        // Restore original user rating or null if it was new
-        setSelectedSong(prev => prev ? {
-          ...prev,
-          userRating: selectedSong.userRating
-        } : null)
+      if (audioState.currentSong && parseInt(audioState.currentSong.id) === songId) {
+        // Restore original user rating - we need to refetch to get the correct value
+        try {
+          const userRatingResponse = await ratingApi.getUserSongRating(songId, user.userId)
+          if (userRatingResponse.ok) {
+            const userRating = await userRatingResponse.json()
+            audioDispatch({ 
+              type: 'SET_CURRENT_SONG', 
+              payload: {
+                ...audioState.currentSong,
+                userRating: userRating.rating
+              }
+            })
+          }
+        } catch (revertError) {
+          console.error('Error reverting rating:', revertError)
+        }
       }
       
       // TODO: Show error toast/notification to user
@@ -382,16 +446,19 @@ function HomePage() {
     
     setIsLikeLoading(true)
     
-    const currentLikeStatus = selectedSong?.isLiked || false
-    const currentLikeCount = selectedSong?.likeCount || 0
+    const currentLikeStatus = audioState.currentSong?.isLiked || false
+    const currentLikeCount = audioState.currentSong?.likeCount || 0
     
     // Optimistic update - immediately update UI
-    if (selectedSong && parseInt(selectedSong.id) === songId) {
-      setSelectedSong(prev => prev ? {
-        ...prev,
-        isLiked: !currentLikeStatus,
-        likeCount: currentLikeStatus ? currentLikeCount - 1 : currentLikeCount + 1
-      } : null)
+    if (audioState.currentSong && parseInt(audioState.currentSong.id) === songId) {
+      audioDispatch({ 
+        type: 'SET_CURRENT_SONG', 
+        payload: {
+          ...audioState.currentSong,
+          isLiked: !currentLikeStatus,
+          likeCount: currentLikeStatus ? currentLikeCount - 1 : currentLikeCount + 1
+        }
+      })
     }
     
     try {
@@ -406,29 +473,35 @@ function HomePage() {
         throw new Error('Failed to toggle like')
       }
       
-      // Update selected song with fresh data from server
-      if (selectedSong && parseInt(selectedSong.id) === songId) {
+      // Update current song with fresh data from server
+      if (audioState.currentSong && parseInt(audioState.currentSong.id) === songId) {
         const likeStatusResponse = await likeApi.getUserLikeStatus(user.userId, songId)
         
         if (likeStatusResponse.ok) {
           const likeStatus = await likeStatusResponse.json()
-          setSelectedSong(prev => prev ? {
-            ...prev,
-            isLiked: likeStatus.isLiked,
-            likeCount: likeStatus.likeCount
-          } : null)
+          audioDispatch({ 
+            type: 'SET_CURRENT_SONG', 
+            payload: {
+              ...audioState.currentSong,
+              isLiked: likeStatus.isLiked,
+              likeCount: likeStatus.likeCount
+            }
+          })
         }
       }
     } catch (error) {
       console.error('Error toggling song like:', error)
       
       // Revert optimistic update on error
-      if (selectedSong && parseInt(selectedSong.id) === songId) {
-        setSelectedSong(prev => prev ? {
-          ...prev,
-          isLiked: currentLikeStatus,
-          likeCount: currentLikeCount
-        } : null)
+      if (audioState.currentSong && parseInt(audioState.currentSong.id) === songId) {
+        audioDispatch({ 
+          type: 'SET_CURRENT_SONG', 
+          payload: {
+            ...audioState.currentSong,
+            isLiked: currentLikeStatus,
+            likeCount: currentLikeCount
+          }
+        })
       }
       
       // TODO: Show error toast/notification to user
@@ -1008,7 +1081,7 @@ function HomePage() {
                           artist={`${song.ArtistFirstName} ${song.ArtistLastName}`}
                           imageUrl={getFileUrl('profile-pictures/default.jpg')}
                           onAddToPlaylist={handleAddToPlaylist}
-                          onPlaySong={handlePlaySong}
+                          onPlaySong={(songData) => handlePlaySongFromCollection(songData, topSongs, 'topSongs')}
                           audioFilePath={song.FilePath}
                           listenCount={song.ListenCount}
                         />
@@ -1300,15 +1373,13 @@ function HomePage() {
 
       {/* Song Player Modal */}
       <SongPlayer
-        isOpen={isSongPlayerOpen}
+        isOpen={audioState.isPlayerOpen}
         onClose={handleCloseSongPlayer}
-        song={selectedSong}
         userId={user?.userId}
         onRate={handleRateSong}
         onToggleLike={handleToggleSongLike}
         isRatingLoading={isRatingLoading}
         isLikeLoading={isLikeLoading}
-        onHistoryUpdate={handleHistoryUpdate}
       />
 
       {/* Artist Expanded Modal */}
