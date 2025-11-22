@@ -68,7 +68,7 @@ export const BaseCard: React.FC<BaseCardProps> = ({
                   size="small"
                   showStats={false}
                 />
-                <span className="ml-1 text-xs text-gray-600">{rating.toFixed(1)}</span>
+                <span className="ml-1 text-xs text-gray-600">{typeof rating === 'number' ? rating.toFixed(1) : '0.0'}</span>
               </div>
             )}
             

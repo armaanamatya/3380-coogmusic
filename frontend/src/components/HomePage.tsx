@@ -87,11 +87,14 @@ interface TopAlbum {
   ReleaseDate: string
   AlbumCover?: string
   Description?: string
+  AverageRating: number
+  TotalRatings: number
   likeCount: number
   ArtistFirstName: string
   ArtistLastName: string
   ArtistUsername: string
   songCount: number
+  totalListenCount: number
 }
 
 interface TopPlaylist {
@@ -1146,8 +1149,9 @@ function HomePage() {
                           artist={`${album.ArtistFirstName} ${album.ArtistLastName}`}
                           imageUrl={getAlbumCoverUrl()}
                           likeCount={album.likeCount}
-                          rating={0}
-                          listenCount={0}
+                          rating={album.AverageRating || 0}
+                          totalRatings={album.TotalRatings || 0}
+                          listenCount={album.totalListenCount || 0}
                           onClick={() => setExpandedAlbum({
                             id: album.AlbumID,
                             name: album.AlbumName
