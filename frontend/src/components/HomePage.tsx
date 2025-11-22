@@ -257,7 +257,7 @@ function HomePage() {
         const [ratingStatsResponse, userRatingResponse, likeStatusResponse] = await Promise.all([
           ratingApi.getSongRatingStats(parseInt(song.id)),
           ratingApi.getUserSongRating(parseInt(song.id), user.userId),
-          likeApi.getUserLikeStatus(user.userId, parseInt(song.id))
+          likeApi.isSongLiked(user.userId, parseInt(song.id))
         ])
 
         if (ratingStatsResponse.ok) {
@@ -333,7 +333,7 @@ function HomePage() {
         const [ratingStatsResponse, userRatingResponse, likeStatusResponse] = await Promise.all([
           ratingApi.getSongRatingStats(parseInt(song.id)),
           ratingApi.getUserSongRating(parseInt(song.id), user.userId),
-          likeApi.getUserLikeStatus(user.userId, parseInt(song.id))
+          likeApi.isSongLiked(user.userId, parseInt(song.id))
         ])
 
         if (ratingStatsResponse.ok) {
@@ -478,7 +478,7 @@ function HomePage() {
       
       // Update current song with fresh data from server
       if (audioState.currentSong && parseInt(audioState.currentSong.id) === songId) {
-        const likeStatusResponse = await likeApi.getUserLikeStatus(user.userId, songId)
+        const likeStatusResponse = await likeApi.isSongLiked(user.userId, songId)
         
         if (likeStatusResponse.ok) {
           const likeStatus = await likeStatusResponse.json()

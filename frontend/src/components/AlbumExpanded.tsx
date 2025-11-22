@@ -39,7 +39,8 @@ export const AlbumExpanded: React.FC<AlbumExpandedProps> = ({
   albumName,
   onClose
 }) => {
-  const { user } = useContext(AuthContext);
+  const authContext = useContext(AuthContext);
+  const user = authContext?.user;
   const [songs, setSongs] = useState<Song[]>([]);
   const [stats, setStats] = useState<AlbumStats | null>(null);
   const [ratingStats, setRatingStats] = useState<AlbumRatingStats | null>(null);
@@ -62,8 +63,8 @@ export const AlbumExpanded: React.FC<AlbumExpandedProps> = ({
         // Add user-specific data if user is logged in
         if (user) {
           promises.push(
-            ratingApi.getUserAlbumRating(user.UserID, albumId),
-            likeApi.isAlbumLiked ? likeApi.isAlbumLiked(user.UserID, albumId) : Promise.resolve({ ok: false })
+            ratingApi.getUserAlbumRating(user.userId, albumId),
+            likeApi.isAlbumLiked(user.userId, albumId)
           );
         }
         
@@ -162,13 +163,13 @@ export const AlbumExpanded: React.FC<AlbumExpandedProps> = ({
     
     try {
       if (isLiked) {
-        await likeApi.unlikeAlbum(user.UserID, albumId);
+        await likeApi.unlikeAlbum(user.userId, albumId);
         setIsLiked(false);
         if (stats) {
           setStats({ ...stats, likeCount: stats.likeCount - 1 });
         }
       } else {
-        await likeApi.likeAlbum(user.UserID, albumId);
+        await likeApi.likeAlbum(user.userId, albumId);
         setIsLiked(true);
         if (stats) {
           setStats({ ...stats, likeCount: stats.likeCount + 1 });
@@ -183,7 +184,7 @@ export const AlbumExpanded: React.FC<AlbumExpandedProps> = ({
     if (!user) return;
     
     try {
-      await ratingApi.rateAlbum(user.UserID, albumId, rating);
+      await ratingApi.rateAlbum(user.userId, albumId, rating);
       setUserRating(rating);
       
       // Refresh rating stats
