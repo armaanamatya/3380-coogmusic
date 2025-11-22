@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { songApi, albumApi, likeApi, ratingApi } from '../services/api';
 import { AuthContext } from '../contexts/AuthContext';
+import { useAudio } from '../contexts/AudioContext';
 import { LikeButton } from './LikeButton';
 import { StarRating } from './StarRating';
 
@@ -13,6 +14,7 @@ interface Song {
   GenreName?: string;
   Duration: number;
   ListenCount: number;
+  FilePath?: string;
 }
 
 interface AlbumStats {
@@ -41,6 +43,7 @@ export const AlbumExpanded: React.FC<AlbumExpandedProps> = ({
 }) => {
   const authContext = useContext(AuthContext);
   const user = authContext?.user;
+  const { playSong } = useAudio();
   const [songs, setSongs] = useState<Song[]>([]);
   const [stats, setStats] = useState<AlbumStats | null>(null);
   const [ratingStats, setRatingStats] = useState<AlbumRatingStats | null>(null);
@@ -198,6 +201,56 @@ export const AlbumExpanded: React.FC<AlbumExpandedProps> = ({
     }
   };
 
+  const handlePlaySong = async (song: Song, songIndex: number) => {
+    try {
+      // Convert all album songs to the format expected by AudioContext
+      const queue = songs.map(s => ({
+        id: s.SongID.toString(),
+        title: s.SongName,
+        artist: `${s.ArtistFirstName} ${s.ArtistLastName}`,
+        audioFilePath: s.FilePath || '',
+        imageUrl: '',
+        averageRating: 0,
+        totalRatings: 0,
+        userRating: null as number | null,
+        isLiked: false,
+        likeCount: 0,
+        listenCount: s.ListenCount
+      }));
+
+      // Enrich the current song with rating and like data if user is logged in
+      if (user?.userId) {
+        const [ratingStatsResponse, userRatingResponse, likeStatusResponse] = await Promise.all([
+          ratingApi.getSongRatingStats(song.SongID),
+          ratingApi.getUserSongRating(song.SongID, user.userId),
+          likeApi.isSongLiked(user.userId, song.SongID)
+        ]);
+
+        if (ratingStatsResponse.ok) {
+          const ratingStats = await ratingStatsResponse.json();
+          queue[songIndex].averageRating = ratingStats.averageRating;
+          queue[songIndex].totalRatings = ratingStats.totalRatings;
+        }
+
+        if (userRatingResponse.ok) {
+          const userRating = await userRatingResponse.json();
+          queue[songIndex].userRating = userRating.rating;
+        }
+
+        if (likeStatusResponse.ok) {
+          const likeStatus = await likeStatusResponse.json();
+          queue[songIndex].isLiked = likeStatus.isLiked;
+          queue[songIndex].likeCount = likeStatus.likeCount;
+        }
+      }
+
+      // Play the song with the entire album as queue (without opening the player modal)
+      playSong(queue[songIndex], queue, songIndex, false);
+    } catch (error) {
+      console.error('Error playing song:', error);
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="album-modal-content bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
@@ -293,11 +346,22 @@ export const AlbumExpanded: React.FC<AlbumExpandedProps> = ({
               {songs.map((song, index) => (
                 <div
                   key={song.SongID}
-                  className="bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition-colors border border-gray-200"
+                  className="bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition-colors border border-gray-200 group"
                 >
                   <div className="flex items-center gap-4">
+                    {/* Play Button */}
+                    <button
+                      onClick={() => handlePlaySong(song, index)}
+                      className="flex-shrink-0 w-10 h-10 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center transition-colors opacity-0 group-hover:opacity-100"
+                      title="Play song"
+                    >
+                      <svg className="w-4 h-4 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                    </button>
+
                     {/* Position Number */}
-                    <div className="text-gray-400 font-mono w-8 text-center">
+                    <div className="text-gray-400 font-mono w-8 text-center group-hover:opacity-0 transition-opacity">
                       {index + 1}
                     </div>
 
