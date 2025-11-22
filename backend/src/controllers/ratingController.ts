@@ -183,8 +183,7 @@ export async function getTopRatedSongs(pool: Pool, limit: number = 10): Promise<
       s.TotalRatings as totalRatings,
       s.ListenCount as listenCount
     FROM song s
-    JOIN artist a ON s.ArtistID = a.ArtistID
-    JOIN userprofile u ON a.ArtistID = u.UserID
+    JOIN userprofile u ON s.ArtistID = u.UserID
     WHERE s.TotalRatings > 0
     ORDER BY s.AverageRating DESC, s.TotalRatings DESC
     LIMIT ?

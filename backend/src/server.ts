@@ -2809,8 +2809,8 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
             a.AlbumName as AlbumTitle, g.GenreName,
             (SELECT COUNT(*) FROM user_likes_song WHERE SongID = s.SongID) as LikeCount,
             (SELECT COUNT(*) FROM listening_history WHERE SongID = s.SongID) as PlayCount,
-            COALESCE((SELECT AVG(Rating) FROM song_ratings WHERE SongID = s.SongID), 0) as AvgRating,
-            COALESCE((SELECT COUNT(*) FROM song_ratings WHERE SongID = s.SongID), 0) as TotalRatings
+            s.AverageRating as AvgRating,
+            s.TotalRatings
           FROM song s
           JOIN userprofile u ON s.ArtistID = u.UserID
           LEFT JOIN album a ON s.AlbumID = a.AlbumID
