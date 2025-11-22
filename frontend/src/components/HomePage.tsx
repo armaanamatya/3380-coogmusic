@@ -87,11 +87,14 @@ interface TopAlbum {
   ReleaseDate: string
   AlbumCover?: string
   Description?: string
+  AverageRating: number
+  TotalRatings: number
   likeCount: number
   ArtistFirstName: string
   ArtistLastName: string
   ArtistUsername: string
   songCount: number
+  totalListenCount: number
 }
 
 interface TopPlaylist {
@@ -257,7 +260,7 @@ function HomePage() {
         const [ratingStatsResponse, userRatingResponse, likeStatusResponse] = await Promise.all([
           ratingApi.getSongRatingStats(parseInt(song.id)),
           ratingApi.getUserSongRating(parseInt(song.id), user.userId),
-          likeApi.getUserLikeStatus(user.userId, parseInt(song.id))
+          likeApi.isSongLiked(user.userId, parseInt(song.id))
         ])
 
         if (ratingStatsResponse.ok) {
@@ -333,7 +336,7 @@ function HomePage() {
         const [ratingStatsResponse, userRatingResponse, likeStatusResponse] = await Promise.all([
           ratingApi.getSongRatingStats(parseInt(song.id)),
           ratingApi.getUserSongRating(parseInt(song.id), user.userId),
-          likeApi.getUserLikeStatus(user.userId, parseInt(song.id))
+          likeApi.isSongLiked(user.userId, parseInt(song.id))
         ])
 
         if (ratingStatsResponse.ok) {
@@ -478,7 +481,7 @@ function HomePage() {
       
       // Update current song with fresh data from server
       if (audioState.currentSong && parseInt(audioState.currentSong.id) === songId) {
-        const likeStatusResponse = await likeApi.getUserLikeStatus(user.userId, songId)
+        const likeStatusResponse = await likeApi.isSongLiked(user.userId, songId)
         
         if (likeStatusResponse.ok) {
           const likeStatus = await likeStatusResponse.json()
@@ -1146,8 +1149,9 @@ function HomePage() {
                           artist={`${album.ArtistFirstName} ${album.ArtistLastName}`}
                           imageUrl={getAlbumCoverUrl()}
                           likeCount={album.likeCount}
-                          rating={0}
-                          listenCount={0}
+                          rating={album.AverageRating || 0}
+                          totalRatings={album.TotalRatings || 0}
+                          listenCount={album.totalListenCount || 0}
                           onClick={() => setExpandedAlbum({
                             id: album.AlbumID,
                             name: album.AlbumName

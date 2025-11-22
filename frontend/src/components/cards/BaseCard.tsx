@@ -12,8 +12,12 @@ interface BaseCardProps {
   rating?: number
   likeCount?: number
   isLiked?: boolean
+  userRating?: number | null
+  totalRatings?: number
   showStats?: boolean
   onClick?: () => void
+  onLike?: () => void
+  onRate?: (rating: number) => void
 }
 
 export const BaseCard: React.FC<BaseCardProps> = ({
@@ -25,8 +29,12 @@ export const BaseCard: React.FC<BaseCardProps> = ({
   rating,
   likeCount,
   isLiked = false,
+  userRating,
+  totalRatings,
   showStats = false,
-  onClick
+  onClick,
+  onLike,
+  onRate
 }) => {
   return (
     <div
@@ -46,18 +54,21 @@ export const BaseCard: React.FC<BaseCardProps> = ({
           <p className="text-sm text-gray-500 mt-1 truncate">{artist}</p>
         )}
         
-        {showStats && type === 'song' && (
-          <div className="mt-2 space-y-1">
+        {showStats && (type === 'song' || type === 'album') && (
+          <div className="mt-2 space-y-1" onClick={(e) => e.stopPropagation()}>
             {/* Star Rating */}
             {rating !== undefined && (
               <div className="flex items-center">
                 <StarRating 
                   rating={rating}
-                  readonly={true}
+                  userRating={userRating}
+                  totalRatings={totalRatings}
+                  onRate={onRate}
+                  readonly={!onRate}
                   size="small"
                   showStats={false}
                 />
-                <span className="ml-1 text-xs text-gray-600">{rating.toFixed(1)}</span>
+                <span className="ml-1 text-xs text-gray-600">{typeof rating === 'number' ? rating.toFixed(1) : '0.0'}</span>
               </div>
             )}
             
@@ -68,9 +79,10 @@ export const BaseCard: React.FC<BaseCardProps> = ({
                   <LikeButton
                     isLiked={isLiked}
                     likeCount={likeCount}
+                    onToggleLike={onLike}
                     size="small"
                     showCount={true}
-                    disabled={true}
+                    disabled={!onLike}
                   />
                 </div>
               )}

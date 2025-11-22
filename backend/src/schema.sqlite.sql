@@ -53,6 +53,8 @@ CREATE TABLE album (
     ReleaseDate TEXT NOT NULL,
     AlbumCover TEXT,
     Description TEXT,
+    AverageRating REAL DEFAULT 0.00, -- Average rating from 1.00 to 5.00
+    TotalRatings INTEGER DEFAULT 0, -- Total number of ratings received
     CreatedAt TEXT NOT NULL DEFAULT (DATETIME('now')),
     UpdatedAt TEXT NOT NULL DEFAULT (DATETIME('now')),
     FOREIGN KEY (ArtistID) REFERENCES artist(ArtistID) ON DELETE CASCADE
@@ -67,6 +69,8 @@ CREATE TABLE song (
     GenreID INTEGER,
     Duration INTEGER NOT NULL, -- Duration in seconds
     ListenCount INTEGER NOT NULL DEFAULT 0,
+    AverageRating REAL DEFAULT 0.00, -- Average rating from 1.00 to 5.00
+    TotalRatings INTEGER DEFAULT 0, -- Total number of ratings received
     FilePath TEXT NOT NULL,
     FileSize INTEGER NOT NULL, -- File size in bytes
     ReleaseDate TEXT NOT NULL,
@@ -151,6 +155,30 @@ CREATE TABLE listening_history (
     FOREIGN KEY (SongID) REFERENCES song(SongID) ON DELETE CASCADE
 );
 
+-- Song Ratings Table
+CREATE TABLE song_ratings (
+    UserID INTEGER NOT NULL,
+    SongID INTEGER NOT NULL,
+    Rating INTEGER NOT NULL CHECK (Rating >= 1 AND Rating <= 5),
+    RatedAt TEXT NOT NULL DEFAULT (DATETIME('now')),
+    UpdatedAt TEXT NOT NULL DEFAULT (DATETIME('now')),
+    PRIMARY KEY (UserID, SongID),
+    FOREIGN KEY (UserID) REFERENCES userprofile(UserID) ON DELETE CASCADE,
+    FOREIGN KEY (SongID) REFERENCES song(SongID) ON DELETE CASCADE
+);
+
+-- Album Ratings Table
+CREATE TABLE album_ratings (
+    UserID INTEGER NOT NULL,
+    AlbumID INTEGER NOT NULL,
+    Rating INTEGER NOT NULL CHECK (Rating >= 1 AND Rating <= 5),
+    RatedAt TEXT NOT NULL DEFAULT (DATETIME('now')),
+    UpdatedAt TEXT NOT NULL DEFAULT (DATETIME('now')),
+    PRIMARY KEY (UserID, AlbumID),
+    FOREIGN KEY (UserID) REFERENCES userprofile(UserID) ON DELETE CASCADE,
+    FOREIGN KEY (AlbumID) REFERENCES album(AlbumID) ON DELETE CASCADE
+);
+
 -- Create indexes for better performance
 CREATE INDEX idx_userprofile_username ON userprofile(Username);
 CREATE INDEX idx_userprofile_email ON userprofile(Email);
@@ -164,6 +192,12 @@ CREATE INDEX idx_playlist_public ON playlist(IsPublic);
 CREATE INDEX idx_listening_history_user ON listening_history(UserID);
 CREATE INDEX idx_listening_history_song ON listening_history(SongID);
 CREATE INDEX idx_listening_history_date ON listening_history(ListenedAt);
+CREATE INDEX idx_song_ratings_user ON song_ratings(UserID);
+CREATE INDEX idx_song_ratings_song ON song_ratings(SongID);
+CREATE INDEX idx_song_ratings_rating ON song_ratings(Rating);
+CREATE INDEX idx_album_ratings_user ON album_ratings(UserID);
+CREATE INDEX idx_album_ratings_album ON album_ratings(AlbumID);
+CREATE INDEX idx_album_ratings_rating ON album_ratings(Rating);
 
 -- Trigger to automatically verify artists when they reach 100 followers
 CREATE TRIGGER verify_artist_on_100_followers
@@ -261,6 +295,72 @@ BEGIN
             1
         ),
         DATETIME('now');
+END;
+
+-- Trigger to update song rating stats after INSERT
+CREATE TRIGGER after_song_rating_insert
+AFTER INSERT ON song_ratings
+BEGIN
+    UPDATE song 
+    SET 
+        TotalRatings = (SELECT COUNT(*) FROM song_ratings WHERE SongID = NEW.SongID),
+        AverageRating = (SELECT AVG(Rating) FROM song_ratings WHERE SongID = NEW.SongID)
+    WHERE SongID = NEW.SongID;
+END;
+
+-- Trigger to update song rating stats after UPDATE
+CREATE TRIGGER after_song_rating_update
+AFTER UPDATE ON song_ratings
+BEGIN
+    UPDATE song 
+    SET 
+        TotalRatings = (SELECT COUNT(*) FROM song_ratings WHERE SongID = NEW.SongID),
+        AverageRating = (SELECT AVG(Rating) FROM song_ratings WHERE SongID = NEW.SongID)
+    WHERE SongID = NEW.SongID;
+END;
+
+-- Trigger to update song rating stats after DELETE
+CREATE TRIGGER after_song_rating_delete
+AFTER DELETE ON song_ratings
+BEGIN
+    UPDATE song 
+    SET 
+        TotalRatings = (SELECT COUNT(*) FROM song_ratings WHERE SongID = OLD.SongID),
+        AverageRating = COALESCE((SELECT AVG(Rating) FROM song_ratings WHERE SongID = OLD.SongID), 0.00)
+    WHERE SongID = OLD.SongID;
+END;
+
+-- Trigger to update album rating stats after INSERT
+CREATE TRIGGER after_album_rating_insert
+AFTER INSERT ON album_ratings
+BEGIN
+    UPDATE album 
+    SET 
+        TotalRatings = (SELECT COUNT(*) FROM album_ratings WHERE AlbumID = NEW.AlbumID),
+        AverageRating = (SELECT AVG(Rating) FROM album_ratings WHERE AlbumID = NEW.AlbumID)
+    WHERE AlbumID = NEW.AlbumID;
+END;
+
+-- Trigger to update album rating stats after UPDATE
+CREATE TRIGGER after_album_rating_update
+AFTER UPDATE ON album_ratings
+BEGIN
+    UPDATE album 
+    SET 
+        TotalRatings = (SELECT COUNT(*) FROM album_ratings WHERE AlbumID = NEW.AlbumID),
+        AverageRating = (SELECT AVG(Rating) FROM album_ratings WHERE AlbumID = NEW.AlbumID)
+    WHERE AlbumID = NEW.AlbumID;
+END;
+
+-- Trigger to update album rating stats after DELETE
+CREATE TRIGGER after_album_rating_delete
+AFTER DELETE ON album_ratings
+BEGIN
+    UPDATE album 
+    SET 
+        TotalRatings = (SELECT COUNT(*) FROM album_ratings WHERE AlbumID = OLD.AlbumID),
+        AverageRating = COALESCE((SELECT AVG(Rating) FROM album_ratings WHERE AlbumID = OLD.AlbumID), 0.00)
+    WHERE AlbumID = OLD.AlbumID;
 END;
 
 -- Insert default genres

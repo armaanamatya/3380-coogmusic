@@ -1,5 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { songApi, albumApi } from '../services/api';
+import React, { useState, useEffect, useContext } from 'react';
+import { songApi, albumApi, likeApi, ratingApi } from '../services/api';
+import { AuthContext } from '../contexts/AuthContext';
+import { useAudio } from '../contexts/AudioContext';
+import { LikeButton } from './LikeButton';
+import { StarRating } from './StarRating';
 
 interface Song {
   SongID: number;
@@ -10,6 +14,7 @@ interface Song {
   GenreName?: string;
   Duration: number;
   ListenCount: number;
+  FilePath?: string;
 }
 
 interface AlbumStats {
@@ -18,6 +23,11 @@ interface AlbumStats {
   totalPlays: number;
   totalDuration: number;
   releaseDate: string;
+}
+
+interface AlbumRatingStats {
+  averageRating: number;
+  totalRatings: number;
 }
 
 interface AlbumExpandedProps {
@@ -31,8 +41,14 @@ export const AlbumExpanded: React.FC<AlbumExpandedProps> = ({
   albumName,
   onClose
 }) => {
+  const authContext = useContext(AuthContext);
+  const user = authContext?.user;
+  const { playSong } = useAudio();
   const [songs, setSongs] = useState<Song[]>([]);
   const [stats, setStats] = useState<AlbumStats | null>(null);
+  const [ratingStats, setRatingStats] = useState<AlbumRatingStats | null>(null);
+  const [isLiked, setIsLiked] = useState(false);
+  const [userRating, setUserRating] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -41,11 +57,22 @@ export const AlbumExpanded: React.FC<AlbumExpandedProps> = ({
       try {
         setLoading(true);
         
-        // Fetch songs and stats in parallel
-        const [songsResponse, statsResponse] = await Promise.all([
+        const promises = [
           songApi.getAll({ albumId }),
-          albumApi.getStats(albumId)
-        ]);
+          albumApi.getStats(albumId),
+          ratingApi.getAlbumRatingStats(albumId)
+        ];
+
+        // Add user-specific data if user is logged in
+        if (user) {
+          promises.push(
+            ratingApi.getUserAlbumRating(user.userId, albumId),
+            likeApi.isAlbumLiked(user.userId, albumId)
+          );
+        }
+        
+        const responses = await Promise.all(promises);
+        const [songsResponse, statsResponse, ratingStatsResponse, userRatingResponse, isLikedResponse] = responses;
 
         if (songsResponse.ok) {
           const songsData = await songsResponse.json();
@@ -55,6 +82,21 @@ export const AlbumExpanded: React.FC<AlbumExpandedProps> = ({
         if (statsResponse.ok) {
           const statsData = await statsResponse.json();
           setStats(statsData.stats);
+        }
+
+        if (ratingStatsResponse.ok) {
+          const ratingData = await ratingStatsResponse.json();
+          setRatingStats(ratingData);
+        }
+
+        if (user && userRatingResponse?.ok) {
+          const userRatingData = await userRatingResponse.json();
+          setUserRating(userRatingData.rating);
+        }
+
+        if (user && isLikedResponse?.ok) {
+          const likedData = await isLikedResponse.json();
+          setIsLiked(likedData.isLiked || false);
         }
 
         if (!songsResponse.ok && !statsResponse.ok) {
@@ -69,7 +111,7 @@ export const AlbumExpanded: React.FC<AlbumExpandedProps> = ({
     };
 
     fetchAlbumData();
-  }, [albumId]);
+  }, [albumId, user]);
 
   // Handle click outside to close modal
   useEffect(() => {
@@ -117,6 +159,96 @@ export const AlbumExpanded: React.FC<AlbumExpandedProps> = ({
       month: 'long',
       day: 'numeric'
     });
+  };
+
+  const handleLike = async () => {
+    if (!user) return;
+    
+    try {
+      if (isLiked) {
+        await likeApi.unlikeAlbum(user.userId, albumId);
+        setIsLiked(false);
+        if (stats) {
+          setStats({ ...stats, likeCount: stats.likeCount - 1 });
+        }
+      } else {
+        await likeApi.likeAlbum(user.userId, albumId);
+        setIsLiked(true);
+        if (stats) {
+          setStats({ ...stats, likeCount: stats.likeCount + 1 });
+        }
+      }
+    } catch (error) {
+      console.error('Error toggling album like:', error);
+    }
+  };
+
+  const handleRate = async (rating: number) => {
+    if (!user) return;
+    
+    try {
+      await ratingApi.rateAlbum(user.userId, albumId, rating);
+      setUserRating(rating);
+      
+      // Refresh rating stats
+      const response = await ratingApi.getAlbumRatingStats(albumId);
+      if (response.ok) {
+        const newStats = await response.json();
+        setRatingStats(newStats);
+      }
+    } catch (error) {
+      console.error('Error rating album:', error);
+    }
+  };
+
+  const handlePlaySong = async (song: Song, songIndex: number) => {
+    try {
+      // Convert all album songs to the format expected by AudioContext
+      const queue = songs.map(s => ({
+        id: s.SongID.toString(),
+        title: s.SongName,
+        artist: `${s.ArtistFirstName} ${s.ArtistLastName}`,
+        audioFilePath: s.FilePath || '',
+        imageUrl: '',
+        averageRating: 0,
+        totalRatings: 0,
+        userRating: null as number | null,
+        isLiked: false,
+        likeCount: 0,
+        listenCount: s.ListenCount
+      }));
+
+      // Enrich the current song with rating and like data if user is logged in
+      if (user?.userId) {
+        const [ratingStatsResponse, userRatingResponse, likeStatusResponse] = await Promise.all([
+          ratingApi.getSongRatingStats(song.SongID),
+          ratingApi.getUserSongRating(song.SongID, user.userId),
+          likeApi.isSongLiked(user.userId, song.SongID)
+        ]);
+
+        if (ratingStatsResponse.ok) {
+          const ratingStats = await ratingStatsResponse.json();
+          queue[songIndex].averageRating = ratingStats.averageRating;
+          queue[songIndex].totalRatings = ratingStats.totalRatings;
+        }
+
+        if (userRatingResponse.ok) {
+          const userRating = await userRatingResponse.json();
+          queue[songIndex].userRating = userRating.rating;
+        }
+
+        if (likeStatusResponse.ok) {
+          const likeStatus = await likeStatusResponse.json();
+          queue[songIndex].isLiked = likeStatus.isLiked;
+          queue[songIndex].likeCount = likeStatus.likeCount;
+        }
+      }
+
+      // Play the song with the entire album as queue (without opening the player modal)
+      playSong(queue[songIndex], queue, songIndex, false);
+    } catch (error) {
+      console.error('Error playing song:', error);
+    }
   };
 
   return (
@@ -184,15 +316,53 @@ export const AlbumExpanded: React.FC<AlbumExpandedProps> = ({
               <p className="text-gray-600">This album is empty</p>
             </div>
           ) : (
-            <div className="space-y-2">
+            <>
+              {/* Like and Rating Controls */}
+              {user && (
+                <div className="mb-6 flex items-center space-x-4 pb-4 border-b border-gray-200" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex items-center gap-2">
+                    <LikeButton
+                      isLiked={isLiked}
+                      likeCount={stats?.likeCount || 0}
+                      onToggleLike={handleLike}
+                      size="medium"
+                      showCount={true}
+                      variant="heart"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <StarRating
+                      rating={ratingStats?.averageRating || 0}
+                      userRating={userRating}
+                      totalRatings={ratingStats?.totalRatings || 0}
+                      onRate={handleRate}
+                      size="medium"
+                      showStats={true}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-2">
               {songs.map((song, index) => (
                 <div
                   key={song.SongID}
-                  className="bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition-colors border border-gray-200"
+                  className="bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition-colors border border-gray-200 group"
                 >
                   <div className="flex items-center gap-4">
+                    {/* Play Button */}
+                    <button
+                      onClick={() => handlePlaySong(song, index)}
+                      className="flex-shrink-0 w-10 h-10 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center transition-colors opacity-0 group-hover:opacity-100"
+                      title="Play song"
+                    >
+                      <svg className="w-4 h-4 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                    </button>
+
                     {/* Position Number */}
-                    <div className="text-gray-400 font-mono w-8 text-center">
+                    <div className="text-gray-400 font-mono w-8 text-center group-hover:opacity-0 transition-opacity">
                       {index + 1}
                     </div>
 
@@ -228,7 +398,8 @@ export const AlbumExpanded: React.FC<AlbumExpandedProps> = ({
                   </div>
                 </div>
               ))}
-            </div>
+              </div>
+            </>
           )}
         </div>
 

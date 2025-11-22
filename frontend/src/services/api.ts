@@ -373,8 +373,15 @@ export const likeApi = {
       body: JSON.stringify({ userId, playlistId })
     }),
 
-  getUserLikeStatus: (userId: number, songId: number) =>
-    fetch(`${API_BASE}/api/likes/songs/${userId}/status/${songId}`)
+  // Check like status endpoints  
+  isSongLiked: (userId: number, songId: number) =>
+    fetch(`${API_BASE}/api/likes/songs/${userId}/status/${songId}`),
+
+  isAlbumLiked: (userId: number, albumId: number) =>
+    fetch(`${API_BASE}/api/likes/albums/${userId}/status/${albumId}`),
+
+  isPlaylistLiked: (userId: number, playlistId: number) =>
+    fetch(`${API_BASE}/api/likes/playlists/${userId}/status/${playlistId}`)
 };
 
 // Follow endpoints
@@ -452,7 +459,54 @@ export const ratingApi = {
   },
 
   getSongRatingDistribution: (songId: number) =>
-    fetch(`${API_BASE}/api/ratings/songs/${songId}/distribution`)
+    fetch(`${API_BASE}/api/ratings/songs/${songId}/distribution`),
+
+  // Album rating endpoints
+  rateAlbum: (userId: number, albumId: number, rating: number) =>
+    fetch(`${API_BASE}/api/ratings/albums`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, albumId, rating })
+    }),
+
+  getUserAlbumRating: (userId: number, albumId: number) =>
+    fetch(`${API_BASE}/api/users/${userId}/albums/${albumId}/rating`),
+
+  getAlbumRatingStats: (albumId: number) =>
+    fetch(`${API_BASE}/api/albums/${albumId}/rating-stats`),
+
+  removeAlbumRating: (userId: number, albumId: number) =>
+    fetch(`${API_BASE}/api/ratings/albums`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, albumId })
+    }),
+
+  getAlbumRatings: (albumId: number, params?: { page?: number; limit?: number }) => {
+    const query = params ? new URLSearchParams(
+      Object.entries(params)
+        .filter(([_, value]) => value !== undefined)
+        .map(([key, value]) => [key, String(value)])
+    ).toString() : '';
+    return fetch(`${API_BASE}/api/ratings/albums/${albumId}${query ? '?' + query : ''}`);
+  },
+
+  getUserAlbumRatings: (userId: number, params?: { page?: number; limit?: number }) => {
+    const query = params ? new URLSearchParams(
+      Object.entries(params)
+        .filter(([_, value]) => value !== undefined)
+        .map(([key, value]) => [key, String(value)])
+    ).toString() : '';
+    return fetch(`${API_BASE}/api/users/${userId}/album-ratings${query ? '?' + query : ''}`);
+  },
+
+  getTopRatedAlbums: (limit?: number) => {
+    const query = limit ? `?limit=${limit}` : '';
+    return fetch(`${API_BASE}/api/albums/top-rated${query}`);
+  },
+
+  getAlbumRatingDistribution: (albumId: number) =>
+    fetch(`${API_BASE}/api/ratings/albums/${albumId}/distribution`)
 };
 
 // History endpoints

@@ -233,3 +233,236 @@ export async function getSongRatingDistribution(pool: Pool, songId: number): Pro
 
   return distribution;
 }
+
+// ========== ALBUM RATING FUNCTIONS ==========
+
+// Rate or update rating for an album
+export async function rateAlbum(pool: Pool, userId: number, albumId: number, rating: number): Promise<void> {
+  // Validate rating range
+  if (rating < 1 || rating > 5) {
+    throw new Error('Rating must be between 1 and 5');
+  }
+
+  // Verify user exists
+  const [users] = await pool.execute<RowDataPacket[]>('SELECT UserID FROM userprofile WHERE UserID = ?', [userId]);
+  if (users.length === 0) {
+    throw new Error('User not found');
+  }
+
+  // Verify album exists
+  const [albums] = await pool.execute<RowDataPacket[]>('SELECT AlbumID FROM album WHERE AlbumID = ?', [albumId]);
+  if (albums.length === 0) {
+    throw new Error('Album not found');
+  }
+
+  // Check if user has already rated this album
+  const [existingRatings] = await pool.execute<RowDataPacket[]>(
+    'SELECT * FROM album_ratings WHERE UserID = ? AND AlbumID = ?',
+    [userId, albumId]
+  );
+
+  if (existingRatings.length > 0) {
+    // Update existing rating
+    await pool.execute(
+      'UPDATE album_ratings SET Rating = ?, UpdatedAt = CURRENT_TIMESTAMP WHERE UserID = ? AND AlbumID = ?',
+      [rating, userId, albumId]
+    );
+  } else {
+    // Insert new rating
+    await pool.execute(
+      'INSERT INTO album_ratings (UserID, AlbumID, Rating) VALUES (?, ?, ?)',
+      [userId, albumId, rating]
+    );
+  }
+}
+
+// Get a specific user's rating for an album
+export async function getUserAlbumRating(pool: Pool, userId: number, albumId: number): Promise<number | null> {
+  const [rows] = await pool.execute<RowDataPacket[]>(
+    'SELECT Rating FROM album_ratings WHERE UserID = ? AND AlbumID = ?',
+    [userId, albumId]
+  );
+
+  return rows.length > 0 ? (rows[0]?.Rating ?? null) : null;
+}
+
+// Get album rating statistics (average rating and total count)
+export async function getAlbumRatingStats(pool: Pool, albumId: number): Promise<{ averageRating: number; totalRatings: number }> {
+  const [rows] = await pool.execute<RowDataPacket[]>(
+    'SELECT AverageRating, TotalRatings FROM album WHERE AlbumID = ?',
+    [albumId]
+  );
+
+  if (rows.length === 0) {
+    throw new Error('Album not found');
+  }
+
+  const row = rows[0];
+  return {
+    averageRating: parseFloat(row?.AverageRating) || 0,
+    totalRatings: row?.TotalRatings || 0
+  };
+}
+
+// Remove a user's rating for an album
+export async function removeAlbumRating(pool: Pool, userId: number, albumId: number): Promise<void> {
+  // Check if rating exists
+  const [existingRatings] = await pool.execute<RowDataPacket[]>(
+    'SELECT * FROM album_ratings WHERE UserID = ? AND AlbumID = ?',
+    [userId, albumId]
+  );
+
+  if (existingRatings.length === 0) {
+    throw new Error('Rating not found');
+  }
+
+  // Delete the rating (triggers will automatically update album statistics)
+  await pool.execute('DELETE FROM album_ratings WHERE UserID = ? AND AlbumID = ?', [userId, albumId]);
+}
+
+// Get all ratings for a specific album with user details
+export async function getAlbumRatings(
+  pool: Pool, 
+  albumId: number,
+  options: { page?: number; limit?: number } = {}
+): Promise<Array<{
+  userId: number;
+  username: string;
+  rating: number;
+  ratedAt: Date;
+  updatedAt: Date;
+}>> {
+  const { page = 1, limit = 50 } = options;
+  const offset = (page - 1) * limit;
+
+  const [rows] = await pool.execute<RowDataPacket[]>(`
+    SELECT 
+      r.UserID as userId,
+      u.Username as username,
+      r.Rating as rating,
+      r.RatedAt as ratedAt,
+      r.UpdatedAt as updatedAt
+    FROM album_ratings r
+    JOIN userprofile u ON r.UserID = u.UserID
+    WHERE r.AlbumID = ?
+    ORDER BY r.UpdatedAt DESC
+    LIMIT ? OFFSET ?
+  `, [albumId, limit, offset]);
+
+  return rows as Array<{
+    userId: number;
+    username: string;
+    rating: number;
+    ratedAt: Date;
+    updatedAt: Date;
+  }>;
+}
+
+// Get all ratings by a specific user for albums
+export async function getUserAlbumRatings(
+  pool: Pool,
+  userId: number,
+  options: { page?: number; limit?: number } = {}
+): Promise<Array<{
+  albumId: number;
+  albumName: string;
+  artistName: string;
+  rating: number;
+  ratedAt: Date;
+  updatedAt: Date;
+}>> {
+  const { page = 1, limit = 50 } = options;
+  const offset = (page - 1) * limit;
+
+  const [rows] = await pool.execute<RowDataPacket[]>(`
+    SELECT 
+      r.AlbumID as albumId,
+      a.AlbumName as albumName,
+      u.Username as artistName,
+      r.Rating as rating,
+      r.RatedAt as ratedAt,
+      r.UpdatedAt as updatedAt
+    FROM album_ratings r
+    JOIN album a ON r.AlbumID = a.AlbumID
+    JOIN artist ar ON a.ArtistID = ar.ArtistID
+    JOIN userprofile u ON ar.ArtistID = u.UserID
+    WHERE r.UserID = ?
+    ORDER BY r.UpdatedAt DESC
+    LIMIT ? OFFSET ?
+  `, [userId, limit, offset]);
+
+  return rows as Array<{
+    albumId: number;
+    albumName: string;
+    artistName: string;
+    rating: number;
+    ratedAt: Date;
+    updatedAt: Date;
+  }>;
+}
+
+// Get albums with highest average ratings
+export async function getTopRatedAlbums(pool: Pool, limit: number = 10): Promise<Array<{
+  albumId: number;
+  albumName: string;
+  artistName: string;
+  averageRating: number;
+  totalRatings: number;
+}>> {
+  const [rows] = await pool.execute<RowDataPacket[]>(`
+    SELECT 
+      a.AlbumID as albumId,
+      a.AlbumName as albumName,
+      u.Username as artistName,
+      a.AverageRating as averageRating,
+      a.TotalRatings as totalRatings
+    FROM album a
+    JOIN artist ar ON a.ArtistID = ar.ArtistID
+    JOIN userprofile u ON ar.ArtistID = u.UserID
+    WHERE a.TotalRatings > 0
+    ORDER BY a.AverageRating DESC, a.TotalRatings DESC
+    LIMIT ?
+  `, [limit]);
+
+  return rows as Array<{
+    albumId: number;
+    albumName: string;
+    artistName: string;
+    averageRating: number;
+    totalRatings: number;
+  }>;
+}
+
+// Get rating distribution for an album (how many 1-star, 2-star, etc.)
+export async function getAlbumRatingDistribution(pool: Pool, albumId: number): Promise<{
+  [rating: number]: number;
+  total: number;
+}> {
+  const [rows] = await pool.execute<RowDataPacket[]>(`
+    SELECT 
+      Rating,
+      COUNT(*) as count
+    FROM album_ratings 
+    WHERE AlbumID = ?
+    GROUP BY Rating
+    ORDER BY Rating
+  `, [albumId]);
+
+  // Initialize distribution object
+  const distribution: { [rating: number]: number; total: number } = {
+    1: 0,
+    2: 0,
+    3: 0,
+    4: 0,
+    5: 0,
+    total: 0
+  };
+
+  // Fill in the actual counts
+  for (const row of rows as RowDataPacket[]) {
+    distribution[row.Rating] = row.count;
+    distribution.total += row.count;
+  }
+
+  return distribution;
+}

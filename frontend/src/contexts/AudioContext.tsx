@@ -205,7 +205,7 @@ interface AudioContextValue {
   audioRef: React.RefObject<HTMLAudioElement | null>
   
   // Convenience functions
-  playSong: (song: Song, queue?: Song[], startIndex?: number) => void
+  playSong: (song: Song, queue?: Song[], startIndex?: number, openPlayer?: boolean) => void
   playNext: () => void
   playPrevious: () => void
   togglePlayPause: () => void
@@ -381,7 +381,7 @@ export function AudioProvider({ children }: AudioProviderProps) {
   }, [state.currentIndex, state.queue])
 
   // Convenience functions
-  const playSong = (song: Song, queue?: Song[], startIndex?: number) => {
+  const playSong = (song: Song, queue?: Song[], startIndex?: number, openPlayer: boolean = true) => {
     if (queue) {
       dispatch({ type: 'SET_QUEUE', payload: queue })
       dispatch({ type: 'SET_CURRENT_INDEX', payload: startIndex || 0 })
@@ -391,7 +391,8 @@ export function AudioProvider({ children }: AudioProviderProps) {
     }
     
     dispatch({ type: 'SET_CURRENT_SONG', payload: song })
-    dispatch({ type: 'TOGGLE_PLAYER', payload: true })
+    dispatch({ type: 'SET_SHOULD_AUTO_PLAY', payload: true })
+    dispatch({ type: 'TOGGLE_PLAYER', payload: openPlayer })
   }
 
   const playNext = () => {

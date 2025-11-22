@@ -10,7 +10,11 @@ interface AlbumCardProps {
   rating?: number
   likeCount?: number
   isLiked?: boolean
+  userRating?: number | null
+  totalRatings?: number
   onClick?: () => void
+  onLike?: () => void
+  onRate?: (rating: number) => void
 }
 
 export const AlbumCard: React.FC<AlbumCardProps> = ({
@@ -22,7 +26,11 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({
   rating,
   likeCount,
   isLiked,
-  onClick
+  userRating,
+  totalRatings,
+  onClick,
+  onLike,
+  onRate
 }) => {
   return (
     <BaseCard
@@ -35,8 +43,12 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({
       rating={rating}
       likeCount={likeCount}
       isLiked={isLiked}
-      showStats={true}
+      userRating={userRating}
+      totalRatings={totalRatings}
+      showStats={false}
       onClick={onClick}
+      onLike={onLike}
+      onRate={onRate}
     />
   )
 }
