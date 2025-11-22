@@ -288,32 +288,6 @@ export const AlbumExpanded: React.FC<AlbumExpandedProps> = ({
                   Released {formatReleaseDate(stats.releaseDate)}
                 </div>
               )}
-
-              {/* Like and Rating Controls */}
-              {user && (
-                <div className="mt-4 flex items-center space-x-4" onClick={(e) => e.stopPropagation()}>
-                  <div className="bg-white bg-opacity-20 rounded-lg px-3 py-2">
-                    <LikeButton
-                      isLiked={isLiked}
-                      likeCount={stats?.likeCount || 0}
-                      onToggleLike={handleLike}
-                      size="medium"
-                      showCount={true}
-                      variant="heart"
-                    />
-                  </div>
-                  <div className="bg-white bg-opacity-20 rounded-lg px-3 py-2">
-                    <StarRating
-                      rating={ratingStats?.averageRating || 0}
-                      userRating={userRating}
-                      totalRatings={ratingStats?.totalRatings || 0}
-                      onRate={handleRate}
-                      size="medium"
-                      showStats={true}
-                    />
-                  </div>
-                </div>
-              )}
             </div>
             
             <button
@@ -342,7 +316,34 @@ export const AlbumExpanded: React.FC<AlbumExpandedProps> = ({
               <p className="text-gray-600">This album is empty</p>
             </div>
           ) : (
-            <div className="space-y-2">
+            <>
+              {/* Like and Rating Controls */}
+              {user && (
+                <div className="mb-6 flex items-center space-x-4 pb-4 border-b border-gray-200" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex items-center gap-2">
+                    <LikeButton
+                      isLiked={isLiked}
+                      likeCount={stats?.likeCount || 0}
+                      onToggleLike={handleLike}
+                      size="medium"
+                      showCount={true}
+                      variant="heart"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <StarRating
+                      rating={ratingStats?.averageRating || 0}
+                      userRating={userRating}
+                      totalRatings={ratingStats?.totalRatings || 0}
+                      onRate={handleRate}
+                      size="medium"
+                      showStats={true}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-2">
               {songs.map((song, index) => (
                 <div
                   key={song.SongID}
@@ -397,7 +398,8 @@ export const AlbumExpanded: React.FC<AlbumExpandedProps> = ({
                   </div>
                 </div>
               ))}
-            </div>
+              </div>
+            </>
           )}
         </div>
 
