@@ -1,5 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { songApi, albumApi } from '../services/api';
+import React, { useState, useEffect, useContext } from 'react';
+import { songApi, albumApi, likeApi, ratingApi } from '../services/api';
+import { AuthContext } from '../contexts/AuthContext';
+import { LikeButton } from './LikeButton';
+import { StarRating } from './StarRating';
 
 interface Song {
   SongID: number;
@@ -20,6 +23,11 @@ interface AlbumStats {
   releaseDate: string;
 }
 
+interface AlbumRatingStats {
+  averageRating: number;
+  totalRatings: number;
+}
+
 interface AlbumExpandedProps {
   albumId: number;
   albumName: string;
@@ -31,8 +39,12 @@ export const AlbumExpanded: React.FC<AlbumExpandedProps> = ({
   albumName,
   onClose
 }) => {
+  const { user } = useContext(AuthContext);
   const [songs, setSongs] = useState<Song[]>([]);
   const [stats, setStats] = useState<AlbumStats | null>(null);
+  const [ratingStats, setRatingStats] = useState<AlbumRatingStats | null>(null);
+  const [isLiked, setIsLiked] = useState(false);
+  const [userRating, setUserRating] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -41,11 +53,22 @@ export const AlbumExpanded: React.FC<AlbumExpandedProps> = ({
       try {
         setLoading(true);
         
-        // Fetch songs and stats in parallel
-        const [songsResponse, statsResponse] = await Promise.all([
+        const promises = [
           songApi.getAll({ albumId }),
-          albumApi.getStats(albumId)
-        ]);
+          albumApi.getStats(albumId),
+          ratingApi.getAlbumRatingStats(albumId)
+        ];
+
+        // Add user-specific data if user is logged in
+        if (user) {
+          promises.push(
+            ratingApi.getUserAlbumRating(user.UserID, albumId),
+            likeApi.isAlbumLiked ? likeApi.isAlbumLiked(user.UserID, albumId) : Promise.resolve({ ok: false })
+          );
+        }
+        
+        const responses = await Promise.all(promises);
+        const [songsResponse, statsResponse, ratingStatsResponse, userRatingResponse, isLikedResponse] = responses;
 
         if (songsResponse.ok) {
           const songsData = await songsResponse.json();
@@ -55,6 +78,21 @@ export const AlbumExpanded: React.FC<AlbumExpandedProps> = ({
         if (statsResponse.ok) {
           const statsData = await statsResponse.json();
           setStats(statsData.stats);
+        }
+
+        if (ratingStatsResponse.ok) {
+          const ratingData = await ratingStatsResponse.json();
+          setRatingStats(ratingData);
+        }
+
+        if (user && userRatingResponse?.ok) {
+          const userRatingData = await userRatingResponse.json();
+          setUserRating(userRatingData.rating);
+        }
+
+        if (user && isLikedResponse?.ok) {
+          const likedData = await isLikedResponse.json();
+          setIsLiked(likedData.isLiked || false);
         }
 
         if (!songsResponse.ok && !statsResponse.ok) {
@@ -69,7 +107,7 @@ export const AlbumExpanded: React.FC<AlbumExpandedProps> = ({
     };
 
     fetchAlbumData();
-  }, [albumId]);
+  }, [albumId, user]);
 
   // Handle click outside to close modal
   useEffect(() => {
@@ -119,6 +157,46 @@ export const AlbumExpanded: React.FC<AlbumExpandedProps> = ({
     });
   };
 
+  const handleLike = async () => {
+    if (!user) return;
+    
+    try {
+      if (isLiked) {
+        await likeApi.unlikeAlbum(user.UserID, albumId);
+        setIsLiked(false);
+        if (stats) {
+          setStats({ ...stats, likeCount: stats.likeCount - 1 });
+        }
+      } else {
+        await likeApi.likeAlbum(user.UserID, albumId);
+        setIsLiked(true);
+        if (stats) {
+          setStats({ ...stats, likeCount: stats.likeCount + 1 });
+        }
+      }
+    } catch (error) {
+      console.error('Error toggling album like:', error);
+    }
+  };
+
+  const handleRate = async (rating: number) => {
+    if (!user) return;
+    
+    try {
+      await ratingApi.rateAlbum(user.UserID, albumId, rating);
+      setUserRating(rating);
+      
+      // Refresh rating stats
+      const response = await ratingApi.getAlbumRatingStats(albumId);
+      if (response.ok) {
+        const newStats = await response.json();
+        setRatingStats(newStats);
+      }
+    } catch (error) {
+      console.error('Error rating album:', error);
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="album-modal-content bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
@@ -154,6 +232,32 @@ export const AlbumExpanded: React.FC<AlbumExpandedProps> = ({
               {stats?.releaseDate && (
                 <div className="mt-3 text-red-100">
                   Released {formatReleaseDate(stats.releaseDate)}
+                </div>
+              )}
+
+              {/* Like and Rating Controls */}
+              {user && (
+                <div className="mt-4 flex items-center space-x-4" onClick={(e) => e.stopPropagation()}>
+                  <div className="bg-white bg-opacity-20 rounded-lg px-3 py-2">
+                    <LikeButton
+                      isLiked={isLiked}
+                      likeCount={stats?.likeCount || 0}
+                      onToggleLike={handleLike}
+                      size="medium"
+                      showCount={true}
+                      variant="heart"
+                    />
+                  </div>
+                  <div className="bg-white bg-opacity-20 rounded-lg px-3 py-2">
+                    <StarRating
+                      rating={ratingStats?.averageRating || 0}
+                      userRating={userRating}
+                      totalRatings={ratingStats?.totalRatings || 0}
+                      onRate={handleRate}
+                      size="medium"
+                      showStats={true}
+                    />
+                  </div>
                 </div>
               )}
             </div>

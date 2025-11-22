@@ -1907,6 +1907,32 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     return;
   }
 
+  // Get user's like status for an album - /api/likes/albums/{userId}/status/{albumId}
+  if (requestPath && requestPath.startsWith('/api/likes/albums/') && requestPath.includes('/status/') && method === 'GET') {
+    try {
+      // Parse path: /api/likes/albums/{userId}/status/{albumId}
+      const pathParts = requestPath.split('/');
+      if (pathParts.length === 7 && pathParts[5] === 'status') {
+        const userId = parseInt(pathParts[4] || '0');
+        const albumId = parseInt(pathParts[6] || '0');
+        const pool = await getPool();
+        
+        const isLiked = await likeController.isAlbumLiked(pool, userId, albumId);
+        
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ isLiked }));
+      } else {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Invalid path format' }));
+      }
+    } catch (error: any) {
+      logError(error);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
+    }
+    return;
+  }
+
   // Like a playlist
   if (requestPath === '/api/likes/playlists' && method === 'POST') {
     let body = '';
@@ -2115,6 +2141,177 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
       
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(distribution));
+    } catch (error: any) {
+      logError(error);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
+    }
+    return;
+  }
+
+  // ==================== ALBUM RATING ROUTES ====================
+
+  // Rate an album
+  if (requestPath === '/api/ratings/albums' && method === 'POST') {
+    let body = '';
+    req.on('data', (chunk) => { body += chunk.toString(); });
+    req.on('end', async () => {
+      try {
+        const { userId, albumId, rating } = JSON.parse(body);
+        const pool = await getPool();
+        
+        await ratingController.rateAlbum(pool, userId, albumId, rating);
+        
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ message: 'Album rated successfully' }));
+      } catch (error: any) {
+        const statusCode = error.message.includes('not found') ? 404 :
+                          error.message.includes('between 1 and 5') ? 400 : 500;
+        logError(error);
+        res.writeHead(statusCode, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
+      }
+    });
+    return;
+  }
+
+  // Remove user's rating for an album
+  if (requestPath === '/api/ratings/albums' && method === 'DELETE') {
+    let body = '';
+    req.on('data', (chunk) => { body += chunk.toString(); });
+    req.on('end', async () => {
+      try {
+        const { userId, albumId } = JSON.parse(body);
+        const pool = await getPool();
+        
+        await ratingController.removeAlbumRating(pool, userId, albumId);
+        
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ message: 'Album rating removed successfully' }));
+      } catch (error: any) {
+        const statusCode = error.message.includes('not found') ? 404 : 500;
+        logError(error);
+        res.writeHead(statusCode, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
+      }
+    });
+    return;
+  }
+
+  // Get all ratings for a specific album
+  if (requestPath?.match(/^\/api\/ratings\/albums\/\d+$/) && method === 'GET') {
+    try {
+      const pathParts = requestPath?.split('/') || [];
+      const albumId = parseInt(pathParts[4] || '0');
+      const { page = '1', limit = '50' } = parsedUrl.query;
+      const pool = await getPool();
+      
+      const ratings = await ratingController.getAlbumRatings(pool, albumId, {
+        page: parseInt(page as string),
+        limit: parseInt(limit as string)
+      });
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ratings }));
+    } catch (error: any) {
+      logError(error);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
+    }
+    return;
+  }
+
+  // Get user's album ratings
+  if (requestPath?.match(/^\/api\/users\/\d+\/album-ratings$/) && method === 'GET') {
+    try {
+      const pathParts = requestPath?.split('/') || [];
+      const userId = parseInt(pathParts[3] || '0');
+      const { page = '1', limit = '50' } = parsedUrl.query;
+      const pool = await getPool();
+      
+      const ratings = await ratingController.getUserAlbumRatings(pool, userId, {
+        page: parseInt(page as string),
+        limit: parseInt(limit as string)
+      });
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ratings }));
+    } catch (error: any) {
+      logError(error);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
+    }
+    return;
+  }
+
+  // Get top rated albums
+  if (requestPath === '/api/albums/top-rated' && method === 'GET') {
+    try {
+      const { limit = '10' } = parsedUrl.query;
+      const pool = await getPool();
+      
+      const topAlbums = await ratingController.getTopRatedAlbums(pool, parseInt(limit as string));
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ albums: topAlbums }));
+    } catch (error: any) {
+      logError(error);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
+    }
+    return;
+  }
+
+  // Get rating distribution for an album
+  if (requestPath?.match(/^\/api\/ratings\/albums\/\d+\/distribution$/) && method === 'GET') {
+    try {
+      const pathParts = requestPath?.split('/') || [];
+      const albumId = parseInt(pathParts[4] || '0');
+      const pool = await getPool();
+      
+      const distribution = await ratingController.getAlbumRatingDistribution(pool, albumId);
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(distribution));
+    } catch (error: any) {
+      logError(error);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
+    }
+    return;
+  }
+
+  // Get user's rating for a specific album
+  if (requestPath?.match(/^\/api\/users\/\d+\/albums\/\d+\/rating$/) && method === 'GET') {
+    try {
+      const pathParts = requestPath?.split('/') || [];
+      const userId = parseInt(pathParts[3] || '0');
+      const albumId = parseInt(pathParts[5] || '0');
+      const pool = await getPool();
+      
+      const userRating = await ratingController.getUserAlbumRating(pool, userId, albumId);
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ rating: userRating }));
+    } catch (error: any) {
+      logError(error);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
+    }
+    return;
+  }
+
+  // Get album rating statistics
+  if (requestPath?.match(/^\/api\/albums\/\d+\/rating-stats$/) && method === 'GET') {
+    try {
+      const pathParts = requestPath?.split('/') || [];
+      const albumId = parseInt(pathParts[3] || '0');
+      const pool = await getPool();
+      
+      const stats = await ratingController.getAlbumRatingStats(pool, albumId);
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(stats));
     } catch (error: any) {
       logError(error);
       res.writeHead(500, { 'Content-Type': 'application/json' });

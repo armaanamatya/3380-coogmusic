@@ -57,6 +57,8 @@ CREATE TABLE IF NOT EXISTS album (
     ReleaseDate DATE NOT NULL,
     AlbumCover LONGBLOB,
     Description TEXT,
+    AverageRating DECIMAL(3,2) DEFAULT 0.00, -- Average rating from 1.00 to 5.00
+    TotalRatings INT DEFAULT 0, -- Total number of ratings received
     CreatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UpdatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (ArtistID) REFERENCES artist(ArtistID) ON DELETE CASCADE,
@@ -181,6 +183,21 @@ CREATE TABLE IF NOT EXISTS song_ratings (
     INDEX idx_song_ratings_rating (Rating)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Album Ratings Table
+CREATE TABLE IF NOT EXISTS album_ratings (
+    UserID INT NOT NULL,
+    AlbumID INT NOT NULL,
+    Rating TINYINT NOT NULL CHECK (Rating >= 1 AND Rating <= 5),
+    RatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UpdatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (UserID, AlbumID),
+    FOREIGN KEY (UserID) REFERENCES userprofile(UserID) ON DELETE CASCADE,
+    FOREIGN KEY (AlbumID) REFERENCES album(AlbumID) ON DELETE CASCADE,
+    INDEX idx_album_ratings_user (UserID),
+    INDEX idx_album_ratings_album (AlbumID),
+    INDEX idx_album_ratings_rating (Rating)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Triggers for automatic rating statistics updates
 DELIMITER $$
 
@@ -218,6 +235,42 @@ BEGIN
         TotalRatings = (SELECT COUNT(*) FROM song_ratings WHERE SongID = OLD.SongID),
         AverageRating = COALESCE((SELECT AVG(Rating) FROM song_ratings WHERE SongID = OLD.SongID), 0.00)
     WHERE SongID = OLD.SongID;
+END$$
+
+-- Trigger to update album rating stats after INSERT
+CREATE TRIGGER IF NOT EXISTS after_album_rating_insert
+AFTER INSERT ON album_ratings
+FOR EACH ROW
+BEGIN
+    UPDATE album 
+    SET 
+        TotalRatings = (SELECT COUNT(*) FROM album_ratings WHERE AlbumID = NEW.AlbumID),
+        AverageRating = (SELECT AVG(Rating) FROM album_ratings WHERE AlbumID = NEW.AlbumID)
+    WHERE AlbumID = NEW.AlbumID;
+END$$
+
+-- Trigger to update album rating stats after UPDATE
+CREATE TRIGGER IF NOT EXISTS after_album_rating_update
+AFTER UPDATE ON album_ratings
+FOR EACH ROW
+BEGIN
+    UPDATE album 
+    SET 
+        TotalRatings = (SELECT COUNT(*) FROM album_ratings WHERE AlbumID = NEW.AlbumID),
+        AverageRating = (SELECT AVG(Rating) FROM album_ratings WHERE AlbumID = NEW.AlbumID)
+    WHERE AlbumID = NEW.AlbumID;
+END$$
+
+-- Trigger to update album rating stats after DELETE
+CREATE TRIGGER IF NOT EXISTS after_album_rating_delete
+AFTER DELETE ON album_ratings
+FOR EACH ROW
+BEGIN
+    UPDATE album 
+    SET 
+        TotalRatings = (SELECT COUNT(*) FROM album_ratings WHERE AlbumID = OLD.AlbumID),
+        AverageRating = COALESCE((SELECT AVG(Rating) FROM album_ratings WHERE AlbumID = OLD.AlbumID), 0.00)
+    WHERE AlbumID = OLD.AlbumID;
 END$$
 
 DELIMITER ;
