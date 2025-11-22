@@ -6,7 +6,7 @@ dotenv.config();
 
 /**
  * Migration script to add the trigger that automatically verifies artists
- * when they reach 100 followers.
+ * when they reach 20 followers.
  * 
  * This script can be run on existing databases to add the trigger without
  * recreating the entire database.
@@ -23,20 +23,20 @@ const addVerifyArtistTrigger = async () => {
     // Check if trigger already exists
     const triggerExists = db.prepare(`
       SELECT name FROM sqlite_master 
-      WHERE type='trigger' AND name='verify_artist_on_100_followers'
+      WHERE type='trigger' AND name='verify_artist_on_20_followers'
     `).get();
     
     if (triggerExists) {
-      console.log('Trigger "verify_artist_on_100_followers" already exists. Skipping...');
+      console.log('Trigger "verify_artist_on_20_followers" already exists. Skipping...');'
       db.close();
       return;
     }
     
     // Create the trigger
-    console.log('Creating trigger: verify_artist_on_100_followers');
+    console.log('Creating trigger: verify_artist_on_20_followers');
     
     db.exec(`
-      CREATE TRIGGER verify_artist_on_100_followers
+      CREATE TRIGGER verify_artist_on_20_followers
       AFTER INSERT ON user_follows_artist
       BEGIN
           UPDATE artist
@@ -49,14 +49,14 @@ const addVerifyArtistTrigger = async () => {
                   SELECT COUNT(*)
                   FROM user_follows_artist
                   WHERE ArtistID = NEW.ArtistID
-              ) >= 100;
+              ) >= 20;
       END;
     `);
     
     console.log('✅ Trigger created successfully!');
     
-    // Optionally verify artists that already have 100+ followers
-    console.log('\nChecking for existing artists with 100+ followers that need verification...');
+    // Optionally verify artists that already have 20+ followers
+    console.log('\nChecking for existing artists with 20+ followers that need verification...');
     
     const artistsToVerify = db.prepare(`
       SELECT a.ArtistID, COUNT(ufa.UserID) as follower_count
@@ -64,11 +64,11 @@ const addVerifyArtistTrigger = async () => {
       LEFT JOIN user_follows_artist ufa ON a.ArtistID = ufa.ArtistID
       WHERE a.VerifiedStatus = 0
       GROUP BY a.ArtistID
-      HAVING COUNT(ufa.UserID) >= 100
+      HAVING COUNT(ufa.UserID) >= 20
     `).all();
     
     if (artistsToVerify.length > 0) {
-      console.log(`Found ${artistsToVerify.length} artist(s) with 100+ followers that need verification:`);
+      console.log(`Found ${artistsToVerify.length} artist(s) with 20+ followers that need verification:`);
       
       const updateStmt = db.prepare(`
         UPDATE artist
