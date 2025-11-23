@@ -109,6 +109,7 @@ export interface AnalyticsReport {
   albumActivity?: AlbumActivity[];
   playlistActivity?: PlaylistActivityResult;
   includeSuspendedAccounts: boolean;
+  dailyListeningCounts?: Array<{ date: string; count: number }>;
 }
 
 const EXCLUDED_USERNAMES = ['joshtest', 'artist', 'test', 'test1', 'poop'];
@@ -625,6 +626,47 @@ export async function getSongsListened(
   const params = [...excludedUsernameParams, startDate, endDate];
   const [rows] = await pool.execute<RowDataPacket[]>(query, params);
   return rows[0]?.total ? Number(rows[0].total) : 0;
+}
+
+// Get daily listening counts for sparkline graph
+export async function getDailyListeningCounts(
+  pool: Pool,
+  filters: AnalyticsFilters
+): Promise<Array<{ date: string; count: number }>> {
+  const { startDate, endDate, includeSuspendedAccounts } = filters;
+  const { clause: excludedUsernameClause, params: excludedUsernameParams } = buildExcludedUsernameFilter('listener.Username');
+  const accountStatusClause = buildAccountStatusFilter('listener.AccountStatus', includeSuspendedAccounts);
+  
+  const query = `
+    SELECT 
+      DATE(history.ListenedAt) as date,
+      COUNT(*) as count
+    FROM listening_history history
+    JOIN userprofile listener ON history.UserID = listener.UserID
+    WHERE listener.UserType IN ('Listener', 'Artist')
+      AND listener.UserType NOT IN ('Analyst', 'Administrator', 'Developer')${excludedUsernameClause}${accountStatusClause}
+      AND history.ListenedAt >= ? AND history.ListenedAt <= ?
+    GROUP BY DATE(history.ListenedAt)
+    ORDER BY date ASC
+  `;
+  
+  const params = [...excludedUsernameParams, startDate, endDate];
+  const [rows] = await pool.execute<RowDataPacket[]>(query, params);
+  const result: Array<{ date: string; count: number }> = [];
+  for (const row of rows as any[]) {
+    const dateValue = row.date;
+    if (dateValue) {
+      const isoString = new Date(dateValue).toISOString();
+      const dateStr = isoString.split('T')[0] || '';
+      if (dateStr) {
+        result.push({
+          date: dateStr,
+          count: Number(row.count || 0)
+        });
+      }
+    }
+  }
+  return result;
 }
 
 // Get songs uploaded count
@@ -1834,6 +1876,7 @@ export async function getAnalyticsReport(
 
   if (showSongStats) {
     report.songActivity = await getSongActivity(pool, filters);
+    report.dailyListeningCounts = await getDailyListeningCounts(pool, filters);
   }
 
   if (filters.includeArtists && showArtistStats) {
