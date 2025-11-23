@@ -51,6 +51,7 @@ export const AlbumExpanded: React.FC<AlbumExpandedProps> = ({
   const [userRating, setUserRating] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [playbackError, setPlaybackError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchAlbumData = async () => {
@@ -203,20 +204,43 @@ export const AlbumExpanded: React.FC<AlbumExpandedProps> = ({
 
   const handlePlaySong = async (song: Song, songIndex: number) => {
     try {
+      // Clear any previous playback errors
+      setPlaybackError(null);
+      
+      // Validate that the song has a valid audio file
+      if (!song.FilePath || song.FilePath.trim() === '') {
+        const errorMsg = 'This song is not available for playback - no audio file found.';
+        setPlaybackError(errorMsg);
+        setTimeout(() => setPlaybackError(null), 5000);
+        return;
+      }
+
       // Convert all album songs to the format expected by AudioContext
-      const queue = songs.map(s => ({
-        id: s.SongID.toString(),
-        title: s.SongName,
-        artist: `${s.ArtistFirstName} ${s.ArtistLastName}`,
-        audioFilePath: s.FilePath || '',
-        imageUrl: '',
-        averageRating: 0,
-        totalRatings: 0,
-        userRating: null as number | null,
-        isLiked: false,
-        likeCount: 0,
-        listenCount: s.ListenCount
-      }));
+      // Only include songs that have valid audio files
+      const queue = songs
+        .filter(s => s.FilePath && s.FilePath.trim() !== '')
+        .map(s => ({
+          id: s.SongID.toString(),
+          title: s.SongName,
+          artist: `${s.ArtistFirstName} ${s.ArtistLastName}`,
+          audioFilePath: s.FilePath!,
+          imageUrl: '',
+          averageRating: 0,
+          totalRatings: 0,
+          userRating: null as number | null,
+          isLiked: false,
+          likeCount: 0,
+          listenCount: s.ListenCount
+        }));
+      
+      // Find the current song in the filtered queue
+      const currentSongInQueue = queue.findIndex(s => s.id === song.SongID.toString());
+      if (currentSongInQueue === -1) {
+        const errorMsg = 'Cannot play this song - audio file is not available.';
+        setPlaybackError(errorMsg);
+        setTimeout(() => setPlaybackError(null), 5000);
+        return;
+      }
 
       // Enrich the current song with rating and like data if user is logged in
       if (user?.userId) {
@@ -228,26 +252,31 @@ export const AlbumExpanded: React.FC<AlbumExpandedProps> = ({
 
         if (ratingStatsResponse.ok) {
           const ratingStats = await ratingStatsResponse.json();
-          queue[songIndex].averageRating = ratingStats.averageRating;
-          queue[songIndex].totalRatings = ratingStats.totalRatings;
+          queue[currentSongInQueue].averageRating = ratingStats.averageRating;
+          queue[currentSongInQueue].totalRatings = ratingStats.totalRatings;
         }
 
         if (userRatingResponse.ok) {
           const userRating = await userRatingResponse.json();
-          queue[songIndex].userRating = userRating.rating;
+          queue[currentSongInQueue].userRating = userRating.rating;
         }
 
         if (likeStatusResponse.ok) {
           const likeStatus = await likeStatusResponse.json();
-          queue[songIndex].isLiked = likeStatus.isLiked;
-          queue[songIndex].likeCount = likeStatus.likeCount;
+          queue[currentSongInQueue].isLiked = likeStatus.isLiked;
+          queue[currentSongInQueue].likeCount = likeStatus.likeCount;
         }
       }
 
       // Play the song with the entire album as queue (without opening the player modal)
-      playSong(queue[songIndex], queue, songIndex, false);
+      playSong(queue[currentSongInQueue], queue, currentSongInQueue, false);
+      
+      console.log('✅ Started playing song from album:', song.SongName);
     } catch (error) {
       console.error('Error playing song:', error);
+      const errorMsg = 'Failed to start playback. Please try again.';
+      setPlaybackError(errorMsg);
+      setTimeout(() => setPlaybackError(null), 5000);
     }
   };
 
@@ -303,6 +332,18 @@ export const AlbumExpanded: React.FC<AlbumExpandedProps> = ({
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6">
+          {/* Playback Error Message */}
+          {playbackError && (
+            <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-4">
+              <div className="flex items-center">
+                <svg className="w-5 h-5 text-red-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p className="text-red-800 text-sm">{playbackError}</p>
+              </div>
+            </div>
+          )}
+          
           {loading ? (
             <div className="flex justify-center items-center py-12">
               <div className="text-gray-600">Loading songs...</div>
@@ -344,27 +385,42 @@ export const AlbumExpanded: React.FC<AlbumExpandedProps> = ({
               )}
 
               <div className="space-y-2">
-              {songs.map((song, index) => (
-                <div
-                  key={song.SongID}
-                  className="bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition-colors border border-gray-200 group"
-                >
-                  <div className="flex items-center gap-4">
-                    {/* Play Button */}
-                    <button
-                      onClick={() => handlePlaySong(song, index)}
-                      className="flex-shrink-0 w-10 h-10 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center transition-colors opacity-0 group-hover:opacity-100"
-                      title="Play song"
-                    >
-                      <svg className="w-4 h-4 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M8 5v14l11-7z" />
-                      </svg>
-                    </button>
+              {songs.map((song, index) => {
+                const hasValidAudio = song.FilePath && song.FilePath.trim() !== '';
+                
+                return (
+                  <div
+                    key={song.SongID}
+                    className={`bg-gray-50 rounded-lg p-4 transition-colors border border-gray-200 group ${
+                      hasValidAudio ? 'hover:bg-gray-100 cursor-pointer' : 'opacity-60'
+                    }`}
+                  >
+                    <div className="flex items-center gap-4">
+                      {/* Play Button */}
+                      {hasValidAudio ? (
+                        <button
+                          onClick={() => handlePlaySong(song, index)}
+                          className="flex-shrink-0 w-10 h-10 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center transition-all opacity-30 group-hover:opacity-100"
+                          title="Play song"
+                        >
+                          <svg className="w-4 h-4 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M8 5v14l11-7z" />
+                          </svg>
+                        </button>
+                      ) : (
+                        <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gray-300 text-gray-500 flex items-center justify-center" title="Audio file not available">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L5.636 5.636" />
+                          </svg>
+                        </div>
+                      )}
 
-                    {/* Position Number */}
-                    <div className="text-gray-400 font-mono w-8 text-center group-hover:opacity-0 transition-opacity">
-                      {index + 1}
-                    </div>
+                      {/* Position Number */}
+                      <div className={`font-mono w-8 text-center transition-opacity ${
+                        hasValidAudio ? 'text-gray-400 group-hover:opacity-20' : 'text-gray-300'
+                      }`}>
+                        {index + 1}
+                      </div>
 
                     {/* Song Info */}
                     <div className="flex-1 min-w-0">
@@ -397,7 +453,8 @@ export const AlbumExpanded: React.FC<AlbumExpandedProps> = ({
                     </div>
                   </div>
                 </div>
-              ))}
+                );
+              })}
               </div>
             </>
           )}
