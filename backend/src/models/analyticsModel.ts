@@ -357,6 +357,14 @@ interface IndividualUserListenerAlbumActivity {
   likedAt: string | null;
   songsLikedCount: number;
   totalListeningDuration: number;
+  likedSongs?: Array<{
+    songId: number;
+    songName: string;
+    likedAt: string | null;
+    listenCount: number;
+    totalListenDuration: number;
+    averageListenDuration: number;
+  }>;
 }
 
 interface IndividualUserListenerPlaylistSongDetail {
@@ -2918,6 +2926,57 @@ async function getIndividualUserAlbumActivity(
     durationMap.set(albumId, (durationMap.get(albumId) ?? 0) + normalized);
   }
 
+  // Get detailed liked songs data for each album
+  const likedSongsQuery = `
+    SELECT
+      s.AlbumID,
+      s.SongID,
+      s.SongName,
+      uls.LikedAt,
+      COUNT(lh.HistoryID) AS ListenCount,
+      COALESCE(SUM(lh.Duration), 0) AS TotalListenDuration
+    FROM user_likes_song uls
+    JOIN song s ON s.SongID = uls.SongID
+    LEFT JOIN listening_history lh ON lh.SongID = s.SongID 
+      AND lh.UserID = ?
+      AND lh.ListenedAt >= ? AND lh.ListenedAt <= ?
+    WHERE uls.UserID = ?
+      AND uls.LikedAt >= ? AND uls.LikedAt <= ?
+      AND s.AlbumID IN (${placeholders})
+    GROUP BY s.AlbumID, s.SongID, s.SongName, uls.LikedAt
+    ORDER BY s.AlbumID, uls.LikedAt DESC
+  `;
+  const [likedSongsRows] = await pool.execute<RowDataPacket[]>(likedSongsQuery, [
+    userId,
+    startDate,
+    endDate,
+    userId,
+    startDate,
+    endDate,
+    ...albumIds
+  ]);
+
+  // Group liked songs by album
+  const likedSongsMap = new Map<number, any[]>();
+  for (const row of likedSongsRows as any[]) {
+    const albumId = Number(row.AlbumID);
+    const listenCount = Number(row.ListenCount || 0);
+    const totalDuration = Number(row.TotalListenDuration || 0);
+    const averageDuration = listenCount > 0 ? totalDuration / listenCount : 0;
+    
+    if (!likedSongsMap.has(albumId)) {
+      likedSongsMap.set(albumId, []);
+    }
+    likedSongsMap.get(albumId)!.push({
+      songId: Number(row.SongID),
+      songName: row.SongName || 'Unknown Song',
+      likedAt: row.LikedAt ? new Date(row.LikedAt).toISOString() : null,
+      listenCount,
+      totalListenDuration: totalDuration,
+      averageListenDuration: averageDuration
+    });
+  }
+
   return likedRows.map((row: any) => {
     const albumId = Number(row.AlbumID);
     return {
@@ -2927,7 +2986,8 @@ async function getIndividualUserAlbumActivity(
       artistUsername: row.ArtistUsername || null,
       likedAt: row.LikedAt ? new Date(row.LikedAt).toISOString() : null,
       songsLikedCount: songsLikedMap.get(albumId) ?? 0,
-      totalListeningDuration: durationMap.get(albumId) ?? 0
+      totalListeningDuration: durationMap.get(albumId) ?? 0,
+      likedSongs: likedSongsMap.get(albumId) || []
     };
   });
 }

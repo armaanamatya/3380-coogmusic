@@ -130,6 +130,7 @@ const ARTIST_PAGE_SIZE = 10;
 const ALBUM_PAGE_SIZE = 10;
 const PLAYLIST_PAGE_SIZE = 6;
 const SONG_PAGE_SIZE = 10;
+const LISTEN_HISTORY_PAGE_SIZE = 15;
 
 type PageInfo = {
   currentPage: number;
@@ -313,6 +314,20 @@ export const AnalyticsExpanded: React.FC<AnalyticsExpandedProps> = ({
   >({});
 
   const [paginationPages, setPaginationPages] = useState<Record<string, number>>({});
+  const [listenHistorySort, setListenHistorySort] = useState<Record<string, string>>({});
+  const [expandedListenHistory, setExpandedListenHistory] = useState<Record<string, boolean>>({});
+  const [expandedAlbumLikedSongs, setExpandedAlbumLikedSongs] = useState<Record<string, boolean>>({});
+  const [songFilters, setSongFilters] = useState({
+    genre: 'All Genres',
+    songLength: 'All Lengths',
+    artist: 'All Artists',
+    liked: 'All'
+  });
+  const [artistFilters, setArtistFilters] = useState({
+    verified: 'All',
+    country: 'All Countries',
+    city: 'All Cities'
+  });
 
   const getPageInfo = (key: string, total: number, pageSize = PAGE_SIZE): PageInfo => {
     const pageCount = Math.max(1, Math.ceil(total / pageSize));
@@ -1041,7 +1056,6 @@ export const AnalyticsExpanded: React.FC<AnalyticsExpandedProps> = ({
   // Render individual user report
   const renderIndividualUserReport = () => {
     const details = reportData.userDetails || {};
-    const loginStats = reportData.loginStats || {};
 
     const resolvedProfileImage =
       details?.profilePicture && typeof details.profilePicture === 'string'
@@ -1115,27 +1129,6 @@ export const AnalyticsExpanded: React.FC<AnalyticsExpandedProps> = ({
         {statusNotice && (
           <div className="text-sm font-semibold text-red-600">{statusNotice}</div>
         )}
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-center shadow-sm">
-            <p className="text-xs uppercase tracking-wide text-gray-500">Total Logins</p>
-            <p className="mt-1 text-lg font-semibold text-gray-900">
-              {formatNumber(loginStats?.totalLogins || 0)}
-            </p>
-          </div>
-          <div className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-center shadow-sm">
-            <p className="text-xs uppercase tracking-wide text-gray-500">Total Login Time</p>
-            <p className="mt-1 text-lg font-semibold text-gray-900">
-              {formatTime(loginStats?.totalTimeLoggedIn || 0)}
-            </p>
-          </div>
-          <div className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-center shadow-sm">
-            <p className="text-xs uppercase tracking-wide text-gray-500">Average Session</p>
-            <p className="mt-1 text-lg font-semibold text-gray-900">
-              {formatTime(loginStats?.averageTimeLoggedIn || 0)}
-            </p>
-          </div>
-        </div>
       </div>
     );
   };
@@ -1514,21 +1507,64 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
     }
 
     const summary = reportData.listenerSongSummary || {};
-    const songs = Array.isArray(reportData.listenerSongActivity)
+    const allSongs = Array.isArray(reportData.listenerSongActivity)
       ? [...reportData.listenerSongActivity].sort((a: any, b: any) => {
           const artistA = (a?.artistUsername || '').toLowerCase();
           const artistB = (b?.artistUsername || '').toLowerCase();
-          const artistComparison = artistB.localeCompare(artistA);
+          const artistComparison = artistA.localeCompare(artistB);
           if (artistComparison !== 0) return artistComparison;
           const nameA = (a?.songName || '').toLowerCase();
           const nameB = (b?.songName || '').toLowerCase();
-          return nameB.localeCompare(nameA);
+          return nameA.localeCompare(nameB);
         })
       : [];
+    
+    // Extract unique genres and artists for filter options
+    const uniqueGenres = Array.from(new Set(allSongs.map((song: any) => song.genre).filter(Boolean))).sort();
+    const uniqueArtists = Array.from(new Set(allSongs.map((song: any) => song.artistUsername).filter(Boolean))).sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+    
+    // Apply filters
+    const filteredSongs = allSongs.filter((song: any) => {
+      // Genre filter
+      if (songFilters.genre !== 'All Genres' && song.genre !== songFilters.genre) {
+        return false;
+      }
+      
+      // Song length filter
+      if (songFilters.songLength !== 'All Lengths') {
+        const duration = Number(song.duration || 0);
+        const lengthFilter = songFilters.songLength;
+        if (lengthFilter === '<1:00' && duration >= 60) return false;
+        if (lengthFilter === '<2:00' && duration >= 120) return false;
+        if (lengthFilter === '<3:00' && duration >= 180) return false;
+        if (lengthFilter === '<4:00' && duration >= 240) return false;
+        if (lengthFilter === '<5:00' && duration >= 300) return false;
+        if (lengthFilter === '>=5:00' && duration < 300) return false;
+      }
+      
+      // Artist filter
+      if (songFilters.artist !== 'All Artists' && song.artistUsername !== songFilters.artist) {
+        return false;
+      }
+      
+      // Liked filter
+      if (songFilters.liked !== 'All') {
+        if (songFilters.liked === 'Liked' && !song.liked) return false;
+        if (songFilters.liked === 'Not Liked' && song.liked) return false;
+      }
+      
+      return true;
+    });
+    
+    const { items: songs, pageInfo: songPageInfo } = getPaginatedList(
+      filteredSongs,
+      'individualListenerSongActivity',
+      SONG_PAGE_SIZE
+    );
 
     const summaryCards = [
       { label: 'Total Songs Listened', value: formatNumber(summary.totalSongsListened || 0) },
-      { label: 'Distinct Songs', value: formatNumber(summary.distinctSongsListened || 0) },
+      { label: 'Distinct Songs Played', value: formatNumber(summary.distinctSongsListened || 0) },
       { label: 'Songs Liked', value: formatNumber(summary.songsLiked || 0) },
       { label: 'Total Listen Duration', value: formatTime(summary.totalListeningDuration || 0) },
       { label: 'Average Listen Duration', value: formatTime(summary.averageListeningDuration || 0) }
@@ -1553,14 +1589,110 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
             ))}
           </div>
 
+          {/* Filters */}
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+            <h4 className="text-sm font-semibold text-gray-700 mb-3">Filters</h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Genre Filter */}
+              <div>
+                <label htmlFor="filter-genre" className="block text-xs font-medium text-gray-600 mb-1">
+                  Genre
+                </label>
+                <select
+                  id="filter-genre"
+                  value={songFilters.genre}
+                  onChange={(e) => {
+                    setSongFilters((prev) => ({ ...prev, genre: e.target.value }));
+                    setPaginationPages((prev) => ({ ...prev, 'individualListenerSongActivity': 0 }));
+                  }}
+                  className="w-full text-xs border border-gray-300 rounded-md px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                >
+                  <option value="All Genres">All Genres</option>
+                  {uniqueGenres.map((genre) => (
+                    <option key={genre} value={genre}>
+                      {genre}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Song Length Filter */}
+              <div>
+                <label htmlFor="filter-songLength" className="block text-xs font-medium text-gray-600 mb-1">
+                  Song Length
+                </label>
+                <select
+                  id="filter-songLength"
+                  value={songFilters.songLength}
+                  onChange={(e) => {
+                    setSongFilters((prev) => ({ ...prev, songLength: e.target.value }));
+                    setPaginationPages((prev) => ({ ...prev, 'individualListenerSongActivity': 0 }));
+                  }}
+                  className="w-full text-xs border border-gray-300 rounded-md px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                >
+                  <option value="All Lengths">All Lengths</option>
+                  <option value="<1:00">Less than 1:00</option>
+                  <option value="<2:00">Less than 2:00</option>
+                  <option value="<3:00">Less than 3:00</option>
+                  <option value="<4:00">Less than 4:00</option>
+                  <option value="<5:00">Less than 5:00</option>
+                  <option value=">=5:00">5:00 or longer</option>
+                </select>
+              </div>
+
+              {/* Artist Filter */}
+              <div>
+                <label htmlFor="filter-artist" className="block text-xs font-medium text-gray-600 mb-1">
+                  Artist
+                </label>
+                <select
+                  id="filter-artist"
+                  value={songFilters.artist}
+                  onChange={(e) => {
+                    setSongFilters((prev) => ({ ...prev, artist: e.target.value }));
+                    setPaginationPages((prev) => ({ ...prev, 'individualListenerSongActivity': 0 }));
+                  }}
+                  className="w-full text-xs border border-gray-300 rounded-md px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                >
+                  <option value="All Artists">All Artists</option>
+                  {uniqueArtists.map((artist) => (
+                    <option key={artist} value={artist}>
+                      {artist}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Liked Filter */}
+              <div>
+                <label htmlFor="filter-liked" className="block text-xs font-medium text-gray-600 mb-1">
+                  Liked
+                </label>
+                <select
+                  id="filter-liked"
+                  value={songFilters.liked}
+                  onChange={(e) => {
+                    setSongFilters((prev) => ({ ...prev, liked: e.target.value }));
+                    setPaginationPages((prev) => ({ ...prev, 'individualListenerSongActivity': 0 }));
+                  }}
+                  className="w-full text-xs border border-gray-300 rounded-md px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                >
+                  <option value="All">All</option>
+                  <option value="Liked">Liked</option>
+                  <option value="Not Liked">Not Liked</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
           {songs.length === 0 ? (
             <div className="border border-dashed border-gray-300 rounded-lg px-5 py-10 text-center text-sm text-gray-500">
-              No song activity recorded for the selected period.
+              {allSongs.length === 0
+                ? 'No song activity recorded for the selected period.'
+                : 'No songs match the selected filters.'}
             </div>
           ) : (
-            songs
-              .sort((a: any, b: any) => (b.totalListens || 0) - (a.totalListens || 0))
-              .map((song: any, idx: number) => {
+            songs.map((song: any, idx: number) => {
                 const listenDetails = Array.isArray(song.listenDetails) ? song.listenDetails : [];
 
                 return (
@@ -1611,45 +1743,136 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
 
                     <div className="px-5 py-4 space-y-4">
                       <div>
-                        <h5 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-2">
-                          Listen History
-                        </h5>
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
+                          <h5 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+                            Listen History
+                          </h5>
+                          {listenDetails.length > 0 && (
+                            <div className="flex items-center gap-3">
+                              <label htmlFor={`sort-${song.songId ?? idx}`} className="text-xs font-medium text-gray-600 whitespace-nowrap">
+                                Sort by:
+                              </label>
+                              <select
+                                id={`sort-${song.songId ?? idx}`}
+                                value={listenHistorySort[`${song.songId ?? idx}`] || 'date-desc'}
+                                onChange={(e) => {
+                                  const sortKey = `${song.songId ?? idx}`;
+                                  setListenHistorySort((prev) => ({
+                                    ...prev,
+                                    [sortKey]: e.target.value
+                                  }));
+                                  // Reset to first page when sorting changes
+                                  const paginationKey = `listenHistory-${song.songId ?? idx}`;
+                                  setPaginationPages((prev) => ({
+                                    ...prev,
+                                    [paginationKey]: 0
+                                  }));
+                                }}
+                                className="text-xs border border-gray-300 rounded-md px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                              >
+                                <option value="date-desc">Date (Newest First)</option>
+                                <option value="date-asc">Date (Oldest First)</option>
+                                <option value="duration-desc">Duration (Longest First)</option>
+                                <option value="duration-asc">Duration (Shortest First)</option>
+                              </select>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const historyKey = `${song.songId ?? idx}`;
+                                  setExpandedListenHistory((prev) => ({
+                                    ...prev,
+                                    [historyKey]: !prev[historyKey]
+                                  }));
+                                }}
+                                className="text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors whitespace-nowrap"
+                                aria-expanded={expandedListenHistory[`${song.songId ?? idx}`] ?? false}
+                              >
+                                {expandedListenHistory[`${song.songId ?? idx}`] ? 'Hide history' : 'Show history'}
+                              </button>
+                            </div>
+                          )}
+                        </div>
                         {listenDetails.length === 0 ? (
                           <div className="border border-dashed border-gray-300 rounded-md px-3 py-4 text-center text-sm text-gray-500">
                             No detailed listens were recorded for this song during the selected period.
                           </div>
-                        ) : (
-                          <div className="overflow-x-auto">
-                            <table className="min-w-full divide-y divide-gray-200 border border-gray-200">
-                              <thead className="bg-white">
-                                <tr className="text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                  <th className="px-3.5 py-2.5 text-left">Played On</th>
-                                  <th className="px-3.5 py-2.5 text-left">Listen Duration</th>
-            </tr>
-                              </thead>
-                              <tbody className="bg-white divide-y divide-gray-100">
-                                {listenDetails.map((detail: any, listenIdx: number) => (
-                                  <tr
-                                    key={`${song.songId ?? idx}-listen-${listenIdx}`}
-                                    className={listenIdx % 2 === 1 ? 'bg-gray-50' : 'bg-white'}
-                                  >
-                                    <td className="px-3.5 py-2.5 text-sm text-gray-900">
-                                      {formatDateTime(detail.listenedAt)}
-              </td>
-                                    <td className="px-3.5 py-2.5 text-sm text-gray-900">
-                                      {formatTime(Number(detail.duration || 0))}
-              </td>
-            </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                  </div>
+                        ) : expandedListenHistory[`${song.songId ?? idx}`] ? (() => {
+                          const sortKey = `${song.songId ?? idx}`;
+                          const sortOption = listenHistorySort[sortKey] || 'date-desc';
+                          
+                          // Sort the listen details
+                          const sortedDetails = [...listenDetails].sort((a: any, b: any) => {
+                            if (sortOption === 'date-desc') {
+                              return new Date(b.listenedAt || 0).getTime() - new Date(a.listenedAt || 0).getTime();
+                            } else if (sortOption === 'date-asc') {
+                              return new Date(a.listenedAt || 0).getTime() - new Date(b.listenedAt || 0).getTime();
+                            } else if (sortOption === 'duration-desc') {
+                              return Number(b.duration || 0) - Number(a.duration || 0);
+                            } else if (sortOption === 'duration-asc') {
+                              return Number(a.duration || 0) - Number(b.duration || 0);
+                            }
+                            return 0;
+                          });
+                          
+                          // Paginate the sorted results
+                          const paginationKey = `listenHistory-${song.songId ?? idx}`;
+                          const { items: pagedDetails, pageInfo: listenPageInfo } = getPaginatedList(
+                            sortedDetails,
+                            paginationKey,
+                            LISTEN_HISTORY_PAGE_SIZE
+                          );
+                          
+                          return (
+                            <div className="space-y-3">
+                              <div className="overflow-x-auto">
+                                <table className="min-w-full divide-y divide-gray-200 border border-gray-200">
+                                  <thead className="bg-white">
+                                    <tr className="text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                      <th className="px-3.5 py-2.5 text-left">Played On</th>
+                                      <th className="px-3.5 py-2.5 text-left">Listen Duration</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="bg-white divide-y divide-gray-100">
+                                    {pagedDetails.map((detail: any, listenIdx: number) => (
+                                      <tr
+                                        key={`${song.songId ?? idx}-listen-${listenIdx}`}
+                                        className={listenIdx % 2 === 1 ? 'bg-gray-50' : 'bg-white'}
+                                      >
+                                        <td className="px-3.5 py-2.5 text-sm text-gray-900">
+                                          {formatDateTime(detail.listenedAt)}
+                                        </td>
+                                        <td className="px-3.5 py-2.5 text-sm text-gray-900">
+                                          {formatTime(Number(detail.duration || 0))}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                              <PaginationControls
+                                pageInfo={listenPageInfo}
+                                onPageChange={(page) => setPageForKey(paginationKey, page, listenPageInfo.pageCount)}
+                                className="mt-2"
+                              />
+                            </div>
+                          );
+                        })() : (
+                          <div className="text-sm text-gray-500">
+                            Click "Show history" to reveal the listening history.
+                          </div>
                         )}
                       </div>
                   </div>
                   </section>
                 );
               })
+          )}
+          {allSongs.length > 0 && (
+            <PaginationControls
+              pageInfo={songPageInfo}
+              onPageChange={(page) => setPageForKey('individualListenerSongActivity', page, songPageInfo.pageCount)}
+              className="mt-4"
+            />
           )}
         </div>
       </div>
@@ -3850,11 +4073,44 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
       );
     }
 
-    const artists = Array.isArray(reportData.listenerArtistActivity)
-      ? [...reportData.listenerArtistActivity]
+    const allArtists = Array.isArray(reportData.listenerArtistActivity)
+      ? [...reportData.listenerArtistActivity].sort((a: any, b: any) => {
+          const usernameA = (a?.username || '').toLowerCase();
+          const usernameB = (b?.username || '').toLowerCase();
+          return usernameA.localeCompare(usernameB);
+        })
       : [];
 
-    if (artists.length === 0) {
+    // Extract unique countries and cities for filter options
+    const uniqueCountries = Array.from(
+      new Set(allArtists.map((artist: any) => artist.country).filter(Boolean))
+    ).sort();
+    const uniqueCities = Array.from(
+      new Set(allArtists.map((artist: any) => artist.city).filter(Boolean))
+    ).sort();
+
+    // Apply filters
+    const filteredArtists = allArtists.filter((artist: any) => {
+      // Verified filter
+      if (artistFilters.verified !== 'All') {
+        if (artistFilters.verified === 'Verified' && !artist.verified) return false;
+        if (artistFilters.verified === 'Not Verified' && artist.verified) return false;
+      }
+
+      // Country filter
+      if (artistFilters.country !== 'All Countries' && artist.country !== artistFilters.country) {
+        return false;
+      }
+
+      // City filter
+      if (artistFilters.city !== 'All Cities' && artist.city !== artistFilters.city) {
+        return false;
+      }
+
+      return true;
+    });
+
+    if (allArtists.length === 0) {
       return (
         <div className="bg-white border border-dashed border-gray-300 rounded-lg px-6 py-12 text-center text-gray-500">
           No artist activity recorded for the selected period.
@@ -3869,7 +4125,89 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
           <p className="text-xs text-gray-600">Artists followed by this listener during the reporting period</p>
         </div>
         <div className="px-5 py-4 space-y-4">
-          {artists.map((artist: any, idx: number) => {
+          {/* Filters */}
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+            <h4 className="text-sm font-semibold text-gray-700 mb-3">Filters</h4>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {/* Verified Filter */}
+              <div>
+                <label htmlFor="filter-artist-verified" className="block text-xs font-medium text-gray-600 mb-1">
+                  Verified Status
+                </label>
+                <select
+                  id="filter-artist-verified"
+                  value={artistFilters.verified}
+                  onChange={(e) => {
+                    setArtistFilters((prev) => ({ ...prev, verified: e.target.value }));
+                  }}
+                  className="w-full text-xs border border-gray-300 rounded-md px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                >
+                  <option value="All">All</option>
+                  <option value="Verified">Verified</option>
+                  <option value="Not Verified">Not Verified</option>
+                </select>
+              </div>
+
+              {/* Country Filter */}
+              <div>
+                <label htmlFor="filter-artist-country" className="block text-xs font-medium text-gray-600 mb-1">
+                  Country
+                </label>
+                <select
+                  id="filter-artist-country"
+                  value={artistFilters.country}
+                  onChange={(e) => {
+                    setArtistFilters((prev) => ({ ...prev, country: e.target.value, city: 'All Cities' }));
+                  }}
+                  className="w-full text-xs border border-gray-300 rounded-md px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                >
+                  <option value="All Countries">All Countries</option>
+                  {uniqueCountries.map((country) => (
+                    <option key={country} value={country}>
+                      {country}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* City Filter */}
+              <div>
+                <label htmlFor="filter-artist-city" className="block text-xs font-medium text-gray-600 mb-1">
+                  City
+                </label>
+                <select
+                  id="filter-artist-city"
+                  value={artistFilters.city}
+                  onChange={(e) => {
+                    setArtistFilters((prev) => ({ ...prev, city: e.target.value }));
+                  }}
+                  className="w-full text-xs border border-gray-300 rounded-md px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                >
+                  <option value="All Cities">All Cities</option>
+                  {uniqueCities
+                    .filter((city) => {
+                      // Filter cities based on selected country
+                      if (artistFilters.country === 'All Countries') return true;
+                      return allArtists.some(
+                        (artist: any) => artist.city === city && artist.country === artistFilters.country
+                      );
+                    })
+                    .map((city) => (
+                      <option key={city} value={city}>
+                        {city}
+                      </option>
+                    ))}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {filteredArtists.length === 0 ? (
+            <div className="border border-dashed border-gray-300 rounded-lg px-5 py-10 text-center text-sm text-gray-500">
+              No artists match the selected filters.
+            </div>
+          ) : (
+            filteredArtists.map((artist: any, idx: number) => {
             const locationParts = [artist.city, artist.country]
               .map((part: string | null) => (part ? String(part).trim() : ''))
               .filter((part: string) => Boolean(part) && part.toLowerCase() !== 'n/a');
@@ -3917,7 +4255,8 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
                 </div>
               </section>
             );
-          })}
+            })
+          )}
         </div>
       </div>
     );
@@ -3952,34 +4291,92 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
           <p className="text-xs text-gray-600">Albums this listener liked during the reporting period</p>
         </div>
         <div className="px-5 py-4 space-y-4">
-          {albums.map((album: any, idx: number) => (
-            <section
-              key={`${album.albumId ?? idx}`}
-              className="report-section bg-white border border-gray-200 rounded-lg shadow-sm"
-            >
-              <div className="bg-gray-100 px-5 py-3.5 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                <div>
-                  <h3 className="text-xl font-semibold text-gray-900">{album.albumName || 'Untitled Album'}</h3>
-                  <div className="mt-1 text-xs text-gray-500 flex flex-wrap gap-x-5 gap-y-1">
-                    <span>Release Date: {formatDate(album.releaseDate)}</span>
-                    <span>Artist: {album.artistUsername || 'Unknown Artist'}</span>
-                    <span>Liked On: {formatDate(album.likedAt)}</span>
+          {albums.map((album: any, idx: number) => {
+            const albumKey = `album-${album.albumId ?? idx}`;
+            const likedSongsExpanded = expandedAlbumLikedSongs[albumKey] ?? false;
+            const likedSongs = Array.isArray(album.likedSongs) ? album.likedSongs : [];
+            
+            return (
+              <section
+                key={`${album.albumId ?? idx}`}
+                className="report-section bg-white border border-gray-200 rounded-lg shadow-sm"
+              >
+                <div className="bg-gray-100 px-5 py-3.5 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <h3 className="text-xl font-semibold text-gray-900">{album.albumName || 'Untitled Album'}</h3>
+                    <div className="mt-1 text-xs text-gray-500 flex flex-wrap gap-x-5 gap-y-1">
+                      <span>Release Date: {formatDate(album.releaseDate)}</span>
+                      <span>Artist: {album.artistUsername || 'Unknown Artist'}</span>
+                      <span>Liked On: {formatDate(album.likedAt)}</span>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-4 text-sm text-gray-700">
+                    <div className="text-center min-w-[110px]">
+                      <p className="font-semibold text-lg text-gray-900">{formatNumber(album.songsLikedCount || 0)}</p>
+                      <p className="uppercase tracking-wide text-xs text-gray-500">Songs Liked</p>
+                    </div>
+                    <div className="text-center min-w-[130px]">
+                      <p className="font-semibold text-lg text-gray-900">{formatTime(Number(album.totalListeningDuration || 0))}</p>
+                      <p className="uppercase tracking-wide text-xs text-gray-500 whitespace-nowrap">Listen Time</p>
+                    </div>
                   </div>
                 </div>
-                <div className="flex flex-wrap gap-4 text-sm text-gray-700">
-                  <div className="text-center min-w-[110px]">
-                    <p className="font-semibold text-lg text-gray-900">{formatNumber(album.songsLikedCount || 0)}</p>
-                    <p className="uppercase tracking-wide text-xs text-gray-500">Songs Liked</p>
+
+                {likedSongs.length > 0 && (
+                  <div className="px-5 py-4">
+                    <div className="flex items-center justify-between gap-3 mb-2">
+                      <h5 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+                        Liked Songs on This Album
+                      </h5>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setExpandedAlbumLikedSongs((prev) => ({
+                            ...prev,
+                            [albumKey]: !prev[albumKey]
+                          }));
+                        }}
+                        className="text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors"
+                        aria-expanded={likedSongsExpanded}
+                      >
+                        {likedSongsExpanded ? 'Hide songs' : 'Show songs'}
+                      </button>
+                    </div>
+                    {likedSongsExpanded && (
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-200 border border-gray-200">
+                          <thead className="bg-gray-50">
+                            <tr className="text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                              <th className="px-3.5 py-2.5 text-left">Song Name</th>
+                              <th className="px-3.5 py-2.5 text-left">Liked On</th>
+                              <th className="px-3.5 py-2.5 text-center">Times Listened</th>
+                              <th className="px-3.5 py-2.5 text-center">Total Listen Duration</th>
+                              <th className="px-3.5 py-2.5 text-center">Average Listen Duration</th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-gray-100">
+                            {likedSongs.map((song: any, songIdx: number) => (
+                              <tr
+                                key={`${album.albumId ?? idx}-liked-song-${song.songId ?? songIdx}`}
+                                className={songIdx % 2 === 1 ? 'bg-gray-50' : 'bg-white'}
+                              >
+                                <td className="px-3.5 py-2.5 text-sm text-gray-900">{song.songName || 'Unknown Song'}</td>
+                                <td className="px-3.5 py-2.5 text-sm text-gray-900">{formatDate(song.likedAt)}</td>
+                                <td className="px-3.5 py-2.5 text-sm text-gray-900 text-center">{formatNumber(song.listenCount || 0)}</td>
+                                <td className="px-3.5 py-2.5 text-sm text-gray-900 text-center">{formatTime(Number(song.totalListenDuration || 0))}</td>
+                                <td className="px-3.5 py-2.5 text-sm text-gray-900 text-center">{formatTime(Number(song.averageListenDuration || 0))}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                   </div>
-                  <div className="text-center min-w-[130px]">
-                    <p className="font-semibold text-lg text-gray-900">{formatTime(Number(album.totalListeningDuration || 0))}</p>
-                    <p className="uppercase tracking-wide text-xs text-gray-500 whitespace-nowrap">Listen Time</p>
-                  </div>
-                </div>
-              </div>
-            </section>
-                ))}
-              </div>
+                )}
+              </section>
+            );
+          })}
+        </div>
       </div>
     );
   };
@@ -4113,6 +4510,23 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
           {playlists.map((playlist: any, idx: number) => {
             const songs = Array.isArray(playlist.songs) ? playlist.songs : [];
             const likedBy = Array.isArray(playlist.likedBy) ? playlist.likedBy : [];
+            const playlistKey = `playlist-${playlist.playlistId ?? idx}`;
+            const currentPlaylistState = expandedPlaylistSections[playlistKey] ?? { songs: false, liked: false };
+            const songsExpanded = currentPlaylistState.songs;
+            const likedExpanded = currentPlaylistState.liked;
+            
+            const togglePlaylistSection = (section: 'songs' | 'liked') => {
+              setExpandedPlaylistSections((prev) => {
+                const prior = prev[playlistKey] ?? { songs: false, liked: false };
+                return {
+                  ...prev,
+                  [playlistKey]: {
+                    ...prior,
+                    [section]: !prior[section]
+                  }
+                };
+              });
+            };
 
             return (
               <section
@@ -4136,33 +4550,42 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
                       <p className="font-semibold text-lg text-gray-900">{formatTime(Number(playlist.totalDuration || 0))}</p>
                       <p className="uppercase tracking-wide text-xs text-gray-500 whitespace-nowrap">Total Duration</p>
                     </div>
-                    {playlist.isPublic && (
-                      <div className="text-center min-w-[110px]">
-                        <p className="font-semibold text-lg text-gray-900">{formatNumber(playlist.likes || 0)}</p>
-                        <p className="uppercase tracking-wide text-xs text-gray-500">Likes</p>
-                      </div>
-                    )}
+                    <div className="text-center min-w-[110px]">
+                      <p className="font-semibold text-lg text-gray-900">{formatNumber(playlist.likes || 0)}</p>
+                      <p className="uppercase tracking-wide text-xs text-gray-500">Likes</p>
+                    </div>
                   </div>
                 </div>
 
                 <div className="px-5 pb-4 space-y-4">
                   <div>
-                    <h5 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-2">
-                      Songs in this Playlist
-                    </h5>
+                    <div className="flex items-center justify-between gap-3 mb-2">
+                      <h5 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+                        Songs in this Playlist
+                      </h5>
+                      {songs.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => togglePlaylistSection('songs')}
+                          className="text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors"
+                          aria-expanded={songsExpanded}
+                        >
+                          {songsExpanded ? 'Hide songs' : 'Show songs'}
+                        </button>
+                      )}
+                    </div>
                     {songs.length === 0 ? (
                       <div className="border border-dashed border-gray-300 rounded-md px-3 py-4 text-center text-sm text-gray-500">
                         No songs were added to this playlist during the selected period.
                       </div>
-                    ) : (
+                    ) : songsExpanded ? (
                       <div className="overflow-x-auto">
                         <table className="min-w-full divide-y divide-gray-200 border border-gray-200">
-                          <thead className="bg-white">
+                          <thead className="bg-gray-50">
                             <tr className="text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                              <th className="px-3.5 py-2.5 text-left">Song</th>
+                              <th className="px-3.5 py-2.5 text-left">Song Name</th>
                               <th className="px-3.5 py-2.5 text-left">Artist</th>
                               <th className="px-3.5 py-2.5 text-left">Album</th>
-                              <th className="px-3.5 py-2.5 text-left">Length</th>
                               <th className="px-3.5 py-2.5 text-left">Added On</th>
                             </tr>
                           </thead>
@@ -4175,56 +4598,67 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
                                 <td className="px-3.5 py-2.5 text-sm text-gray-900">{song.songName || 'Unknown Song'}</td>
                                 <td className="px-3.5 py-2.5 text-sm text-gray-900">{song.artistUsername || 'Unknown Artist'}</td>
                                 <td className="px-3.5 py-2.5 text-sm text-gray-700">{song.albumName || 'N/A'}</td>
-                                <td className="px-3.5 py-2.5 text-sm text-gray-900">{formatTime(Number(song.duration || 0))}</td>
                                 <td className="px-3.5 py-2.5 text-sm text-gray-900">{formatDate(song.addedAt)}</td>
                               </tr>
                             ))}
-      </tbody>
+                          </tbody>
                         </table>
+                      </div>
+                    ) : (
+                      <div className="text-sm text-gray-500">
+                        Click "Show songs" to reveal the list.
                       </div>
                     )}
                   </div>
 
-                  {playlist.isPublic && (
-                    <div>
-                      <h5 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-2">
+                  <div>
+                    <div className="flex items-center justify-between gap-3 mb-2">
+                      <h5 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
                         Users Who Liked This Playlist
                       </h5>
-                      {likedBy.length === 0 ? (
-                        <div className="border border-dashed border-gray-300 rounded-md px-3 py-4 text-center text-sm text-gray-500">
-                          No likes were recorded for this playlist during the selected period.
-                        </div>
-                      ) : (
-                        <div className="overflow-x-auto">
-                          <table className="min-w-full divide-y divide-gray-200 border border-gray-200">
-                            <thead className="bg-white">
-                              <tr className="text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                <th className="px-3.5 py-2.5 text-left">Username</th>
-                                <th className="px-3.5 py-2.5 text-left">First Name</th>
-                                <th className="px-3.5 py-2.5 text-left">Last Name</th>
-                                <th className="px-3.5 py-2.5 text-left">Email</th>
-                                <th className="px-3.5 py-2.5 text-left">Liked On</th>
-                              </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-100">
-                              {likedBy.map((user: any, likeIdx: number) => (
-                                <tr
-                                  key={`${playlist.playlistId ?? idx}-liked-${user.userId ?? likeIdx}`}
-                                  className={likeIdx % 2 === 1 ? 'bg-gray-50' : 'bg-white'}
-                                >
-                                  <td className="px-3.5 py-2.5 text-sm text-gray-900">{user.username || 'Unknown'}</td>
-                                  <td className="px-3.5 py-2.5 text-sm text-gray-900">{user.firstName || 'N/A'}</td>
-                                  <td className="px-3.5 py-2.5 text-sm text-gray-900">{user.lastName || 'N/A'}</td>
-                                  <td className="px-3.5 py-2.5 text-sm text-gray-700 break-all">{user.email || 'N/A'}</td>
-                                  <td className="px-3.5 py-2.5 text-sm text-gray-900">{formatDate(user.likedAt)}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
+                      {likedBy.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => togglePlaylistSection('liked')}
+                          className="text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors"
+                          aria-expanded={likedExpanded}
+                        >
+                          {likedExpanded ? 'Hide users' : 'Show users'}
+                        </button>
                       )}
                     </div>
-                  )}
+                    {likedBy.length === 0 ? (
+                      <div className="border border-dashed border-gray-300 rounded-md px-3 py-4 text-center text-sm text-gray-500">
+                        No likes were recorded for this playlist during the selected period.
+                      </div>
+                    ) : likedExpanded ? (
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-200 border border-gray-200">
+                          <thead className="bg-gray-50">
+                            <tr className="text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                              <th className="px-3.5 py-2.5 text-left">Username</th>
+                              <th className="px-3.5 py-2.5 text-left">Liked On</th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-gray-100">
+                            {likedBy.map((user: any, likeIdx: number) => (
+                              <tr
+                                key={`${playlist.playlistId ?? idx}-liked-${user.userId ?? likeIdx}`}
+                                className={likeIdx % 2 === 1 ? 'bg-gray-50' : 'bg-white'}
+                              >
+                                <td className="px-3.5 py-2.5 text-sm text-gray-900">{user.username || 'Unknown'}</td>
+                                <td className="px-3.5 py-2.5 text-sm text-gray-900">{formatDate(user.likedAt)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <div className="text-sm text-gray-500">
+                        Click "Show users" to reveal the list.
+                      </div>
+                    )}
+                  </div>
                 </div>
               </section>
             );
