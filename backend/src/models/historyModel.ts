@@ -1,6 +1,8 @@
-import { createPool } from '../database';
+import { Pool, RowDataPacket, ResultSetHeader } from 'mysql2/promise';
+import { getPool } from '../database';
 
-const pool = createPool();
+// Note: These functions should receive pool as parameter for consistency
+// This file is kept for backward compatibility but controllers should be used instead
 
 export interface ListeningHistory {
   historyId: number;
@@ -17,16 +19,17 @@ export interface NewListeningHistory {
 }
 
 export const addListeningHistory = async (history: NewListeningHistory) => {
+  const pool = await getPool();
   const sql = `
     INSERT INTO listening_history (UserID, SongID, Duration)
     VALUES (?, ?, ?)
   `;
   
   try {
-    const result = pool.prepare(sql).run(...([history.userId, history.songId, history.duration || null]));
-    return result;
+    const [result] = await pool.execute<ResultSetHeader>(sql, [history.userId, history.songId, history.duration || null]);
+    return { lastInsertRowid: result.insertId, changes: result.affectedRows };
   } catch (error: any) {
-    if (error.code === error.message && error.message.includes('FOREIGN KEY constraint failed')) {
+    if (error.code === 'ER_NO_REFERENCED_ROW_2' || error.message?.includes('FOREIGN KEY')) {
       throw new Error('User or song does not exist');
     }
     throw error;
@@ -34,6 +37,7 @@ export const addListeningHistory = async (history: NewListeningHistory) => {
 };
 
 export const getUserListeningHistory = async (userId: number, limit?: number) => {
+  const pool = await getPool();
   let sql = `
     SELECT lh.*, s.SongName, s.Duration as SongDuration, s.FilePath,
            u.Username, u.FirstName, u.LastName, a.AlbumName
@@ -46,15 +50,18 @@ export const getUserListeningHistory = async (userId: number, limit?: number) =>
     ORDER BY lh.ListenedAt DESC
   `;
   
+  const params: any[] = [userId];
   if (limit) {
-    sql += ` LIMIT ${limit}`;
+    sql += ` LIMIT ?`;
+    params.push(limit);
   }
   
-  const rows = pool.prepare(sql).all(userId);
+  const [rows] = await pool.execute<RowDataPacket[]>(sql, params);
   return rows;
 };
 
 export const getSongListeningHistory = async (songId: number, limit?: number) => {
+  const pool = await getPool();
   let sql = `
     SELECT lh.*, u.Username, u.FirstName, u.LastName
     FROM listening_history lh
@@ -63,15 +70,18 @@ export const getSongListeningHistory = async (songId: number, limit?: number) =>
     ORDER BY lh.ListenedAt DESC
   `;
   
+  const params: any[] = [songId];
   if (limit) {
-    sql += ` LIMIT ${limit}`;
+    sql += ` LIMIT ?`;
+    params.push(limit);
   }
   
-  const rows = pool.prepare(sql).all(songId);
+  const [rows] = await pool.execute<RowDataPacket[]>(sql, params);
   return rows;
 };
 
 export const getRecentListeningHistory = async (userId: number, hours: number = 24, limit?: number) => {
+  const pool = await getPool();
   let sql = `
     SELECT lh.*, s.SongName, s.Duration as SongDuration, s.FilePath,
            u.Username, u.FirstName, u.LastName, a.AlbumName
@@ -84,15 +94,18 @@ export const getRecentListeningHistory = async (userId: number, hours: number = 
     ORDER BY lh.ListenedAt DESC
   `;
   
+  const params: any[] = [userId, hours];
   if (limit) {
-    sql += ` LIMIT ${limit}`;
+    sql += ` LIMIT ?`;
+    params.push(limit);
   }
   
-  const rows = pool.prepare(sql).all(userId, hours);
+  const [rows] = await pool.execute<RowDataPacket[]>(sql, params);
   return rows;
 };
 
 export const getUserMostPlayedSongs = async (userId: number, limit: number = 10) => {
+  const pool = await getPool();
   const sql = `
     SELECT s.*, u.Username, u.FirstName, u.LastName, a.AlbumName,
            COUNT(lh.HistoryID) as playCount,
@@ -108,11 +121,12 @@ export const getUserMostPlayedSongs = async (userId: number, limit: number = 10)
     LIMIT ?;
   `;
   
-  const rows = pool.prepare(sql).all(userId, limit);
+  const [rows] = await pool.execute<RowDataPacket[]>(sql, [userId, limit]);
   return rows;
 };
 
 export const getUserMostPlayedArtists = async (userId: number, limit: number = 10) => {
+  const pool = await getPool();
   const sql = `
     SELECT ar.*, u.Username, u.FirstName, u.LastName,
            COUNT(lh.HistoryID) as playCount,
@@ -127,11 +141,12 @@ export const getUserMostPlayedArtists = async (userId: number, limit: number = 1
     LIMIT ?;
   `;
   
-  const rows = pool.prepare(sql).all(userId, limit);
+  const [rows] = await pool.execute<RowDataPacket[]>(sql, [userId, limit]);
   return rows;
 };
 
 export const getGlobalMostPlayedSongs = async (limit: number = 10) => {
+  const pool = await getPool();
   const sql = `
     SELECT s.*, u.Username, u.FirstName, u.LastName, a.AlbumName,
            COUNT(lh.HistoryID) as playCount,
@@ -146,23 +161,26 @@ export const getGlobalMostPlayedSongs = async (limit: number = 10) => {
     LIMIT ?;
   `;
   
-  const rows = pool.prepare(sql).all(limit);
+  const [rows] = await pool.execute<RowDataPacket[]>(sql, [limit]);
   return rows;
 };
 
 export const deleteUserListeningHistory = async (userId: number) => {
+  const pool = await getPool();
   const sql = `DELETE FROM listening_history WHERE UserID = ?`;
-  const result = pool.prepare(sql).run(...([userId]));
-  return result;
+  const [result] = await pool.execute<ResultSetHeader>(sql, [userId]);
+  return { changes: result.affectedRows };
 };
 
 export const deleteSongListeningHistory = async (songId: number) => {
+  const pool = await getPool();
   const sql = `DELETE FROM listening_history WHERE SongID = ?`;
-  const result = pool.prepare(sql).run(...([songId]));
-  return result;
+  const [result] = await pool.execute<ResultSetHeader>(sql, [songId]);
+  return { changes: result.affectedRows };
 };
 
 export const getListeningStats = async (userId: number) => {
+  const pool = await getPool();
   const sql = `
     SELECT 
       COUNT(DISTINCT lh.SongID) as uniqueSongsPlayed,
@@ -175,7 +193,7 @@ export const getListeningStats = async (userId: number) => {
     WHERE lh.UserID = ?;
   `;
   
-  const rows = pool.prepare(sql).all(userId);
+  const [rows] = await pool.execute<RowDataPacket[]>(sql, [userId]);
   return (rows as any[])[0];
 };
 

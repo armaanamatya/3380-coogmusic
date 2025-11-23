@@ -57,6 +57,9 @@ export const createConnection = async (): Promise<mysql.Pool> => {
 
 export const getPool = createConnection;
 
+// Alias for backward compatibility with model files
+export const createPool = createConnection;
+
 export const testConnection = async (): Promise<boolean> => {
   try {
     const database = await createConnection();
