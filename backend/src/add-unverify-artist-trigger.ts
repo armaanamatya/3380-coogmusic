@@ -26,7 +26,7 @@ const addUnverifyArtistTrigger = async () => {
     `).get();
     
     if (triggerExists) {
-      console.log('Trigger "unverify_artist_below_20_followers" already exists. Skipping...');'
+      console.log('Trigger "unverify_artist_below_20_followers" already exists. Skipping...');
       db.close();
       return;
     }
@@ -68,7 +68,7 @@ const addUnverifyArtistTrigger = async () => {
     `).all();
     
     if (artistsToUnverify.length > 0) {
-      console.log(`Found ${artistsToUnverify.length} artist(s) with < 20 followers that should be unverified:`);'
+      console.log(`Found ${artistsToUnverify.length} artist(s) with < 20 followers that should be unverified:`);
       
       const updateStmt = db.prepare(`
         UPDATE artist

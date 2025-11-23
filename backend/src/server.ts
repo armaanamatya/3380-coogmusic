@@ -21,6 +21,7 @@ import * as followController from './controllers/followController.js';
 import * as historyController from './controllers/historyController.js';
 // import { getAzureStorage } from './services/azureStorage.js'; // Commented out for local storage deployment
 import * as analyticsController from './controllers/analyticsController.js';
+import * as loginModel from './models/loginModel.js';
 import { RegisterUserData, LoginCredentials, UploadMusicData, CreateAlbumData } from './types/index.js';
 
 dotenv.config();
@@ -370,6 +371,51 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
       } catch (error: any) {
         logError(error);
         const statusCode = error.message.includes('Invalid') || error.message.includes('required') ? 401 : 500;
+        console.log(`  Response: ${statusCode} - ${error.message}`);
+        res.writeHead(statusCode, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
+      }
+    });
+    
+    return;
+  }
+
+  // User Logout Endpoint
+  if (requestPath === '/api/auth/logout' && method === 'POST') {
+    console.log('  🚪 Processing logout request...');
+    let body = '';
+    
+    req.on('data', (chunk) => {
+      body += chunk.toString();
+    });
+
+    req.on('end', async () => {
+      try {
+        const { userId } = JSON.parse(body);
+        
+        if (!userId) {
+          throw new Error('User ID is required');
+        }
+        
+        console.log(`  👤 User: ${userId}`);
+        
+        const pool = await getPool();
+
+        // Get active login for user
+        const activeLogin = await loginModel.getActiveLogin(pool, userId);
+        
+        if (activeLogin) {
+          // Update logout time - this will trigger set_user_offline_on_logout automatically
+          await loginModel.logoutLogin(pool, activeLogin.LoginID);
+          console.log(`  ✅ User logged out successfully (LoginID: ${activeLogin.LoginID})`);
+        }
+
+        logResponse(200, 'Logout successful');
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ message: 'Logout successful' }));
+      } catch (error: any) {
+        logError(error);
+        const statusCode = error.message.includes('required') ? 400 : 500;
         console.log(`  Response: ${statusCode} - ${error.message}`);
         res.writeHead(statusCode, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: error.message || 'Internal server error' }));

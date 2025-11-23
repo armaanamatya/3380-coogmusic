@@ -27,7 +27,7 @@ const addVerifyArtistTrigger = async () => {
     `).get();
     
     if (triggerExists) {
-      console.log('Trigger "verify_artist_on_20_followers" already exists. Skipping...');'
+      console.log('Trigger "verify_artist_on_20_followers" already exists. Skipping...');
       db.close();
       return;
     }
