@@ -415,6 +415,86 @@ END$$
 
 DELIMITER ;
 
+-- Notifications Table
+CREATE TABLE IF NOT EXISTS notifications (
+    NotificationID INT AUTO_INCREMENT PRIMARY KEY,
+    UserID INT NOT NULL,
+    ArtistID INT NOT NULL,
+    SongID INT NOT NULL,
+    NotificationType ENUM('new_song', 'new_album', 'artist_update') NOT NULL DEFAULT 'new_song',
+    Message TEXT NOT NULL,
+    IsRead TINYINT(1) NOT NULL DEFAULT 0,
+    CreatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    ReadAt DATETIME NULL,
+    FOREIGN KEY (UserID) REFERENCES userprofile(UserID) ON DELETE CASCADE,
+    FOREIGN KEY (ArtistID) REFERENCES artist(ArtistID) ON DELETE CASCADE,
+    FOREIGN KEY (SongID) REFERENCES song(SongID) ON DELETE CASCADE,
+    INDEX idx_notifications_user (UserID),
+    INDEX idx_notifications_read (IsRead),
+    INDEX idx_notifications_created (CreatedAt)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Notification Settings Table
+CREATE TABLE IF NOT EXISTS notification_settings (
+    UserID INT NOT NULL PRIMARY KEY,
+    NewSongNotifications TINYINT(1) NOT NULL DEFAULT 1,
+    NewAlbumNotifications TINYINT(1) NOT NULL DEFAULT 1,
+    ArtistUpdateNotifications TINYINT(1) NOT NULL DEFAULT 1,
+    OnlyVerifiedArtists TINYINT(1) NOT NULL DEFAULT 0,
+    EmailNotifications TINYINT(1) NOT NULL DEFAULT 0,
+    CreatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UpdatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (UserID) REFERENCES userprofile(UserID) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Trigger to create default notification settings for new users
+DELIMITER $$
+
+CREATE TRIGGER create_default_notification_settings
+AFTER INSERT ON userprofile
+FOR EACH ROW
+BEGIN
+    INSERT INTO notification_settings (UserID)
+    VALUES (NEW.UserID);
+END$$
+
+-- Trigger to create notifications when artists post new songs
+CREATE TRIGGER notify_followers_new_song
+AFTER INSERT ON song
+FOR EACH ROW
+BEGIN
+    DECLARE artist_name VARCHAR(201);
+    DECLARE song_notification_message TEXT;
+    
+    -- Get artist's full name
+    SELECT CONCAT(up.FirstName, ' ', up.LastName) INTO artist_name
+    FROM userprofile up
+    WHERE up.UserID = NEW.ArtistID;
+    
+    -- Create the notification message
+    SET song_notification_message = CONCAT(artist_name, ' just posted a new song "', NEW.SongName, '" - go check it out!');
+    
+    -- Insert notifications for all followers who have new song notifications enabled
+    INSERT INTO notifications (UserID, ArtistID, SongID, NotificationType, Message, CreatedAt)
+    SELECT 
+        uf.UserID,
+        NEW.ArtistID,
+        NEW.SongID,
+        'new_song',
+        song_notification_message,
+        NOW()
+    FROM user_follows_artist uf
+    INNER JOIN notification_settings ns ON uf.UserID = ns.UserID
+    WHERE uf.ArtistID = NEW.ArtistID 
+        AND ns.NewSongNotifications = 1
+        AND (ns.OnlyVerifiedArtists = 0 OR EXISTS(
+            SELECT 1 FROM artist a 
+            WHERE a.ArtistID = NEW.ArtistID AND a.VerifiedStatus = 1
+        ));
+END$$
+
+DELIMITER ;
+
 -- Insert default genres
 INSERT INTO genre (GenreName, Description) VALUES
 ('Pop', 'Popular music characterized by catchy melodies and broad appeal'),

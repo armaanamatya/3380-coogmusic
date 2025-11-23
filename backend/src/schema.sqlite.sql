@@ -365,6 +365,69 @@ BEGIN
     WHERE AlbumID = OLD.AlbumID;
 END;
 
+-- Notifications Table
+CREATE TABLE IF NOT EXISTS notifications (
+    NotificationID INTEGER PRIMARY KEY AUTOINCREMENT,
+    UserID INTEGER NOT NULL,
+    ArtistID INTEGER NOT NULL,
+    SongID INTEGER NOT NULL,
+    NotificationType TEXT NOT NULL DEFAULT 'new_song' CHECK (NotificationType IN ('new_song', 'new_album', 'artist_update')),
+    Message TEXT NOT NULL,
+    IsRead INTEGER NOT NULL DEFAULT 0 CHECK (IsRead IN (0, 1)),
+    CreatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    ReadAt DATETIME NULL,
+    FOREIGN KEY (UserID) REFERENCES userprofile(UserID) ON DELETE CASCADE,
+    FOREIGN KEY (ArtistID) REFERENCES artist(ArtistID) ON DELETE CASCADE,
+    FOREIGN KEY (SongID) REFERENCES song(SongID) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_notifications_user ON notifications(UserID);
+CREATE INDEX idx_notifications_read ON notifications(IsRead);
+CREATE INDEX idx_notifications_created ON notifications(CreatedAt);
+
+-- Notification Settings Table
+CREATE TABLE IF NOT EXISTS notification_settings (
+    UserID INTEGER NOT NULL PRIMARY KEY,
+    NewSongNotifications INTEGER NOT NULL DEFAULT 1 CHECK (NewSongNotifications IN (0, 1)),
+    NewAlbumNotifications INTEGER NOT NULL DEFAULT 1 CHECK (NewAlbumNotifications IN (0, 1)),
+    ArtistUpdateNotifications INTEGER NOT NULL DEFAULT 1 CHECK (ArtistUpdateNotifications IN (0, 1)),
+    OnlyVerifiedArtists INTEGER NOT NULL DEFAULT 0 CHECK (OnlyVerifiedArtists IN (0, 1)),
+    EmailNotifications INTEGER NOT NULL DEFAULT 0 CHECK (EmailNotifications IN (0, 1)),
+    CreatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UpdatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (UserID) REFERENCES userprofile(UserID) ON DELETE CASCADE
+);
+
+-- Trigger to create default notification settings for new users
+CREATE TRIGGER create_default_notification_settings
+AFTER INSERT ON userprofile
+BEGIN
+    INSERT INTO notification_settings (UserID)
+    VALUES (NEW.UserID);
+END;
+
+-- Trigger to create notifications when artists post new songs
+CREATE TRIGGER notify_followers_new_song
+AFTER INSERT ON song
+BEGIN
+    INSERT INTO notifications (UserID, ArtistID, SongID, NotificationType, Message, CreatedAt)
+    SELECT 
+        uf.UserID,
+        NEW.ArtistID,
+        NEW.SongID,
+        'new_song',
+        (SELECT up.FirstName || ' ' || up.LastName FROM userprofile up WHERE up.UserID = NEW.ArtistID) || ' just posted a new song "' || NEW.SongName || '" - go check it out!',
+        CURRENT_TIMESTAMP
+    FROM user_follows_artist uf
+    INNER JOIN notification_settings ns ON uf.UserID = ns.UserID
+    WHERE uf.ArtistID = NEW.ArtistID 
+        AND ns.NewSongNotifications = 1
+        AND (ns.OnlyVerifiedArtists = 0 OR EXISTS(
+            SELECT 1 FROM artist a 
+            WHERE a.ArtistID = NEW.ArtistID AND a.VerifiedStatus = 1
+        ));
+END;
+
 -- Insert default genres
 INSERT INTO genre (GenreName, Description) VALUES
 ('Pop', 'Popular music characterized by catchy melodies and broad appeal'),
