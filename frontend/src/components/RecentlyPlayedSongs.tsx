@@ -227,7 +227,7 @@ function RecentlyPlayedSongs({ onPlaySong, refreshTrigger }: RecentlyPlayedSongs
             <p className="text-sm text-gray-500">Start playing songs to see them here!</p>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="overflow-y-auto max-h-[400px] space-y-3 scrollbar-thin">
             {history.map((item, index) => (
               <div
                 key={item.HistoryID}

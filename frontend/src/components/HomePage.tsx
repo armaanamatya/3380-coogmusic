@@ -115,7 +115,7 @@ type MusicSubTab = 'library' | 'upload' | 'albums' | 'edit';
 
 function HomePage() {
   const { user, logout } = useAuth()
-  const { state: audioState, playSong, dispatch: audioDispatch, setListenCountCallback } = useAudio()
+  const { state: audioState, playSong, dispatch: audioDispatch, setListenCountCallback, setHistoryUpdateCallback } = useAudio()
   const [searchQuery, setSearchQuery] = useState('')
   const [activeTab, setActiveTab] = useState('home')
   
@@ -285,9 +285,6 @@ function HomePage() {
       // Use AudioContext to play the song
       playSong(enrichedSong)
       audioDispatch({ type: 'TOGGLE_PLAYER', payload: true })
-      
-      // Update history list when a new song starts playing  
-      handleHistoryUpdate()
     } catch (error) {
       console.error('Error fetching song data:', error)
       // Still play song with basic info if API calls fail
@@ -361,9 +358,6 @@ function HomePage() {
       // Use AudioContext to play the song with queue
       playSong(enrichedSong, queueSongs, startIndex >= 0 ? startIndex : 0)
       audioDispatch({ type: 'TOGGLE_PLAYER', payload: true })
-      
-      // Update history list when a new song starts playing
-      handleHistoryUpdate()
     } catch (error) {
       console.error('Error fetching song data:', error)
       // Still play song with basic info if API calls fail
@@ -778,12 +772,14 @@ function HomePage() {
     }
 
     setListenCountCallback(handleListenCountUpdate)
+    setHistoryUpdateCallback(handleHistoryUpdate)
 
     // Cleanup on unmount
     return () => {
       setListenCountCallback(() => {})
+      setHistoryUpdateCallback(() => {})
     }
-  }, [setListenCountCallback])
+  }, [setListenCountCallback, setHistoryUpdateCallback])
 
   // Fetch top 10 albums by like count
   useEffect(() => {
