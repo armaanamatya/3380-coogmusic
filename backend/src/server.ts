@@ -3130,24 +3130,26 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
 
         const pool = await getPool();
         
-        // Get songs in this album first
-        const [songs] = await pool.execute('SELECT SongID FROM song WHERE AlbumID = ?', [albumId]);
+        // Start transaction for atomic operation
+        await pool.query('START TRANSACTION');
         
-        // Delete related records for each song
-        for (const song of songs as any[]) {
-          await pool.execute('DELETE FROM user_likes_song WHERE SongID = ?', [song.SongID]);
-          await pool.execute('DELETE FROM playlist_song WHERE SongID = ?', [song.SongID]);
-          await pool.execute('DELETE FROM listening_history WHERE SongID = ?', [song.SongID]);
+        try {
+          // Clean up album-specific data first (before FK CASCADE)
+          await pool.execute('DELETE FROM user_likes_album WHERE AlbumID = ?', [albumId]);
+          await pool.execute('DELETE FROM album_ratings WHERE AlbumID = ?', [albumId]);
+
+          // Delete the album - FK CASCADE will automatically:
+          // 1. Delete all songs in the album
+          // 2. Song deletion triggers will clean up playlists, likes, history, ratings
+          await pool.execute('DELETE FROM album WHERE AlbumID = ?', [albumId]);
+          
+          // Commit transaction
+          await pool.query('COMMIT');
+        } catch (error) {
+          // Rollback on error
+          await pool.query('ROLLBACK');
+          throw error;
         }
-        
-        // Delete songs in album
-        await pool.execute('DELETE FROM song WHERE AlbumID = ?', [albumId]);
-        
-        // Delete album likes
-        await pool.execute('DELETE FROM user_likes_album WHERE AlbumID = ?', [albumId]);
-        
-        // Delete the album
-        await pool.execute('DELETE FROM album WHERE AlbumID = ?', [albumId]);
         
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ message: 'Album deleted successfully' }));

@@ -122,7 +122,7 @@ export async function updateAlbumCover(
   await pool.execute('UPDATE album SET AlbumCover = ? WHERE AlbumID = ?', [albumCoverPath, albumId]);
 }
 
-// Delete album
+// Delete album with complete cleanup
 export async function deleteAlbum(pool: Pool, albumId: number): Promise<{ albumArtPath: string | null }> {
   // Check if album exists
   const [albums] = await pool.execute<RowDataPacket[]>(
@@ -135,20 +135,29 @@ export async function deleteAlbum(pool: Pool, albumId: number): Promise<{ albumA
 
   const album = albums[0] as any;
 
-  // Check if album has songs
-  const [songsCounts] = await pool.execute<RowDataPacket[]>(
-    'SELECT COUNT(*) as count FROM song WHERE AlbumID = ?', 
-    [albumId]
-  );
-  const songsCount = songsCounts[0] as any;
-  if (songsCount.count > 0) {
-    throw new Error('Cannot delete album with existing songs');
+  // Start transaction for atomic operation
+  await pool.query('START TRANSACTION');
+
+  try {
+    // Clean up album-specific data first (before FK CASCADE)
+    await pool.execute('DELETE FROM user_likes_album WHERE AlbumID = ?', [albumId]);
+    await pool.execute('DELETE FROM album_ratings WHERE AlbumID = ?', [albumId]);
+
+    // Delete the album - FK CASCADE will automatically:
+    // 1. Delete all songs in the album
+    // 2. Song deletion triggers will clean up playlists, likes, history, ratings
+    await pool.execute('DELETE FROM album WHERE AlbumID = ?', [albumId]);
+
+    // Commit transaction
+    await pool.query('COMMIT');
+
+    return { albumArtPath: album.AlbumCover || null };
+
+  } catch (error) {
+    // Rollback on error
+    await pool.query('ROLLBACK');
+    throw error;
   }
-
-  // Delete the album from database
-  await pool.execute('DELETE FROM album WHERE AlbumID = ?', [albumId]);
-
-  return { albumArtPath: album.AlbumCover || null };
 }
 
 // Delete file from filesystem
