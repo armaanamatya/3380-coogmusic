@@ -18,6 +18,7 @@ import { SearchResults } from './SearchResults'
 import type { SearchResult } from './SearchResultItem'
 import type { Song as AudioSong } from '../contexts/AudioContext'
 import { genreApi, artistApi, songApi, albumApi, playlistApi, userApi, getFileUrl, searchApi, ratingApi, likeApi } from '../services/api'
+import { NotificationBell } from './NotificationBell'
 import MusicUploadForm from './MusicUploadForm'
 import MusicLibrary from './MusicLibrary'
 import MusicEditForm from './MusicEditForm'
@@ -1011,9 +1012,9 @@ function HomePage() {
       {/* Main Content */}
       <main className="flex-1 p-8 overflow-x-hidden">
         <div className="max-w-7xl mx-auto">
-          {/* Search Bar */}
-          <div className="mb-8">
-            <div className="relative max-w-xl" ref={searchRef}>
+          {/* Header with Search Bar and Notification Bell */}
+          <div className="mb-8 flex justify-between items-center">
+            <div className="relative max-w-xl flex-1 mr-4" ref={searchRef}>
             <input
               type="text"
               placeholder="Search for songs, artists, playlists..."
@@ -1043,6 +1044,10 @@ function HomePage() {
               onResultClick={handleSearchResultClick}
               onClose={handleCloseSearchResults}
             />
+            </div>
+            
+            {/* Notification Bell */}
+            <NotificationBell className="ml-4" />
           </div>
         </div>
 
@@ -1367,7 +1372,6 @@ function HomePage() {
           {activeTab === 'settings' && (
             <Settings onPlaySong={handlePlaySong} historyRefreshTrigger={historyRefreshTrigger} />
           )}
-        </div>
         </div>
       </main>
 
