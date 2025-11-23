@@ -31,7 +31,7 @@ export const authApi = {
 export const loginApi = {
   ...authApi,
   logout: (userId: number) =>
-    fetch(`${API_BASE}/api/login/logout`, {
+    fetch(`${API_BASE}/api/auth/logout`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId })

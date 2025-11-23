@@ -6,6 +6,7 @@ import {
   LoginCredentials,
   UserProfile 
 } from '../types/index.js';
+import { createLogin } from '../models/loginModel.js';
 
 // Register new user
 export async function registerUser(
@@ -106,8 +107,8 @@ export async function authenticateUser(
     throw new Error('Invalid username or password');
   }
 
-  // Update IsOnline status
-  await pool.execute('UPDATE userprofile SET IsOnline = 1 WHERE UserID = ?', [user.UserID]);
+  // Create login record - this will trigger set_user_online_on_login automatically
+  await createLogin(pool, { userId: user.UserID });
 
   return {
     userId: user.UserID,

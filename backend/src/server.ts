@@ -21,6 +21,7 @@ import * as followController from './controllers/followController.js';
 import * as historyController from './controllers/historyController.js';
 // import { getAzureStorage } from './services/azureStorage.js'; // Commented out for local storage deployment
 import * as analyticsController from './controllers/analyticsController.js';
+import * as loginModel from './models/loginModel.js';
 import { RegisterUserData, LoginCredentials, UploadMusicData, CreateAlbumData } from './types/index.js';
 
 dotenv.config();
@@ -370,6 +371,51 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
       } catch (error: any) {
         logError(error);
         const statusCode = error.message.includes('Invalid') || error.message.includes('required') ? 401 : 500;
+        console.log(`  Response: ${statusCode} - ${error.message}`);
+        res.writeHead(statusCode, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
+      }
+    });
+    
+    return;
+  }
+
+  // User Logout Endpoint
+  if (requestPath === '/api/auth/logout' && method === 'POST') {
+    console.log('  🚪 Processing logout request...');
+    let body = '';
+    
+    req.on('data', (chunk) => {
+      body += chunk.toString();
+    });
+
+    req.on('end', async () => {
+      try {
+        const { userId } = JSON.parse(body);
+        
+        if (!userId) {
+          throw new Error('User ID is required');
+        }
+        
+        console.log(`  👤 User: ${userId}`);
+        
+        const pool = await getPool();
+
+        // Get active login for user
+        const activeLogin = await loginModel.getActiveLogin(pool, userId);
+        
+        if (activeLogin) {
+          // Update logout time - this will trigger set_user_offline_on_logout automatically
+          await loginModel.logoutLogin(pool, activeLogin.LoginID);
+          console.log(`  ✅ User logged out successfully (LoginID: ${activeLogin.LoginID})`);
+        }
+
+        logResponse(200, 'Logout successful');
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ message: 'Logout successful' }));
+      } catch (error: any) {
+        logError(error);
+        const statusCode = error.message.includes('required') ? 400 : 500;
         console.log(`  Response: ${statusCode} - ${error.message}`);
         res.writeHead(statusCode, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
@@ -3130,24 +3176,26 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
 
         const pool = await getPool();
         
-        // Get songs in this album first
-        const [songs] = await pool.execute('SELECT SongID FROM song WHERE AlbumID = ?', [albumId]);
+        // Start transaction for atomic operation
+        await pool.query('START TRANSACTION');
         
-        // Delete related records for each song
-        for (const song of songs as any[]) {
-          await pool.execute('DELETE FROM user_likes_song WHERE SongID = ?', [song.SongID]);
-          await pool.execute('DELETE FROM playlist_song WHERE SongID = ?', [song.SongID]);
-          await pool.execute('DELETE FROM listening_history WHERE SongID = ?', [song.SongID]);
+        try {
+          // Clean up album-specific data first (before FK CASCADE)
+          await pool.execute('DELETE FROM user_likes_album WHERE AlbumID = ?', [albumId]);
+          await pool.execute('DELETE FROM album_ratings WHERE AlbumID = ?', [albumId]);
+
+          // Delete the album - FK CASCADE will automatically:
+          // 1. Delete all songs in the album
+          // 2. Song deletion triggers will clean up playlists, likes, history, ratings
+          await pool.execute('DELETE FROM album WHERE AlbumID = ?', [albumId]);
+          
+          // Commit transaction
+          await pool.query('COMMIT');
+        } catch (error) {
+          // Rollback on error
+          await pool.query('ROLLBACK');
+          throw error;
         }
-        
-        // Delete songs in album
-        await pool.execute('DELETE FROM song WHERE AlbumID = ?', [albumId]);
-        
-        // Delete album likes
-        await pool.execute('DELETE FROM user_likes_album WHERE AlbumID = ?', [albumId]);
-        
-        // Delete the album
-        await pool.execute('DELETE FROM album WHERE AlbumID = ?', [albumId]);
         
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ message: 'Album deleted successfully' }));

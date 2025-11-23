@@ -275,43 +275,73 @@ END$$
 
 DELIMITER ;
 
--- Trigger to automatically verify artists when they reach 100 followers
+-- Trigger to automatically verify artists when they reach 20 followers
 DELIMITER $$
 
-CREATE TRIGGER verify_artist_on_100_followers
+CREATE TRIGGER verify_artist_on_20_followers
 AFTER INSERT ON user_follows_artist
 FOR EACH ROW
 BEGIN
-    UPDATE artist
-    SET VerifiedStatus = 1,
-        DateVerified = NOW(),
-        UpdatedAt = NOW()
-    WHERE ArtistID = NEW.ArtistID
-        AND VerifiedStatus = 0
-        AND (
-            SELECT COUNT(*)
-            FROM user_follows_artist
-            WHERE ArtistID = NEW.ArtistID
-        ) >= 100;
+    DECLARE follower_count INT;
+    DECLARE artist_verified TINYINT;
+    
+    -- Count current followers for this artist
+    SELECT COUNT(*) INTO follower_count
+    FROM user_follows_artist
+    WHERE ArtistID = NEW.ArtistID;
+    
+    -- Check current verification status
+    SELECT VerifiedStatus INTO artist_verified
+    FROM artist
+    WHERE ArtistID = NEW.ArtistID;
+    
+    -- Auto-verify if artist reaches 20 followers and is not already verified
+    IF follower_count >= 20 AND artist_verified = 0 THEN
+        UPDATE artist 
+        SET 
+            VerifiedStatus = 1,
+            DateVerified = CURDATE(),
+            VerifyingAdminID = NULL,
+            UpdatedAt = NOW()
+        WHERE ArtistID = NEW.ArtistID;
+    END IF;
 END$$
 
--- Trigger to automatically unverify artists when they drop below 100 followers
-CREATE TRIGGER unverify_artist_below_100_followers
+-- Trigger to automatically unverify artists when they drop below 20 followers
+CREATE TRIGGER unverify_artist_below_20_followers
 AFTER DELETE ON user_follows_artist
 FOR EACH ROW
 BEGIN
-    UPDATE artist
-    SET VerifiedStatus = 0,
-        DateVerified = NULL,
-        VerifyingAdminID = NULL,
-        UpdatedAt = NOW()
-    WHERE ArtistID = OLD.ArtistID
-        AND VerifiedStatus = 1
-        AND (
-            SELECT COUNT(*)
-            FROM user_follows_artist
-            WHERE ArtistID = OLD.ArtistID
-        ) < 100;
+    DECLARE follower_count INT;
+    DECLARE artist_verified TINYINT;
+    DECLARE admin_verified TINYINT;
+    
+    -- Count remaining followers for this artist
+    SELECT COUNT(*) INTO follower_count
+    FROM user_follows_artist
+    WHERE ArtistID = OLD.ArtistID;
+    
+    -- Check current verification status and if it was admin-verified
+    SELECT VerifiedStatus, 
+           CASE WHEN VerifyingAdminID IS NULL THEN 0 ELSE 1 END
+    INTO artist_verified, admin_verified
+    FROM artist
+    WHERE ArtistID = OLD.ArtistID;
+    
+    -- Only auto-unverify if:
+    -- 1. Artist is currently verified
+    -- 2. They have less than 20 followers
+    -- 3. They were auto-verified (VerifyingAdminID IS NULL)
+    -- Note: We preserve manual admin verifications
+    IF follower_count < 20 AND artist_verified = 1 AND admin_verified = 0 THEN
+        UPDATE artist 
+        SET 
+            VerifiedStatus = 0,
+            DateVerified = NULL,
+            VerifyingAdminID = NULL,
+            UpdatedAt = NOW()
+        WHERE ArtistID = OLD.ArtistID;
+    END IF;
 END$$
 
 -- Trigger to remove song from playlists and other related tables when deleted
