@@ -22,7 +22,7 @@ import * as historyController from './controllers/historyController.js';
 // import { getAzureStorage } from './services/azureStorage.js'; // Commented out for local storage deployment
 import * as analyticsController from './controllers/analyticsController.js';
 // @ts-ignore
-import * as notificationController from './controllers/notificationController.js';
+import { notificationController } from './controllers/notificationController.js';
 import * as loginModel from './models/loginModel.js';
 import { RegisterUserData, LoginCredentials, UploadMusicData, CreateAlbumData } from './types/index.js';
 
