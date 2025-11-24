@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { API_BASE_URL, getFileUrl } from '../services/api';
+import Analytics from './Analytics';
 
 interface User {
   UserID: number;
@@ -144,7 +145,7 @@ const SearchInput: React.FC<{
 
 const AdminDashboard: React.FC = () => {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'songs' | 'albums' | 'playlists'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'songs' | 'albums' | 'playlists' | 'analytics'>('overview');
   const [users, setUsers] = useState<User[]>([]);
   const [songs, setSongs] = useState<Song[]>([]);
   const [albums, setAlbums] = useState<Album[]>([]);
@@ -734,12 +735,12 @@ const AdminDashboard: React.FC = () => {
     }
   }, [debouncedPlaylistsSearch, debouncedPlaylistsFilters, activeTab]);
 
-  if (user?.userType !== 'Administrator') {
+  if (user?.userType !== 'Administrator' && user?.userType !== 'Analyst') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-red-50 to-white flex items-center justify-center">
         <div className="bg-white rounded-2xl shadow-2xl p-8 text-center">
           <h1 className="text-2xl font-bold text-gray-900 mb-4">Access Denied</h1>
-          <p className="text-red-700">Administrator access required</p>
+          <p className="text-red-700">Administrator or Analyst access required</p>
         </div>
       </div>
     );
@@ -805,6 +806,16 @@ const AdminDashboard: React.FC = () => {
               }`}
             >
               Playlists
+            </button>
+            <button
+              onClick={() => setActiveTab('analytics')}
+              className={`px-6 py-3 rounded-lg font-semibold transition-colors ${
+                activeTab === 'analytics' 
+                  ? 'bg-red-700 text-white shadow-lg' 
+                  : 'bg-white border border-red-700 text-red-700 hover:bg-red-50'
+              }`}
+            >
+              Analytics
             </button>
           </div>
 
@@ -1835,6 +1846,19 @@ const AdminDashboard: React.FC = () => {
                 pagination={playlistsPagination}
                 onPageChange={handlePlaylistsPageChange}
               />
+            </div>
+          )}
+          
+          {/* Analytics Tab */}
+          {activeTab === 'analytics' && (
+            <div className="bg-white rounded-xl shadow-lg border border-red-200 overflow-hidden">
+              <div className="bg-gradient-to-r from-red-600 to-red-800 px-6 py-4">
+                <h2 className="text-xl font-bold text-white">Analytics Dashboard</h2>
+                <p className="text-red-100">Generate comprehensive analytics reports and insights</p>
+              </div>
+              <div className="p-6">
+                <Analytics />
+              </div>
             </div>
           )}
         </div>
