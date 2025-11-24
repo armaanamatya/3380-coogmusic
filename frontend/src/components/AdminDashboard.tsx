@@ -145,11 +145,12 @@ const SearchInput: React.FC<{
 
 const AdminDashboard: React.FC = () => {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'songs' | 'albums' | 'playlists' | 'analytics'>('overview');
+  const [activeTab, setActiveTab] = useState<'analytics' | 'users' | 'songs' | 'albums' | 'playlists'>('analytics');
   const [users, setUsers] = useState<User[]>([]);
   const [songs, setSongs] = useState<Song[]>([]);
   const [albums, setAlbums] = useState<Album[]>([]);
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
+  // @ts-ignore - Keeping for future overview tab restoration
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(false);
   
@@ -316,6 +317,7 @@ const AdminDashboard: React.FC = () => {
     });
   };
 
+  // @ts-ignore - Keeping for future overview tab restoration
   const fetchStats = async () => {
     setLoading(true);
     try {
@@ -663,9 +665,7 @@ const AdminDashboard: React.FC = () => {
   };
 
   useEffect(() => {
-    if (activeTab === 'overview') {
-      fetchStats();
-    } else if (activeTab === 'users') {
+    if (activeTab === 'users') {
       fetchUserFilterOptions();
       // Don't fetch users here - let the debounced effect handle it
     } else if (activeTab === 'songs') {
@@ -758,14 +758,14 @@ const AdminDashboard: React.FC = () => {
           {/* Navigation Tabs */}
           <div className="flex flex-wrap gap-4 mb-8">
             <button
-              onClick={() => setActiveTab('overview')}
+              onClick={() => setActiveTab('analytics')}
               className={`px-6 py-3 rounded-lg font-semibold transition-colors ${
-                activeTab === 'overview' 
+                activeTab === 'analytics' 
                   ? 'bg-red-700 text-white shadow-lg' 
                   : 'bg-white border border-red-700 text-red-700 hover:bg-red-50'
               }`}
             >
-              Overview
+              Analytics
             </button>
             <button
               onClick={() => setActiveTab('users')}
@@ -807,16 +807,6 @@ const AdminDashboard: React.FC = () => {
             >
               Playlists
             </button>
-            <button
-              onClick={() => setActiveTab('analytics')}
-              className={`px-6 py-3 rounded-lg font-semibold transition-colors ${
-                activeTab === 'analytics' 
-                  ? 'bg-red-700 text-white shadow-lg' 
-                  : 'bg-white border border-red-700 text-red-700 hover:bg-red-50'
-              }`}
-            >
-              Analytics
-            </button>
           </div>
 
           {loading && (
@@ -826,80 +816,6 @@ const AdminDashboard: React.FC = () => {
             </div>
           )}
 
-          {/* Overview Tab */}
-          {activeTab === 'overview' && stats && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <div className="bg-white border border-red-200 p-6 rounded-xl shadow-lg hover:shadow-xl transition-shadow">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-800 mb-2">Total Users</h3>
-                    <p className="text-3xl font-bold text-red-700">{stats.totalUsers}</p>
-                  </div>
-                  <div className="bg-red-100 p-3 rounded-full">
-                    <svg className="w-6 h-6 text-red-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white border border-red-200 p-6 rounded-xl shadow-lg hover:shadow-xl transition-shadow">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-800 mb-2">Active Users</h3>
-                    <p className="text-3xl font-bold text-red-700">{stats.activeUsers}</p>
-                  </div>
-                  <div className="bg-green-100 p-3 rounded-full">
-                    <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.636 18.364a9 9 0 010-12.728m12.728 0a9 9 0 010 12.728m-9.9-2.829a5 5 0 010-7.07m7.072 0a5 5 0 010 7.07M13 12a1 1 0 11-2 0 1 1 0 012 0z" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white border border-red-200 p-6 rounded-xl shadow-lg hover:shadow-xl transition-shadow">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-800 mb-2">Total Songs</h3>
-                    <p className="text-3xl font-bold text-red-700">{stats.totalSongs}</p>
-                  </div>
-                  <div className="bg-purple-100 p-3 rounded-full">
-                    <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white border border-red-200 p-6 rounded-xl shadow-lg hover:shadow-xl transition-shadow">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-800 mb-2">Total Albums</h3>
-                    <p className="text-3xl font-bold text-red-700">{stats.totalAlbums}</p>
-                  </div>
-                  <div className="bg-yellow-100 p-3 rounded-full">
-                    <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white border border-red-200 p-6 rounded-xl shadow-lg hover:shadow-xl transition-shadow">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-800 mb-2">Total Playlists</h3>
-                    <p className="text-3xl font-bold text-red-700">{stats.totalPlaylists}</p>
-                  </div>
-                  <div className="bg-pink-100 p-3 rounded-full">
-                    <svg className="w-6 h-6 text-pink-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* Users Tab */}
           {activeTab === 'users' && (

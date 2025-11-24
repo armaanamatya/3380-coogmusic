@@ -94,6 +94,7 @@ jspm_packages/
 *.md
 !README.md
 !frontend/README.md
+!PROJECT_DOCUMENTATION.md
 
 # IDE
 .vscode/
@@ -112,6 +113,21 @@ nul
 # Setup files
 setup-env.cjs
 
+# Database export files
+*_export.*
+*_complete_export.*
+*_data_export.*
+
+# Generated TypeScript files
+*.d.ts
+*.d.ts.map
+*.js.map
+
+# Utility scripts
+copy-build-files.cjs
+export-database-data.cjs
+import-database-data.cjs
+
 # Database files
 *.db
 *.sqlite
@@ -119,6 +135,8 @@ setup-env.cjs
 
 # Database backup files
 *.db.backup.*
+*.db.ORIGINAL_BACKUP
+*.db.ORIGINAL_BAC*
 
 B_Songs/
 C_James-Songs/
