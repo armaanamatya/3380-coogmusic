@@ -21,6 +21,8 @@ import * as followController from './controllers/followController.js';
 import * as historyController from './controllers/historyController.js';
 // import { getAzureStorage } from './services/azureStorage.js'; // Commented out for local storage deployment
 import * as analyticsController from './controllers/analyticsController.js';
+// @ts-ignore
+import { notificationController } from './controllers/notificationController.js';
 import * as loginModel from './models/loginModel.js';
 import { RegisterUserData, LoginCredentials, UploadMusicData, CreateAlbumData } from './types/index.js';
 
@@ -2446,6 +2448,104 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ isFollowing }));
     } catch (error: any) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
+    }
+    return;
+  }
+
+  // ==================== NOTIFICATION ROUTES ====================
+  
+  // Get notifications for a user
+  if (requestPath?.match(/^\/api\/notifications\/\d+$/) && method === 'GET') {
+    try {
+      await notificationController.getUserNotifications(req, res);
+    } catch (error: any) {
+      logError(error);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
+    }
+    return;
+  }
+
+  // Get unread notification count for a user
+  if (requestPath?.match(/^\/api\/notifications\/unread-count\/\d+$/) && method === 'GET') {
+    try {
+      await notificationController.getUnreadCount(req, res);
+    } catch (error: any) {
+      logError(error);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
+    }
+    return;
+  }
+
+  // Mark notification as read
+  if (requestPath === '/api/notifications/mark-read' && method === 'POST') {
+    try {
+      await notificationController.markAsRead(req, res);
+    } catch (error: any) {
+      logError(error);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
+    }
+    return;
+  }
+
+  // Mark all notifications as read for a user
+  if (requestPath === '/api/notifications/mark-all-read' && method === 'POST') {
+    try {
+      await notificationController.markAllAsRead(req, res);
+    } catch (error: any) {
+      logError(error);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
+    }
+    return;
+  }
+
+  // Delete notification
+  if (requestPath === '/api/notifications/delete' && method === 'DELETE') {
+    try {
+      await notificationController.deleteNotification(req, res);
+    } catch (error: any) {
+      logError(error);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
+    }
+    return;
+  }
+
+  // Get notification settings for a user
+  if (requestPath?.match(/^\/api\/notifications\/settings\/\d+$/) && method === 'GET') {
+    try {
+      await notificationController.getNotificationSettings(req, res);
+    } catch (error: any) {
+      logError(error);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
+    }
+    return;
+  }
+
+  // Update notification settings for a user
+  if (requestPath?.match(/^\/api\/notifications\/settings\/\d+$/) && method === 'PUT') {
+    try {
+      await notificationController.updateNotificationSettings(req, res);
+    } catch (error: any) {
+      logError(error);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
+    }
+    return;
+  }
+
+  // Get recent notifications (for polling)
+  if (requestPath?.match(/^\/api\/notifications\/recent\/\d+$/) && method === 'GET') {
+    try {
+      await notificationController.getRecentNotifications(req, res);
+    } catch (error: any) {
+      logError(error);
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: error.message || 'Internal server error' }));
     }

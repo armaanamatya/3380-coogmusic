@@ -218,6 +218,9 @@ interface AudioContextValue {
   // Listen count callback
   onListenCountUpdate?: (songId: string, newCount: number) => void
   setListenCountCallback: (callback: (songId: string, newCount: number) => void) => void
+  
+  // History update callback
+  setHistoryUpdateCallback: (callback: () => void) => void
 }
 
 const AudioContext = createContext<AudioContextValue | null>(null)
@@ -245,9 +248,13 @@ export function AudioProvider({ children }: AudioProviderProps) {
   const totalListenTimeRef = useRef<number>(0)
   const hasStartedPlayingRef = useRef<boolean>(false)
   const hasIncrementedListenCount = useRef<boolean>(false)
+  const hasRecordedHistoryRef = useRef<boolean>(false)
   
   // Listen count callback
   const listenCountCallbackRef = useRef<((songId: string, newCount: number) => void) | null>(null)
+  
+  // History update callback
+  const historyUpdateCallbackRef = useRef<(() => void) | null>(null)
 
   // Audio event handlers
   useEffect(() => {
@@ -301,6 +308,29 @@ export function AudioProvider({ children }: AudioProviderProps) {
           hasIncrementedListenCount.current = false
         }
       }
+      
+      // Record listening history immediately when song starts
+      if (!hasRecordedHistoryRef.current && user?.userId && state.currentSong?.id) {
+        hasRecordedHistoryRef.current = true
+        
+        try {
+          await historyApi.add({
+            userId: user.userId,
+            songId: parseInt(state.currentSong.id),
+            duration: 0 // Duration will be 0 since we're recording at the start
+          })
+          
+          // Trigger UI refresh of recently played section
+          console.log('✅ Recorded listening history for:', state.currentSong.title)
+          if (historyUpdateCallbackRef.current) {
+            historyUpdateCallbackRef.current()
+          }
+        } catch (error) {
+          console.error('Failed to record listening history:', error)
+          // Reset flag if API call failed so we can try again
+          hasRecordedHistoryRef.current = false
+        }
+      }
     }
 
     const handlePause = () => {
@@ -313,19 +343,6 @@ export function AudioProvider({ children }: AudioProviderProps) {
 
     const handleEnded = async () => {
       dispatch({ type: 'SET_PLAYING', payload: false })
-      
-      // Track listening history
-      if (hasStartedPlayingRef.current && totalListenTimeRef.current > 0 && user?.userId && state.currentSong) {
-        try {
-          await historyApi.add({
-            userId: user.userId,
-            songId: parseInt(state.currentSong.id),
-            duration: Math.round(totalListenTimeRef.current)
-          })
-        } catch (error) {
-          console.error('Failed to track listening history:', error)
-        }
-      }
       
       // Auto-advance to next song if there is one
       if (state.currentIndex < state.queue.length - 1) {
@@ -363,6 +380,7 @@ export function AudioProvider({ children }: AudioProviderProps) {
     hasStartedPlayingRef.current = false
     playStartTimeRef.current = 0
     hasIncrementedListenCount.current = false
+    hasRecordedHistoryRef.current = false
 
     const audioUrl = getFileUrl(state.currentSong.audioFilePath)
     audio.src = audioUrl
@@ -445,6 +463,10 @@ export function AudioProvider({ children }: AudioProviderProps) {
     listenCountCallbackRef.current = callback
   }
 
+  const setHistoryUpdateCallback = (callback: () => void) => {
+    historyUpdateCallbackRef.current = callback
+  }
+
   const contextValue: AudioContextValue = {
     state,
     dispatch,
@@ -458,7 +480,8 @@ export function AudioProvider({ children }: AudioProviderProps) {
     addToQueue,
     removeFromQueue,
     clearQueue,
-    setListenCountCallback
+    setListenCountCallback,
+    setHistoryUpdateCallback
   }
 
   return (

@@ -18,6 +18,7 @@ import { SearchResults } from './SearchResults'
 import type { SearchResult } from './SearchResultItem'
 import type { Song as AudioSong } from '../contexts/AudioContext'
 import { genreApi, artistApi, songApi, albumApi, playlistApi, userApi, getFileUrl, searchApi, ratingApi, likeApi } from '../services/api'
+import { NotificationBell } from './NotificationBell'
 import MusicUploadForm from './MusicUploadForm'
 import MusicLibrary from './MusicLibrary'
 import MusicEditForm from './MusicEditForm'
@@ -114,7 +115,7 @@ type MusicSubTab = 'library' | 'upload' | 'albums' | 'edit';
 
 function HomePage() {
   const { user, logout } = useAuth()
-  const { state: audioState, playSong, dispatch: audioDispatch, setListenCountCallback } = useAudio()
+  const { state: audioState, playSong, dispatch: audioDispatch, setListenCountCallback, setHistoryUpdateCallback } = useAudio()
   const [searchQuery, setSearchQuery] = useState('')
   const [activeTab, setActiveTab] = useState('home')
   
@@ -284,9 +285,6 @@ function HomePage() {
       // Use AudioContext to play the song
       playSong(enrichedSong)
       audioDispatch({ type: 'TOGGLE_PLAYER', payload: true })
-      
-      // Update history list when a new song starts playing  
-      handleHistoryUpdate()
     } catch (error) {
       console.error('Error fetching song data:', error)
       // Still play song with basic info if API calls fail
@@ -360,9 +358,6 @@ function HomePage() {
       // Use AudioContext to play the song with queue
       playSong(enrichedSong, queueSongs, startIndex >= 0 ? startIndex : 0)
       audioDispatch({ type: 'TOGGLE_PLAYER', payload: true })
-      
-      // Update history list when a new song starts playing
-      handleHistoryUpdate()
     } catch (error) {
       console.error('Error fetching song data:', error)
       // Still play song with basic info if API calls fail
@@ -777,12 +772,14 @@ function HomePage() {
     }
 
     setListenCountCallback(handleListenCountUpdate)
+    setHistoryUpdateCallback(handleHistoryUpdate)
 
     // Cleanup on unmount
     return () => {
       setListenCountCallback(() => {})
+      setHistoryUpdateCallback(() => {})
     }
-  }, [setListenCountCallback])
+  }, [setListenCountCallback, setHistoryUpdateCallback])
 
   // Fetch top 10 albums by like count
   useEffect(() => {
@@ -1009,11 +1006,11 @@ function HomePage() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 p-8 overflow-x-hidden">
+      <main className="flex-1 p-8 pb-20 overflow-x-hidden">
         <div className="max-w-7xl mx-auto">
-          {/* Search Bar */}
-          <div className="mb-8">
-            <div className="relative max-w-xl" ref={searchRef}>
+          {/* Header with Search Bar and Notification Bell */}
+          <div className="mb-8 flex justify-between items-center">
+            <div className="relative max-w-xl flex-1 mr-4" ref={searchRef}>
             <input
               type="text"
               placeholder="Search for songs, artists, playlists..."
@@ -1043,6 +1040,10 @@ function HomePage() {
               onResultClick={handleSearchResultClick}
               onClose={handleCloseSearchResults}
             />
+            </div>
+            
+            {/* Notification Bell */}
+            <NotificationBell className="ml-4" />
           </div>
         </div>
 
@@ -1367,7 +1368,6 @@ function HomePage() {
           {activeTab === 'settings' && (
             <Settings onPlaySong={handlePlaySong} historyRefreshTrigger={historyRefreshTrigger} />
           )}
-        </div>
         </div>
       </main>
 

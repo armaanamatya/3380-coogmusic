@@ -538,6 +538,69 @@ export const searchApi = {
     fetch(`${API_BASE}/api/search?query=${encodeURIComponent(query)}`)
 };
 
+// Notification endpoints
+export const notificationApi = {
+  // Get notifications for a user
+  getUserNotifications: (userId: number, params?: { limit?: number; offset?: number }) => {
+    const query = params ? new URLSearchParams(
+      Object.entries(params)
+        .filter(([_, value]) => value !== undefined)
+        .map(([key, value]) => [key, String(value)])
+    ).toString() : '';
+    return fetch(`${API_BASE}/api/notifications/${userId}${query ? '?' + query : ''}`);
+  },
+
+  // Get unread notification count for a user
+  getUnreadCount: (userId: number) =>
+    fetch(`${API_BASE}/api/notifications/unread-count/${userId}`),
+
+  // Mark notification as read
+  markAsRead: (notificationId: number, userId: number) =>
+    fetch(`${API_BASE}/api/notifications/mark-read`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notificationId, userId })
+    }),
+
+  // Mark all notifications as read for a user
+  markAllAsRead: (userId: number) =>
+    fetch(`${API_BASE}/api/notifications/mark-all-read`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId })
+    }),
+
+  // Delete notification
+  deleteNotification: (notificationId: number, userId: number) =>
+    fetch(`${API_BASE}/api/notifications/delete`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notificationId, userId })
+    }),
+
+  // Get notification settings for a user
+  getNotificationSettings: (userId: number) =>
+    fetch(`${API_BASE}/api/notifications/settings/${userId}`),
+
+  // Update notification settings for a user
+  updateNotificationSettings: (userId: number, settings: {
+    NewSongNotifications?: boolean;
+    NewAlbumNotifications?: boolean;
+    ArtistUpdateNotifications?: boolean;
+    OnlyVerifiedArtists?: boolean;
+    EmailNotifications?: boolean;
+  }) =>
+    fetch(`${API_BASE}/api/notifications/settings/${userId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(settings)
+    }),
+
+  // Get recent notifications (for polling)
+  getRecentNotifications: (userId: number, since: string) =>
+    fetch(`${API_BASE}/api/notifications/recent/${userId}?since=${encodeURIComponent(since)}`)
+};
+
 // Export base URL for direct use if needed
 export const API_BASE_URL = API_BASE;
 

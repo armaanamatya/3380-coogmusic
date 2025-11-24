@@ -6,33 +6,52 @@ import SignUp from './components/SignUp'
 import AdminDashboard from './components/AdminDashboard'
 import ProtectedRoute from './components/ProtectedRoute'
 import { AuthProvider } from './contexts/AuthContext'
-import { AudioProvider } from './contexts/AudioContext'
+import { AudioProvider, useAudio } from './contexts/AudioContext'
+import { MiniPlayer } from './components/MiniPlayer'
+
+// Internal component to handle MiniPlayer integration with AudioContext
+function AppContent() {
+  const { dispatch } = useAudio()
+
+  const handleOpenFullPlayer = () => {
+    dispatch({ type: 'TOGGLE_PLAYER', payload: true })
+  }
+
+  return (
+    <>
+      <Routes>
+        {/* Public Routes */}
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<SignUp />} />
+        
+        {/* Protected Routes */}
+        <Route path="/home" element={
+          <ProtectedRoute>
+            <HomePage />
+          </ProtectedRoute>
+        } />
+        
+        {/* Admin Route */}
+        <Route path="/admin" element={
+          <ProtectedRoute>
+            <AdminDashboard />
+          </ProtectedRoute>
+        } />
+      </Routes>
+      
+      {/* Mini Player - persists across all routes */}
+      <MiniPlayer onOpenFullPlayer={handleOpenFullPlayer} />
+    </>
+  )
+}
 
 function App() {
   return (
     <Router>
       <AuthProvider>
         <AudioProvider>
-          <Routes>
-            {/* Public Routes */}
-            <Route path="/" element={<LandingPage />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/signup" element={<SignUp />} />
-            
-            {/* Protected Routes */}
-            <Route path="/home" element={
-              <ProtectedRoute>
-                <HomePage />
-              </ProtectedRoute>
-            } />
-            
-            {/* Admin Route */}
-            <Route path="/admin" element={
-              <ProtectedRoute>
-                <AdminDashboard />
-              </ProtectedRoute>
-            } />
-          </Routes>
+          <AppContent />
         </AudioProvider>
       </AuthProvider>
     </Router>
