@@ -178,7 +178,10 @@ export const AnalyticsExpanded: React.FC<AnalyticsExpandedProps> = ({
   });
   const [songActivityFilters, setSongActivityFilters] = useState({
     artistUsername: '',
+<<<<<<< HEAD
     likesFilter: 'All' as 'Likes' | 'No Likes' | 'All',
+=======
+>>>>>>> 64a3170d6dee91539ce8ae1c9bba5edac116f4e4
     totalListensUnder: '',
     totalListensOver: '',
     totalLikesUnder: '',
@@ -189,15 +192,22 @@ export const AnalyticsExpanded: React.FC<AnalyticsExpandedProps> = ({
     totalListenDurationOver: '',
     songLengthUnder: '',
     songLengthOver: '',
+<<<<<<< HEAD
     selectedGenres: [] as string[],
     verified: 'All' as 'Verified' | 'Not Verified' | 'All'
+=======
+    selectedGenres: [] as string[]
+>>>>>>> 64a3170d6dee91539ce8ae1c9bba5edac116f4e4
   });
   const [listenerActivitySort, setListenerActivitySort] = useState<string>('username-asc');
   const [artistActivitySort, setArtistActivitySort] = useState<string>('username-asc');
   const [albumActivitySort, setAlbumActivitySort] = useState<string>('username-asc');
   const [playlistActivitySort, setPlaylistActivitySort] = useState<string>('playlistName-asc');
   const [songActivitySort, setSongActivitySort] = useState<string>('songName-asc');
+<<<<<<< HEAD
   const [individualListenerSongActivitySort, setIndividualListenerSongActivitySort] = useState<string>('artistUsername-asc');
+=======
+>>>>>>> 64a3170d6dee91539ce8ae1c9bba5edac116f4e4
   const [expandedSummaryCharts, setExpandedSummaryCharts] = useState<{ country: boolean; age: boolean }>({
     country: false,
     age: false
@@ -283,6 +293,7 @@ export const AnalyticsExpanded: React.FC<AnalyticsExpandedProps> = ({
   const [expandedListenHistory, setExpandedListenHistory] = useState<Record<string, boolean>>({});
   const [expandedAlbumLikedSongs, setExpandedAlbumLikedSongs] = useState<Record<string, boolean>>({});
   const [songFilters, setSongFilters] = useState({
+<<<<<<< HEAD
     selectedGenres: [] as string[],
     selectedArtists: [] as string[],
     songLengthUnder: '',
@@ -341,6 +352,18 @@ export const AnalyticsExpanded: React.FC<AnalyticsExpandedProps> = ({
   
   const [individualListenerAlbumActivitySort, setIndividualListenerAlbumActivitySort] = useState<string>('albumName-asc');
   const [individualListenerPlaylistActivitySort, setIndividualListenerPlaylistActivitySort] = useState<string>('playlistName-asc');
+=======
+    genre: 'All Genres',
+    songLength: 'All Lengths',
+    artist: 'All Artists',
+    liked: 'All'
+  });
+  const [artistFilters, setArtistFilters] = useState({
+    verified: 'All',
+    country: 'All Countries',
+    city: 'All Cities'
+  });
+>>>>>>> 64a3170d6dee91539ce8ae1c9bba5edac116f4e4
 
   const getPageInfo = (key: string, total: number, pageSize = PAGE_SIZE): PageInfo => {
     const pageCount = Math.max(1, Math.ceil(total / pageSize));
@@ -615,7 +638,10 @@ export const AnalyticsExpanded: React.FC<AnalyticsExpandedProps> = ({
         </div>
         
         {/* Album Activity Filters */}
+<<<<<<< HEAD
         {showAlbumActivityFilters && (
+=======
+>>>>>>> 64a3170d6dee91539ce8ae1c9bba5edac116f4e4
         <div className="bg-gray-50 border-b border-gray-200 px-5 py-4">
           <h5 className="text-xs font-semibold text-gray-700 mb-3">Filters</h5>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -841,7 +867,10 @@ export const AnalyticsExpanded: React.FC<AnalyticsExpandedProps> = ({
             </div>
           </div>
         </div>
+<<<<<<< HEAD
         )}
+=======
+>>>>>>> 64a3170d6dee91539ce8ae1c9bba5edac116f4e4
         
         {/* Album Activity Sort */}
         <div className="bg-gray-50 border-b border-gray-200 px-5 py-3">
@@ -1732,7 +1761,10 @@ export const AnalyticsExpanded: React.FC<AnalyticsExpandedProps> = ({
         </div>
         
         {/* Playlist Activity Filters */}
+<<<<<<< HEAD
         {showPlaylistActivityFilters && (
+=======
+>>>>>>> 64a3170d6dee91539ce8ae1c9bba5edac116f4e4
         <div className="bg-gray-50 border-b border-gray-200 px-5 py-4">
           <h5 className="text-xs font-semibold text-gray-700 mb-3">Filters</h5>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -1917,7 +1949,10 @@ export const AnalyticsExpanded: React.FC<AnalyticsExpandedProps> = ({
             </div>
           </div>
         </div>
+<<<<<<< HEAD
         )}
+=======
+>>>>>>> 64a3170d6dee91539ce8ae1c9bba5edac116f4e4
         
         <div className="px-5 py-4 space-y-6">
           {(playlistActivityFilters.playlistType === 'All' || playlistActivityFilters.playlistType === 'Public') && 
@@ -2149,6 +2184,13 @@ export const AnalyticsExpanded: React.FC<AnalyticsExpandedProps> = ({
                     ))}
                   </div>
         </div>
+<<<<<<< HEAD
+=======
+
+        {statusNotice && (
+          <div className="text-sm font-semibold text-red-600">{statusNotice}</div>
+        )}
+>>>>>>> 64a3170d6dee91539ce8ae1c9bba5edac116f4e4
       </div>
     );
   };
@@ -2516,13 +2558,26 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
 
     const summary = reportData.listenerSongSummary || {};
     const allSongs = Array.isArray(reportData.listenerSongActivity)
+<<<<<<< HEAD
       ? [...reportData.listenerSongActivity]
+=======
+      ? [...reportData.listenerSongActivity].sort((a: any, b: any) => {
+          const artistA = (a?.artistUsername || '').toLowerCase();
+          const artistB = (b?.artistUsername || '').toLowerCase();
+          const artistComparison = artistA.localeCompare(artistB);
+          if (artistComparison !== 0) return artistComparison;
+          const nameA = (a?.songName || '').toLowerCase();
+          const nameB = (b?.songName || '').toLowerCase();
+          return nameA.localeCompare(nameB);
+        })
+>>>>>>> 64a3170d6dee91539ce8ae1c9bba5edac116f4e4
       : [];
     
     // Extract unique genres and artists for filter options
     const uniqueGenres = Array.from(new Set(allSongs.map((song: any) => song.genre).filter(Boolean))).sort();
     const uniqueArtists = Array.from(new Set(allSongs.map((song: any) => song.artistUsername).filter(Boolean))).sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
     
+<<<<<<< HEAD
     // Helper function to parse time to seconds (HH:MM:SS format)
     const parseTimeToSeconds = (timeStr: string): number => {
       if (!timeStr || !timeStr.trim()) return 0;
@@ -2624,6 +2679,30 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
         if (thresholdSeconds > 0 && totalDurationSeconds <= thresholdSeconds) {
           return false;
         }
+=======
+    // Apply filters
+    const filteredSongs = allSongs.filter((song: any) => {
+      // Genre filter
+      if (songFilters.genre !== 'All Genres' && song.genre !== songFilters.genre) {
+        return false;
+      }
+      
+      // Song length filter
+      if (songFilters.songLength !== 'All Lengths') {
+        const duration = Number(song.duration || 0);
+        const lengthFilter = songFilters.songLength;
+        if (lengthFilter === '<1:00' && duration >= 60) return false;
+        if (lengthFilter === '<2:00' && duration >= 120) return false;
+        if (lengthFilter === '<3:00' && duration >= 180) return false;
+        if (lengthFilter === '<4:00' && duration >= 240) return false;
+        if (lengthFilter === '<5:00' && duration >= 300) return false;
+        if (lengthFilter === '>=5:00' && duration < 300) return false;
+      }
+      
+      // Artist filter
+      if (songFilters.artist !== 'All Artists' && song.artistUsername !== songFilters.artist) {
+        return false;
+>>>>>>> 64a3170d6dee91539ce8ae1c9bba5edac116f4e4
       }
       
       // Liked filter
@@ -2632,6 +2711,7 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
         if (songFilters.liked === 'Not Liked' && song.liked) return false;
       }
       
+<<<<<<< HEAD
       // Verified filter
       if (songFilters.verified !== 'All') {
         const isVerified = song.artistVerified ?? false;
@@ -2694,6 +2774,13 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
     
     const { items: songs, pageInfo: songPageInfo } = getPaginatedList(
       sortedSongs,
+=======
+      return true;
+    });
+    
+    const { items: songs, pageInfo: songPageInfo } = getPaginatedList(
+      filteredSongs,
+>>>>>>> 64a3170d6dee91539ce8ae1c9bba5edac116f4e4
       'individualListenerSongActivity',
       SONG_PAGE_SIZE
     );
@@ -2737,6 +2824,7 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
           </div>
 
           {/* Filters */}
+<<<<<<< HEAD
           {showIndividualSongFilters && (
             <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
               <h4 className="text-sm font-semibold text-gray-700 mb-3">Filters</h4>
@@ -3096,6 +3184,100 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
                 <option value="totalListenDuration-asc">Total Listen Duration (Shortest to Longest)</option>
                 <option value="totalListenDuration-desc">Total Listen Duration (Longest to Shortest)</option>
               </select>
+=======
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+            <h4 className="text-sm font-semibold text-gray-700 mb-3">Filters</h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Genre Filter */}
+              <div>
+                <label htmlFor="filter-genre" className="block text-xs font-medium text-gray-600 mb-1">
+                  Genre
+                </label>
+                <select
+                  id="filter-genre"
+                  value={songFilters.genre}
+                  onChange={(e) => {
+                    setSongFilters((prev) => ({ ...prev, genre: e.target.value }));
+                    setPaginationPages((prev) => ({ ...prev, 'individualListenerSongActivity': 0 }));
+                  }}
+                  className="w-full text-xs border border-gray-300 rounded-md px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                >
+                  <option value="All Genres">All Genres</option>
+                  {uniqueGenres.map((genre) => (
+                    <option key={genre} value={genre}>
+                      {genre}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Song Length Filter */}
+              <div>
+                <label htmlFor="filter-songLength" className="block text-xs font-medium text-gray-600 mb-1">
+                  Song Length
+                </label>
+                <select
+                  id="filter-songLength"
+                  value={songFilters.songLength}
+                  onChange={(e) => {
+                    setSongFilters((prev) => ({ ...prev, songLength: e.target.value }));
+                    setPaginationPages((prev) => ({ ...prev, 'individualListenerSongActivity': 0 }));
+                  }}
+                  className="w-full text-xs border border-gray-300 rounded-md px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                >
+                  <option value="All Lengths">All Lengths</option>
+                  <option value="<1:00">Less than 1:00</option>
+                  <option value="<2:00">Less than 2:00</option>
+                  <option value="<3:00">Less than 3:00</option>
+                  <option value="<4:00">Less than 4:00</option>
+                  <option value="<5:00">Less than 5:00</option>
+                  <option value=">=5:00">5:00 or longer</option>
+                </select>
+              </div>
+
+              {/* Artist Filter */}
+              <div>
+                <label htmlFor="filter-artist" className="block text-xs font-medium text-gray-600 mb-1">
+                  Artist
+                </label>
+                <select
+                  id="filter-artist"
+                  value={songFilters.artist}
+                  onChange={(e) => {
+                    setSongFilters((prev) => ({ ...prev, artist: e.target.value }));
+                    setPaginationPages((prev) => ({ ...prev, 'individualListenerSongActivity': 0 }));
+                  }}
+                  className="w-full text-xs border border-gray-300 rounded-md px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                >
+                  <option value="All Artists">All Artists</option>
+                  {uniqueArtists.map((artist) => (
+                    <option key={artist} value={artist}>
+                      {artist}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Liked Filter */}
+              <div>
+                <label htmlFor="filter-liked" className="block text-xs font-medium text-gray-600 mb-1">
+                  Liked
+                </label>
+                <select
+                  id="filter-liked"
+                  value={songFilters.liked}
+                  onChange={(e) => {
+                    setSongFilters((prev) => ({ ...prev, liked: e.target.value }));
+                    setPaginationPages((prev) => ({ ...prev, 'individualListenerSongActivity': 0 }));
+                  }}
+                  className="w-full text-xs border border-gray-300 rounded-md px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                >
+                  <option value="All">All</option>
+                  <option value="Liked">Liked</option>
+                  <option value="Not Liked">Not Liked</option>
+                </select>
+              </div>
+>>>>>>> 64a3170d6dee91539ce8ae1c9bba5edac116f4e4
             </div>
           </div>
 
@@ -3336,6 +3518,7 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
         }
       }
 
+<<<<<<< HEAD
       // Likes filter
       if (songActivityFilters.likesFilter === 'Likes') {
         if (Number(song.totalLikes || 0) === 0) {
@@ -3347,6 +3530,8 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
         }
       }
 
+=======
+>>>>>>> 64a3170d6dee91539ce8ae1c9bba5edac116f4e4
       // Total Listens Under filter
       if (songActivityFilters.totalListensUnder) {
         const threshold = Number(songActivityFilters.totalListensUnder);
@@ -3363,16 +3548,26 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
         }
       }
 
+<<<<<<< HEAD
       // Total Likes Under filter (only apply if Likes or All is selected)
       if ((songActivityFilters.likesFilter === 'Likes' || songActivityFilters.likesFilter === 'All') && songActivityFilters.totalLikesUnder) {
+=======
+      // Total Likes Under filter
+      if (songActivityFilters.totalLikesUnder) {
+>>>>>>> 64a3170d6dee91539ce8ae1c9bba5edac116f4e4
         const threshold = Number(songActivityFilters.totalLikesUnder);
         if (!Number.isNaN(threshold) && Number(song.totalLikes || 0) >= threshold) {
           return false;
         }
       }
 
+<<<<<<< HEAD
       // Total Likes Over filter (only apply if Likes or All is selected)
       if ((songActivityFilters.likesFilter === 'Likes' || songActivityFilters.likesFilter === 'All') && songActivityFilters.totalLikesOver) {
+=======
+      // Total Likes Over filter
+      if (songActivityFilters.totalLikesOver) {
+>>>>>>> 64a3170d6dee91539ce8ae1c9bba5edac116f4e4
         const threshold = Number(songActivityFilters.totalLikesOver);
         if (!Number.isNaN(threshold) && Number(song.totalLikes || 0) <= threshold) {
           return false;
@@ -3442,6 +3637,7 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
         }
       }
 
+<<<<<<< HEAD
       // Verified filter
       if (songActivityFilters.verified !== 'All') {
         const isVerified = song.artistVerified ?? false;
@@ -3449,6 +3645,8 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
         if (songActivityFilters.verified === 'Not Verified' && isVerified) return false;
       }
 
+=======
+>>>>>>> 64a3170d6dee91539ce8ae1c9bba5edac116f4e4
       return true;
     });
 
@@ -3527,7 +3725,10 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
         </div>
         
         {/* Song Activity Filters */}
+<<<<<<< HEAD
         {showSongActivityFilters && (
+=======
+>>>>>>> 64a3170d6dee91539ce8ae1c9bba5edac116f4e4
         <div className="bg-gray-50 border-b border-gray-200 px-5 py-4">
           <h4 className="text-sm font-semibold text-gray-700 mb-3">Filters</h4>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
@@ -3587,6 +3788,7 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
               />
             </div>
 
+<<<<<<< HEAD
             {/* Likes Filter */}
             <div>
               <label htmlFor="filter-song-likes" className="block text-xs font-medium text-gray-600 mb-1">
@@ -3651,6 +3853,9 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
 
             {/* Total Likes Under - only show if Likes or All is selected */}
             {(songActivityFilters.likesFilter === 'Likes' || songActivityFilters.likesFilter === 'All') && (
+=======
+            {/* Total Likes Under */}
+>>>>>>> 64a3170d6dee91539ce8ae1c9bba5edac116f4e4
             <div>
               <label htmlFor="filter-song-total-likes-under" className="block text-xs font-medium text-gray-600 mb-1">
                 Total Likes Under:
@@ -3668,10 +3873,15 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
                 placeholder="Enter number"
               />
             </div>
+<<<<<<< HEAD
             )}
 
             {/* Total Likes Over - only show if Likes or All is selected */}
             {(songActivityFilters.likesFilter === 'Likes' || songActivityFilters.likesFilter === 'All') && (
+=======
+
+            {/* Total Likes Over */}
+>>>>>>> 64a3170d6dee91539ce8ae1c9bba5edac116f4e4
             <div>
               <label htmlFor="filter-song-total-likes-over" className="block text-xs font-medium text-gray-600 mb-1">
                 Total Likes Over:
@@ -3689,7 +3899,10 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
                 placeholder="Enter number"
               />
             </div>
+<<<<<<< HEAD
             )}
+=======
+>>>>>>> 64a3170d6dee91539ce8ae1c9bba5edac116f4e4
 
             {/* Average Listen Duration Under */}
             <div>
@@ -3935,7 +4148,10 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
             </div>
           </div>
         </div>
+<<<<<<< HEAD
         )}
+=======
+>>>>>>> 64a3170d6dee91539ce8ae1c9bba5edac116f4e4
 
         {/* Sorting Dropdown */}
         <div className="bg-gray-50 border-b border-gray-200 px-5 py-3">
@@ -3987,6 +4203,7 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
             const listenersExpanded = expandedSongListeners[songKey] ?? false;
             
             // Sort listeners
+<<<<<<< HEAD
             let listenerSortOption = songListenerSortOptions[songKey] || 'username-asc';
             // Reset to default if "No Likes" is selected and sort option is likedOn
             if (songActivityFilters.likesFilter === 'No Likes' && (listenerSortOption === 'likedOn-asc' || listenerSortOption === 'likedOn-desc')) {
@@ -4002,6 +4219,17 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
                 if (aLiked && !bLiked) return -1;
                 if (!aLiked && bLiked) return 1;
               }
+=======
+            const listenerSortOption = songListenerSortOptions[songKey] || 'username-asc';
+            const sortedListenerDetails = [...listenerDetails].sort((a: any, b: any) => {
+              // Separate liked and not liked listeners
+              const aLiked = a?.liked === true;
+              const bLiked = b?.liked === true;
+              
+              // If one is liked and the other isn't, the not-liked one goes to the bottom
+              if (aLiked && !bLiked) return -1;
+              if (!aLiked && bLiked) return 1;
+>>>>>>> 64a3170d6dee91539ce8ae1c9bba5edac116f4e4
               
               // Both are liked or both are not liked, sort normally
               let comparison = 0;
@@ -4022,11 +4250,19 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
                 comparison = Number(a?.totalListeningTime || 0) - Number(b?.totalListeningTime || 0);
               } else if (listenerSortOption === 'totalListenDuration-desc') {
                 comparison = Number(b?.totalListeningTime || 0) - Number(a?.totalListeningTime || 0);
+<<<<<<< HEAD
               } else if (listenerSortOption === 'likedOn-asc' && songActivityFilters.likesFilter !== 'No Likes') {
                 const dateA = a?.likedAt ? new Date(a.likedAt).getTime() : 0;
                 const dateB = b?.likedAt ? new Date(b.likedAt).getTime() : 0;
                 comparison = dateA - dateB;
               } else if (listenerSortOption === 'likedOn-desc' && songActivityFilters.likesFilter !== 'No Likes') {
+=======
+              } else if (listenerSortOption === 'likedOn-asc') {
+                const dateA = a?.likedAt ? new Date(a.likedAt).getTime() : 0;
+                const dateB = b?.likedAt ? new Date(b.likedAt).getTime() : 0;
+                comparison = dateA - dateB;
+              } else if (listenerSortOption === 'likedOn-desc') {
+>>>>>>> 64a3170d6dee91539ce8ae1c9bba5edac116f4e4
                 const dateA = a?.likedAt ? new Date(a.likedAt).getTime() : 0;
                 const dateB = b?.likedAt ? new Date(b.likedAt).getTime() : 0;
                 comparison = dateB - dateA;
@@ -4040,13 +4276,22 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
                 [songKey]: !prev[songKey]
               }));
             };
+<<<<<<< HEAD
             const columnVisibility = songListenerColumnVisibility[songKey] ?? { showAvgDuration: false, showTotalDuration: false };
+=======
+            const columnVisibility = songListenerColumnVisibility[songKey] ?? { showAvgDuration: true, showTotalDuration: true };
+>>>>>>> 64a3170d6dee91539ce8ae1c9bba5edac116f4e4
             const toggleAvgDuration = () => {
               setSongListenerColumnVisibility((prev) => ({
                 ...prev,
                 [songKey]: {
+<<<<<<< HEAD
                   ...(prev[songKey] ?? { showAvgDuration: false, showTotalDuration: false }),
                   showAvgDuration: !(prev[songKey]?.showAvgDuration ?? false)
+=======
+                  ...(prev[songKey] ?? { showAvgDuration: true, showTotalDuration: true }),
+                  showAvgDuration: !(prev[songKey]?.showAvgDuration ?? true)
+>>>>>>> 64a3170d6dee91539ce8ae1c9bba5edac116f4e4
                 }
               }));
             };
@@ -4054,8 +4299,13 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
               setSongListenerColumnVisibility((prev) => ({
                 ...prev,
                 [songKey]: {
+<<<<<<< HEAD
                   ...(prev[songKey] ?? { showAvgDuration: false, showTotalDuration: false }),
                   showTotalDuration: !(prev[songKey]?.showTotalDuration ?? false)
+=======
+                  ...(prev[songKey] ?? { showAvgDuration: true, showTotalDuration: true }),
+                  showTotalDuration: !(prev[songKey]?.showTotalDuration ?? true)
+>>>>>>> 64a3170d6dee91539ce8ae1c9bba5edac116f4e4
                 }
               }));
             };
@@ -4115,6 +4365,7 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
                         </label>
                         <select
                           id={`sort-listeners-${songKey}`}
+<<<<<<< HEAD
                           value={(() => {
                             const currentSort = songListenerSortOptions[songKey] || 'username-asc';
                             // Reset to default if "No Likes" is selected and sort option is likedOn
@@ -4123,6 +4374,9 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
                             }
                             return currentSort;
                           })()}
+=======
+                          value={songListenerSortOptions[songKey] || 'username-asc'}
+>>>>>>> 64a3170d6dee91539ce8ae1c9bba5edac116f4e4
                           onChange={(e) => {
                             setSongListenerSortOptions((prev) => ({
                               ...prev,
@@ -4139,12 +4393,17 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
                           <option value="avgListenDuration-desc">Avg Listen Duration (Longest to Shortest)</option>
                           <option value="totalListenDuration-asc">Total Listen Duration (Shortest to Longest)</option>
                           <option value="totalListenDuration-desc">Total Listen Duration (Longest to Shortest)</option>
+<<<<<<< HEAD
                           {songActivityFilters.likesFilter !== 'No Likes' && (
                             <>
                               <option value="likedOn-asc">Liked On (Oldest First)</option>
                               <option value="likedOn-desc">Liked On (Newest First)</option>
                             </>
                           )}
+=======
+                          <option value="likedOn-asc">Liked On (Oldest First)</option>
+                          <option value="likedOn-desc">Liked On (Newest First)</option>
+>>>>>>> 64a3170d6dee91539ce8ae1c9bba5edac116f4e4
                         </select>
                         <button
                           type="button"
@@ -4196,12 +4455,17 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
                             {columnVisibility.showTotalDuration && (
                               <th className="px-3.5 py-2.5 text-center">Total Listen Duration</th>
                             )}
+<<<<<<< HEAD
                             {songActivityFilters.likesFilter !== 'No Likes' && (
                               <>
                                 <th className="px-3.5 py-2.5 text-left">Liked?</th>
                                 <th className="px-3.5 py-2.5 text-left">Liked On</th>
                               </>
                             )}
+=======
+                            <th className="px-3.5 py-2.5 text-left">Liked?</th>
+                            <th className="px-3.5 py-2.5 text-left">Liked On</th>
+>>>>>>> 64a3170d6dee91539ce8ae1c9bba5edac116f4e4
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-100">
@@ -4218,12 +4482,17 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
                               {columnVisibility.showTotalDuration && (
                                 <td className="px-3.5 py-2.5 text-sm text-gray-900 text-center">{formatTime(listener.totalListeningTime || 0)}</td>
                               )}
+<<<<<<< HEAD
                               {songActivityFilters.likesFilter !== 'No Likes' && (
                                 <>
                                   <td className="px-3.5 py-2.5 text-sm text-gray-900">{listener.liked ? 'Liked' : 'Not Liked'}</td>
                                   <td className="px-3.5 py-2.5 text-sm text-gray-900">{formatDate(listener.likedAt)}</td>
                                 </>
                               )}
+=======
+                              <td className="px-3.5 py-2.5 text-sm text-gray-900">{listener.liked ? 'Liked' : 'Not Liked'}</td>
+                              <td className="px-3.5 py-2.5 text-sm text-gray-900">{formatDate(listener.likedAt)}</td>
+>>>>>>> 64a3170d6dee91539ce8ae1c9bba5edac116f4e4
                             </tr>
                           ))}
                         </tbody>
@@ -4594,7 +4863,10 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
         </div>
         
         {/* Aggregate Artist Activity Filters */}
+<<<<<<< HEAD
         {showArtistActivityFilters && (
+=======
+>>>>>>> 64a3170d6dee91539ce8ae1c9bba5edac116f4e4
         <div className="bg-gray-50 border-b border-gray-200 px-5 py-4">
           <h5 className="text-xs font-semibold text-gray-700 mb-3">Filters</h5>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -4985,7 +5257,10 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
             </div>
           </div>
         </div>
+<<<<<<< HEAD
         )}
+=======
+>>>>>>> 64a3170d6dee91539ce8ae1c9bba5edac116f4e4
         
         <div className="px-5 py-4 space-y-4">
           {filteredArtists.length === 0 ? (
@@ -6937,6 +7212,284 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
               {showCity ? 'Hide City' : 'Show City'}
             </button>
           </div>
+          
+          {/* Filters */}
+          <div className="mt-4 bg-gray-50 border border-gray-200 rounded-lg p-4">
+            <h4 className="text-sm font-semibold text-gray-700 mb-3">Filters</h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {/* Songs Played Under */}
+              <div>
+                <label htmlFor="filter-songs-played-under" className="block text-xs font-medium text-gray-600 mb-1">
+                  Songs Played Under:
+                </label>
+                <input
+                  type="number"
+                  id="filter-songs-played-under"
+                  min="0"
+                  value={userActivityFilters.songsPlayedUnder}
+                  onChange={(e) => {
+                    setUserActivityFilters((prev) => ({ ...prev, songsPlayedUnder: e.target.value }));
+                    setPaginationPages((prev) => ({ ...prev, 'userActivity-listeners': 0, 'userActivity-artists': 0 }));
+                  }}
+                  className="w-full text-xs border border-gray-300 rounded-md px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  placeholder="Enter number"
+                />
+              </div>
+
+              {/* Songs Played Over */}
+              <div>
+                <label htmlFor="filter-songs-played-over" className="block text-xs font-medium text-gray-600 mb-1">
+                  Songs Played Over:
+                </label>
+                <input
+                  type="number"
+                  id="filter-songs-played-over"
+                  min="0"
+                  value={userActivityFilters.songsPlayedOver}
+                  onChange={(e) => {
+                    setUserActivityFilters((prev) => ({ ...prev, songsPlayedOver: e.target.value }));
+                    setPaginationPages((prev) => ({ ...prev, 'userActivity-listeners': 0, 'userActivity-artists': 0 }));
+                  }}
+                  className="w-full text-xs border border-gray-300 rounded-md px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  placeholder="Enter number"
+                />
+              </div>
+
+              {/* Songs Liked Under */}
+              <div>
+                <label htmlFor="filter-songs-liked-under" className="block text-xs font-medium text-gray-600 mb-1">
+                  Songs Liked Under:
+                </label>
+                <input
+                  type="number"
+                  id="filter-songs-liked-under"
+                  min="0"
+                  value={userActivityFilters.songsLikedUnder}
+                  onChange={(e) => {
+                    setUserActivityFilters((prev) => ({ ...prev, songsLikedUnder: e.target.value }));
+                    setPaginationPages((prev) => ({ ...prev, 'userActivity-listeners': 0, 'userActivity-artists': 0 }));
+                  }}
+                  className="w-full text-xs border border-gray-300 rounded-md px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  placeholder="Enter number"
+                />
+              </div>
+
+              {/* Songs Liked Over */}
+              <div>
+                <label htmlFor="filter-songs-liked-over" className="block text-xs font-medium text-gray-600 mb-1">
+                  Songs Liked Over:
+                </label>
+                <input
+                  type="number"
+                  id="filter-songs-liked-over"
+                  min="0"
+                  value={userActivityFilters.songsLikedOver}
+                  onChange={(e) => {
+                    setUserActivityFilters((prev) => ({ ...prev, songsLikedOver: e.target.value }));
+                    setPaginationPages((prev) => ({ ...prev, 'userActivity-listeners': 0, 'userActivity-artists': 0 }));
+                  }}
+                  className="w-full text-xs border border-gray-300 rounded-md px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  placeholder="Enter number"
+                />
+              </div>
+
+              {/* Artists Followed Under */}
+              <div>
+                <label htmlFor="filter-artists-followed-under" className="block text-xs font-medium text-gray-600 mb-1">
+                  Artists Followed Under:
+                </label>
+                <input
+                  type="number"
+                  id="filter-artists-followed-under"
+                  min="0"
+                  value={userActivityFilters.artistsFollowedUnder}
+                  onChange={(e) => {
+                    setUserActivityFilters((prev) => ({ ...prev, artistsFollowedUnder: e.target.value }));
+                    setPaginationPages((prev) => ({ ...prev, 'userActivity-listeners': 0, 'userActivity-artists': 0 }));
+                  }}
+                  className="w-full text-xs border border-gray-300 rounded-md px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  placeholder="Enter number"
+                />
+              </div>
+
+              {/* Artists Followed Over */}
+              <div>
+                <label htmlFor="filter-artists-followed-over" className="block text-xs font-medium text-gray-600 mb-1">
+                  Artists Followed Over:
+                </label>
+                <input
+                  type="number"
+                  id="filter-artists-followed-over"
+                  min="0"
+                  value={userActivityFilters.artistsFollowedOver}
+                  onChange={(e) => {
+                    setUserActivityFilters((prev) => ({ ...prev, artistsFollowedOver: e.target.value }));
+                    setPaginationPages((prev) => ({ ...prev, 'userActivity-listeners': 0, 'userActivity-artists': 0 }));
+                  }}
+                  className="w-full text-xs border border-gray-300 rounded-md px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  placeholder="Enter number"
+                />
+              </div>
+
+              {/* Playlists Created Under */}
+              <div>
+                <label htmlFor="filter-playlists-created-under" className="block text-xs font-medium text-gray-600 mb-1">
+                  Playlists Created Under:
+                </label>
+                <input
+                  type="number"
+                  id="filter-playlists-created-under"
+                  min="0"
+                  value={userActivityFilters.playlistsCreatedUnder}
+                  onChange={(e) => {
+                    setUserActivityFilters((prev) => ({ ...prev, playlistsCreatedUnder: e.target.value }));
+                    setPaginationPages((prev) => ({ ...prev, 'userActivity-listeners': 0, 'userActivity-artists': 0 }));
+                  }}
+                  className="w-full text-xs border border-gray-300 rounded-md px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  placeholder="Enter number"
+                />
+              </div>
+
+              {/* Playlists Created Over */}
+              <div>
+                <label htmlFor="filter-playlists-created-over" className="block text-xs font-medium text-gray-600 mb-1">
+                  Playlists Created Over:
+                </label>
+                <input
+                  type="number"
+                  id="filter-playlists-created-over"
+                  min="0"
+                  value={userActivityFilters.playlistsCreatedOver}
+                  onChange={(e) => {
+                    setUserActivityFilters((prev) => ({ ...prev, playlistsCreatedOver: e.target.value }));
+                    setPaginationPages((prev) => ({ ...prev, 'userActivity-listeners': 0, 'userActivity-artists': 0 }));
+                  }}
+                  className="w-full text-xs border border-gray-300 rounded-md px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  placeholder="Enter number"
+                />
+              </div>
+
+              {/* Albums Liked Under */}
+              <div>
+                <label htmlFor="filter-albums-liked-under" className="block text-xs font-medium text-gray-600 mb-1">
+                  Albums Liked Under:
+                </label>
+                <input
+                  type="number"
+                  id="filter-albums-liked-under"
+                  min="0"
+                  value={userActivityFilters.albumsLikedUnder}
+                  onChange={(e) => {
+                    setUserActivityFilters((prev) => ({ ...prev, albumsLikedUnder: e.target.value }));
+                    setPaginationPages((prev) => ({ ...prev, 'userActivity-listeners': 0, 'userActivity-artists': 0 }));
+                  }}
+                  className="w-full text-xs border border-gray-300 rounded-md px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  placeholder="Enter number"
+                />
+              </div>
+
+              {/* Albums Liked Over */}
+              <div>
+                <label htmlFor="filter-albums-liked-over" className="block text-xs font-medium text-gray-600 mb-1">
+                  Albums Liked Over:
+                </label>
+                <input
+                  type="number"
+                  id="filter-albums-liked-over"
+                  min="0"
+                  value={userActivityFilters.albumsLikedOver}
+                  onChange={(e) => {
+                    setUserActivityFilters((prev) => ({ ...prev, albumsLikedOver: e.target.value }));
+                    setPaginationPages((prev) => ({ ...prev, 'userActivity-listeners': 0, 'userActivity-artists': 0 }));
+                  }}
+                  className="w-full text-xs border border-gray-300 rounded-md px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  placeholder="Enter number"
+                />
+              </div>
+
+              {/* Date of Birth Start */}
+              <div>
+                <label htmlFor="filter-listener-dob-start" className="block text-xs font-medium text-gray-600 mb-1">
+                  Date of Birth Start:
+                </label>
+                <input
+                  type="date"
+                  id="filter-listener-dob-start"
+                  value={listenerDobRange.start}
+                  onChange={(event) => {
+                    setListenerDobRange((prev) => ({ ...prev, start: event.target.value }));
+                    setPaginationPages((prev) => ({ ...prev, 'userActivity-listeners': 0, 'userActivity-artists': 0 }));
+                  }}
+                  className="w-full text-xs border border-gray-300 rounded-md px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                />
+              </div>
+
+              {/* Date of Birth End */}
+              <div>
+                <label htmlFor="filter-listener-dob-end" className="block text-xs font-medium text-gray-600 mb-1">
+                  Date of Birth End:
+                </label>
+                <input
+                  type="date"
+                  id="filter-listener-dob-end"
+                  value={listenerDobRange.end}
+                  onChange={(event) => {
+                    setListenerDobRange((prev) => ({ ...prev, end: event.target.value }));
+                    setPaginationPages((prev) => ({ ...prev, 'userActivity-listeners': 0, 'userActivity-artists': 0 }));
+                  }}
+                  className="w-full text-xs border border-gray-300 rounded-md px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                />
+              </div>
+
+              {/* Country */}
+              <div>
+                <label htmlFor="filter-listener-country" className="block text-xs font-medium text-gray-600 mb-1">
+                  Country:
+                </label>
+                <select
+                  id="filter-listener-country"
+                  value={listenerCountryFilter}
+                  onChange={(event) => {
+                    setListenerCountryFilter(event.target.value);
+                    setListenerCityFilter('All Cities'); // Reset city when country changes
+                    setPaginationPages((prev) => ({ ...prev, 'userActivity-listeners': 0, 'userActivity-artists': 0 }));
+                  }}
+                  className="w-full text-xs border border-gray-300 rounded-md px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                >
+                  <option value="All Countries">All Countries</option>
+                  {listenerCountries.map((country) => (
+                    <option key={country} value={country}>
+                      {country}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* City */}
+              <div>
+                <label htmlFor="filter-listener-city" className="block text-xs font-medium text-gray-600 mb-1">
+                  City:
+                </label>
+                <select
+                  id="filter-listener-city"
+                  value={listenerCityFilter}
+                  onChange={(event) => {
+                    setListenerCityFilter(event.target.value);
+                    setPaginationPages((prev) => ({ ...prev, 'userActivity-listeners': 0, 'userActivity-artists': 0 }));
+                  }}
+                  className="w-full text-xs border border-gray-300 rounded-md px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  disabled={listenerCountryFilter === 'All Countries' && listenerCities.length === 0}
+                >
+                  <option value="All Cities">All Cities</option>
+                  {listenerCities.map((city) => (
+                    <option key={city} value={city}>
+                      {city}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
         </div>
         <div className="p-5 space-y-4">
           {includeListeners && Array.isArray(reportData.listenerUsers) && reportData.listenerUsers.length > 0 && (
@@ -6959,6 +7512,7 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
                 </button>
               </div>
               
+<<<<<<< HEAD
               {/* Listener Filters */}
               {showListenerActivityFilters && (
               <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-3">
@@ -7275,6 +7829,44 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
                   <option value="city-desc">City (Z-A)</option>
                 </select>
               </div>
+=======
+              {/* Sort Dropdown */}
+              <div className="mb-3">
+                <label htmlFor="listener-sort" className="block text-xs font-medium text-gray-600 mb-1">
+                  Sort by:
+                </label>
+                <select
+                  id="listener-sort"
+                  value={listenerActivitySort}
+                  onChange={(e) => {
+                    setListenerActivitySort(e.target.value);
+                    setPaginationPages((prev) => ({ ...prev, 'userActivity-listeners': 0 }));
+                  }}
+                  className="text-xs border border-gray-300 rounded-md px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                >
+                  <option value="username-asc">Username (A-Z)</option>
+                  <option value="username-desc">Username (Z-A)</option>
+                  <option value="dateOfBirth-asc">Date of Birth (Oldest First)</option>
+                  <option value="dateOfBirth-desc">Date of Birth (Newest First)</option>
+                  <option value="dateJoined-asc">Date Joined (Oldest First)</option>
+                  <option value="dateJoined-desc">Date Joined (Newest First)</option>
+                  <option value="songsPlayed-asc">Songs Played (Low to High)</option>
+                  <option value="songsPlayed-desc">Songs Played (High to Low)</option>
+                  <option value="songsLiked-asc">Songs Liked (Low to High)</option>
+                  <option value="songsLiked-desc">Songs Liked (High to Low)</option>
+                  <option value="artistsFollowed-asc">Artists Followed (Low to High)</option>
+                  <option value="artistsFollowed-desc">Artists Followed (High to Low)</option>
+                  <option value="playlistsCreated-asc">Playlists Created (Low to High)</option>
+                  <option value="playlistsCreated-desc">Playlists Created (High to Low)</option>
+                  <option value="albumsLiked-asc">Albums Liked (Low to High)</option>
+                  <option value="albumsLiked-desc">Albums Liked (High to Low)</option>
+                  <option value="country-asc">Country (A-Z)</option>
+                  <option value="country-desc">Country (Z-A)</option>
+                  <option value="city-asc">City (A-Z)</option>
+                  <option value="city-desc">City (Z-A)</option>
+                </select>
+              </div>
+>>>>>>> 64a3170d6dee91539ce8ae1c9bba5edac116f4e4
               
               {filteredListeners.length === 0 ? (
                 <div className="border border-dashed border-gray-300 rounded-lg px-5 py-8 text-center text-sm text-gray-500">
@@ -7375,7 +7967,10 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
               </div>
               
               {/* Filters */}
+<<<<<<< HEAD
               {showArtistActivitySummaryFilters && (
+=======
+>>>>>>> 64a3170d6dee91539ce8ae1c9bba5edac116f4e4
               <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-3">
                 <h5 className="text-xs font-semibold text-gray-700 mb-3">Filters</h5>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
@@ -7540,7 +8135,10 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
                   </div>
                 </div>
               </div>
+<<<<<<< HEAD
               )}
+=======
+>>>>>>> 64a3170d6dee91539ce8ae1c9bba5edac116f4e4
               
               {/* Sort Dropdown */}
               <div className="mb-3">
@@ -7967,6 +8565,7 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
     const uniqueCountries = Array.from(
       new Set(allArtists.map((artist: any) => artist.country).filter(Boolean))
     ).sort();
+<<<<<<< HEAD
     
     // Get cities filtered by selected countries
     const getAvailableCities = () => {
@@ -8002,6 +8601,11 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
       const seconds = parseInt(padded.substring(4, 6), 10) || 0;
       return hours * 3600 + minutes * 60 + seconds;
     };
+=======
+    const uniqueCities = Array.from(
+      new Set(allArtists.map((artist: any) => artist.city).filter(Boolean))
+    ).sort();
+>>>>>>> 64a3170d6dee91539ce8ae1c9bba5edac116f4e4
 
     // Apply filters
     const filteredArtists = allArtists.filter((artist: any) => {
@@ -8011,6 +8615,7 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
         if (artistFilters.verified === 'Not Verified' && artist.verified) return false;
       }
 
+<<<<<<< HEAD
       // Country filter (checkable list)
       if (artistFilters.selectedCountries.length > 0) {
         const artistCountry = artist.country ? String(artist.country).trim() : '';
@@ -8097,6 +8702,16 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
         if (thresholdSeconds > 0 && totalListenTimeSeconds <= thresholdSeconds) {
           return false;
         }
+=======
+      // Country filter
+      if (artistFilters.country !== 'All Countries' && artist.country !== artistFilters.country) {
+        return false;
+      }
+
+      // City filter
+      if (artistFilters.city !== 'All Cities' && artist.city !== artistFilters.city) {
+        return false;
+>>>>>>> 64a3170d6dee91539ce8ae1c9bba5edac116f4e4
       }
 
       return true;
@@ -8129,10 +8744,16 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
         </div>
         <div className="px-5 py-4 space-y-4">
           {/* Filters */}
+<<<<<<< HEAD
           {showIndividualArtistFilters && (
           <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
             <h4 className="text-sm font-semibold text-gray-700 mb-3">Filters</h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+=======
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+            <h4 className="text-sm font-semibold text-gray-700 mb-3">Filters</h4>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+>>>>>>> 64a3170d6dee91539ce8ae1c9bba5edac116f4e4
               {/* Verified Filter */}
               <div>
                 <label htmlFor="filter-artist-verified" className="block text-xs font-medium text-gray-600 mb-1">
@@ -8152,6 +8773,7 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
                 </select>
               </div>
 
+<<<<<<< HEAD
               {/* Songs Liked Under */}
               <div>
                 <label htmlFor="filter-artist-songs-liked-under" className="block text-xs font-medium text-gray-600 mb-1">
@@ -8413,6 +9035,64 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
               
           {/* Sort Dropdown */}
           <div className="mb-3">
+=======
+              {/* Country Filter */}
+              <div>
+                <label htmlFor="filter-artist-country" className="block text-xs font-medium text-gray-600 mb-1">
+                  Country
+                </label>
+                <select
+                  id="filter-artist-country"
+                  value={artistFilters.country}
+                  onChange={(e) => {
+                    setArtistFilters((prev) => ({ ...prev, country: e.target.value, city: 'All Cities' }));
+                  }}
+                  className="w-full text-xs border border-gray-300 rounded-md px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                >
+                  <option value="All Countries">All Countries</option>
+                  {uniqueCountries.map((country) => (
+                    <option key={country} value={country}>
+                      {country}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* City Filter */}
+              <div>
+                <label htmlFor="filter-artist-city" className="block text-xs font-medium text-gray-600 mb-1">
+                  City
+                </label>
+                <select
+                  id="filter-artist-city"
+                  value={artistFilters.city}
+                  onChange={(e) => {
+                    setArtistFilters((prev) => ({ ...prev, city: e.target.value }));
+                  }}
+                  className="w-full text-xs border border-gray-300 rounded-md px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                >
+                  <option value="All Cities">All Cities</option>
+                  {uniqueCities
+                    .filter((city) => {
+                      // Filter cities based on selected country
+                      if (artistFilters.country === 'All Countries') return true;
+                      return allArtists.some(
+                        (artist: any) => artist.city === city && artist.country === artistFilters.country
+                      );
+                    })
+                    .map((city) => (
+                      <option key={city} value={city}>
+                        {city}
+                      </option>
+                    ))}
+                </select>
+              </div>
+                </div>
+              </div>
+              
+              {/* Sort Dropdown */}
+              <div className="mb-3">
+>>>>>>> 64a3170d6dee91539ce8ae1c9bba5edac116f4e4
                 <label htmlFor="artist-sort" className="block text-xs font-medium text-gray-600 mb-1">
                   Sort by:
                 </label>
@@ -8652,6 +9332,7 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
           </div>
         </div>
         <div className="px-5 py-4 space-y-4">
+<<<<<<< HEAD
           {/* Filters */}
           {showIndividualAlbumFilters && (
             <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
@@ -8850,6 +9531,39 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
                   </div>
                 </div>
 
+=======
+          {albums.map((album: any, idx: number) => {
+            const albumKey = `album-${album.albumId ?? idx}`;
+            const likedSongsExpanded = expandedAlbumLikedSongs[albumKey] ?? false;
+            const likedSongs = Array.isArray(album.likedSongs) ? album.likedSongs : [];
+            
+            return (
+              <section
+                key={`${album.albumId ?? idx}`}
+                className="report-section bg-white border border-gray-200 rounded-lg shadow-sm"
+              >
+                <div className="bg-gray-100 px-5 py-3.5 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <h3 className="text-xl font-semibold text-gray-900">{album.albumName || 'Untitled Album'}</h3>
+                    <div className="mt-1 text-xs text-gray-500 flex flex-wrap gap-x-5 gap-y-1">
+                      <span>Release Date: {formatDate(album.releaseDate)}</span>
+                      <span>Artist: {album.artistUsername || 'Unknown Artist'}</span>
+                      <span>Liked On: {formatDate(album.likedAt)}</span>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-4 text-sm text-gray-700">
+                    <div className="text-center min-w-[110px]">
+                      <p className="font-semibold text-lg text-gray-900">{formatNumber(album.songsLikedCount || 0)}</p>
+                      <p className="uppercase tracking-wide text-xs text-gray-500">Songs Liked</p>
+                    </div>
+                    <div className="text-center min-w-[130px]">
+                      <p className="font-semibold text-lg text-gray-900">{formatTime(Number(album.totalListeningDuration || 0))}</p>
+                      <p className="uppercase tracking-wide text-xs text-gray-500 whitespace-nowrap">Listen Time</p>
+                    </div>
+                  </div>
+                </div>
+
+>>>>>>> 64a3170d6dee91539ce8ae1c9bba5edac116f4e4
                 {likedSongs.length > 0 && (
                   <div className="px-5 py-4">
                     <div className="flex items-center justify-between gap-3 mb-2">
@@ -8903,8 +9617,12 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
                 )}
               </section>
             );
+<<<<<<< HEAD
             })
           )}
+=======
+          })}
+>>>>>>> 64a3170d6dee91539ce8ae1c9bba5edac116f4e4
         </div>
       </div>
     );
@@ -9164,6 +9882,7 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
           </div>
         </div>
         <div className="px-5 py-4 space-y-4">
+<<<<<<< HEAD
           {/* Filters */}
           {showIndividualPlaylistFilters && (
             <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
@@ -9372,11 +10091,17 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
             sortedPlaylists.map((playlist: any, idx: number) => {
             const allSongs = Array.isArray(playlist.songs) ? playlist.songs : [];
             const allLikedBy = Array.isArray(playlist.likedBy) ? playlist.likedBy : [];
+=======
+          {playlists.map((playlist: any, idx: number) => {
+            const songs = Array.isArray(playlist.songs) ? playlist.songs : [];
+            const likedBy = Array.isArray(playlist.likedBy) ? playlist.likedBy : [];
+>>>>>>> 64a3170d6dee91539ce8ae1c9bba5edac116f4e4
             const playlistKey = `playlist-${playlist.playlistId ?? idx}`;
             const currentPlaylistState = expandedPlaylistSections[playlistKey] ?? { songs: false, liked: false };
             const songsExpanded = currentPlaylistState.songs;
             const likedExpanded = currentPlaylistState.liked;
             
+<<<<<<< HEAD
             // Sort songs
             const songsSortOption = playlistSongsSortOptions[playlistKey] || 'songName-asc';
             const sortedSongs = [...allSongs].sort((a: any, b: any) => {
@@ -9429,6 +10154,8 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
               return comparison;
             });
             
+=======
+>>>>>>> 64a3170d6dee91539ce8ae1c9bba5edac116f4e4
             const togglePlaylistSection = (section: 'songs' | 'liked') => {
               setExpandedPlaylistSections((prev) => {
                 const prior = prev[playlistKey] ?? { songs: false, liked: false };
@@ -9477,6 +10204,7 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
                       <h5 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
                         Songs in this Playlist
                       </h5>
+<<<<<<< HEAD
                       <div className="flex items-center gap-3">
                         {sortedSongs.length > 0 && (
                           <>
@@ -9518,6 +10246,20 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
                       </div>
                     </div>
                     {sortedSongs.length === 0 ? (
+=======
+                      {songs.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => togglePlaylistSection('songs')}
+                          className="text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors"
+                          aria-expanded={songsExpanded}
+                        >
+                          {songsExpanded ? 'Hide songs' : 'Show songs'}
+                        </button>
+                      )}
+                    </div>
+                    {songs.length === 0 ? (
+>>>>>>> 64a3170d6dee91539ce8ae1c9bba5edac116f4e4
                       <div className="border border-dashed border-gray-300 rounded-md px-3 py-4 text-center text-sm text-gray-500">
                         No songs were added to this playlist during the selected period.
                       </div>
@@ -9559,6 +10301,7 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
                       <h5 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
                         Users Who Liked This Playlist
                       </h5>
+<<<<<<< HEAD
                       <div className="flex items-center gap-3">
                         {sortedLikedBy.length > 0 && (
                           <>
@@ -9749,6 +10492,56 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
             </div>
           </div>
         )}
+=======
+                      {likedBy.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => togglePlaylistSection('liked')}
+                          className="text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors"
+                          aria-expanded={likedExpanded}
+                        >
+                          {likedExpanded ? 'Hide users' : 'Show users'}
+                        </button>
+                      )}
+                    </div>
+                    {likedBy.length === 0 ? (
+                      <div className="border border-dashed border-gray-300 rounded-md px-3 py-4 text-center text-sm text-gray-500">
+                        No likes were recorded for this playlist during the selected period.
+                      </div>
+                    ) : likedExpanded ? (
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-200 border border-gray-200">
+                          <thead className="bg-gray-50">
+                            <tr className="text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                              <th className="px-3.5 py-2.5 text-left">Username</th>
+                              <th className="px-3.5 py-2.5 text-left">Liked On</th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-gray-100">
+                            {likedBy.map((user: any, likeIdx: number) => (
+                              <tr
+                                key={`${playlist.playlistId ?? idx}-liked-${user.userId ?? likeIdx}`}
+                                className={likeIdx % 2 === 1 ? 'bg-gray-50' : 'bg-white'}
+                              >
+                                <td className="px-3.5 py-2.5 text-sm text-gray-900">{user.username || 'Unknown'}</td>
+                                <td className="px-3.5 py-2.5 text-sm text-gray-900">{formatDate(user.likedAt)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <div className="text-sm text-gray-500">
+                        Click "Show users" to reveal the list.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </section>
+            );
+          })}
+        </div>
+>>>>>>> 64a3170d6dee91539ce8ae1c9bba5edac116f4e4
       </div>
     );
   };
