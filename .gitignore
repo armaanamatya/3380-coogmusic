@@ -94,6 +94,7 @@ jspm_packages/
 *.md
 !README.md
 !frontend/README.md
+!PROJECT_DOCUMENTATION.md
 
 # IDE
 .vscode/
