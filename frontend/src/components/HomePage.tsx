@@ -24,7 +24,6 @@ import MusicLibrary from './MusicLibrary'
 import MusicEditForm from './MusicEditForm'
 import AlbumManager from './AlbumManager'
 import Settings from './Settings'
-import Analytics from './Analytics'
 import RecentlyPlayedSongs from './RecentlyPlayedSongs'
 
 
@@ -957,21 +956,6 @@ function HomePage() {
                   Your Library
                 </button>
               </li>
-              {user?.userType?.toLowerCase() === 'analyst' && (
-                <li>
-                  <button
-                    onClick={() => setActiveTab('analytics')}
-                    className={`flex items-center w-full px-4 py-3 rounded-lg transition-colors ${
-                      activeTab === 'analytics'
-                        ? 'bg-white text-red-700'
-                        : 'text-white hover:bg-white/10'
-                    }`}
-                  >
-                    <span className="text-xl mr-3">📊</span>
-                    Analytics
-                  </button>
-                </li>
-              )}
               <li>
                 <button
                   onClick={() => setActiveTab('settings')}
@@ -1361,9 +1345,6 @@ function HomePage() {
             </div>
           )}
 
-          {activeTab === 'analytics' && user?.userType?.toLowerCase() === 'analyst' && (
-            <Analytics />
-          )}
 
           {activeTab === 'settings' && (
             <Settings onPlaySong={handlePlaySong} historyRefreshTrigger={historyRefreshTrigger} />
