@@ -222,6 +222,7 @@ interface AlbumActivity {
   artistId: number;
   artistUsername: string;
   artistName: string;
+  artistDateJoined: string | null;
   releaseDate: string | null;
   totalDuration: number;
   songCount: number;
@@ -1135,6 +1136,7 @@ export async function getArtistActivity(
           artistId,
           artistUsername,
           artistName: artistUsername || artistFullName || 'Unknown Artist',
+          artistDateJoined: row.DateJoined ? new Date(row.DateJoined).toISOString() : null,
           releaseDate: albumRow.ReleaseDate ? new Date(albumRow.ReleaseDate).toISOString() : null,
           totalDuration,
           songCount: albumSongs.length,
