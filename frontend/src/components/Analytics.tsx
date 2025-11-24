@@ -24,6 +24,12 @@ const Analytics = () => {
   // Individual user options - single username input
   const [individualUsername, setIndividualUsername] = useState<string>('');
   
+  // Individual user display options (without age demographics and geographics)
+  const [includePlaylistStatisticsIndividual, setIncludePlaylistStatisticsIndividual] = useState(false);
+  const [includeAlbumStatisticsIndividual, setIncludeAlbumStatisticsIndividual] = useState(false);
+  const [showSongStatsIndividual, setShowSongStatsIndividual] = useState(true);
+  const [showArtistStatsIndividual, setShowArtistStatsIndividual] = useState(true);
+  
   // Report state
   const [loading, setLoading] = useState(false);
   const [reportData, setReportData] = useState<any>(null);
@@ -151,7 +157,11 @@ const Analytics = () => {
         response = await analyticsApi.getIndividualReport({
           username: individualUsername.trim(),
           startDate,
-          endDate
+          endDate,
+          includePlaylistStatistics: includePlaylistStatisticsIndividual,
+          includeAlbumStatistics: includeAlbumStatisticsIndividual,
+          showSongStats: showSongStatsIndividual,
+          showArtistStats: showArtistStatsIndividual
         });
       } else {
         // Validate user types
@@ -179,23 +189,43 @@ const Analytics = () => {
       const data = await response.json();
 
       if (response.ok) {
-        setReportData({
-          ...data,
-          showSongStats,
-          showArtistStats,
-          showAgeDemographics,
-          meta: {
-            startDate,
-            endDate,
-            generatedAt: new Date().toISOString(),
-            includeListeners,
-            includeArtists,
-            includePlaylistStatistics,
-            includeAlbumStatistics,
-            includeGeographics,
-            includeSuspendedAccounts
-          }
-        });
+        if (userSelection === 'individual') {
+          setReportData({
+            ...data,
+            showSongStats: showSongStatsIndividual,
+            showArtistStats: showArtistStatsIndividual,
+            showAgeDemographics: false,
+            meta: {
+              startDate,
+              endDate,
+              generatedAt: new Date().toISOString(),
+              includeListeners: false,
+              includeArtists: false,
+              includePlaylistStatistics: includePlaylistStatisticsIndividual,
+              includeAlbumStatistics: includeAlbumStatisticsIndividual,
+              includeGeographics: false,
+              includeSuspendedAccounts: false
+            }
+          });
+        } else {
+          setReportData({
+            ...data,
+            showSongStats,
+            showArtistStats,
+            showAgeDemographics,
+            meta: {
+              startDate,
+              endDate,
+              generatedAt: new Date().toISOString(),
+              includeListeners,
+              includeArtists,
+              includePlaylistStatistics,
+              includeAlbumStatistics,
+              includeGeographics,
+              includeSuspendedAccounts
+            }
+          });
+        }
       } else {
         setReportError(data.error || 'Failed to generate report');
       }
@@ -325,7 +355,7 @@ const Analytics = () => {
                 {/* Album Statistics Checkbox */}
                 {/* Display Options */}
                 <div className="space-y-2 border-t border-gray-200 pt-4">
-                  <h4 className="text-sm font-semibold text-gray-700">Summary Display Options</h4>
+                  <h4 className="text-sm font-semibold text-gray-700">Display Options</h4>
                   <div className="flex items-center">
                     <input
                       type="checkbox"
@@ -462,6 +492,59 @@ const Analytics = () => {
                     placeholder="Enter username"
                     className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-gray-900"
                   />
+                </div>
+
+                {/* Display Options */}
+                <div className="space-y-2 border-t border-gray-200 pt-4">
+                  <h4 className="text-sm font-semibold text-gray-700">Display Options</h4>
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="includePlaylistStatisticsIndividual"
+                      checked={includePlaylistStatisticsIndividual}
+                      onChange={(e) => setIncludePlaylistStatisticsIndividual(e.target.checked)}
+                      className="w-4 h-4 text-red-600 focus:ring-red-500 focus:ring-2 border-gray-300 rounded"
+                    />
+                    <label htmlFor="includePlaylistStatisticsIndividual" className="ml-2 text-sm font-medium text-gray-700">
+                      Playlist Statistics
+                    </label>
+                  </div>
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="showSongStatsIndividual"
+                      checked={showSongStatsIndividual}
+                      onChange={(e) => setShowSongStatsIndividual(e.target.checked)}
+                      className="w-4 h-4 text-red-600 focus:ring-red-500 focus:ring-2 border-gray-300 rounded"
+                    />
+                    <label htmlFor="showSongStatsIndividual" className="ml-2 text-sm font-medium text-gray-700">
+                      Song Stats
+                    </label>
+                  </div>
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="showArtistStatsIndividual"
+                      checked={showArtistStatsIndividual}
+                      onChange={(e) => setShowArtistStatsIndividual(e.target.checked)}
+                      className="w-4 h-4 text-red-600 focus:ring-red-500 focus:ring-2 border-gray-300 rounded"
+                    />
+                    <label htmlFor="showArtistStatsIndividual" className="ml-2 text-sm font-medium text-gray-700">
+                      Artist Stats
+                    </label>
+                  </div>
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="includeAlbumStatisticsIndividual"
+                      checked={includeAlbumStatisticsIndividual}
+                      onChange={(e) => setIncludeAlbumStatisticsIndividual(e.target.checked)}
+                      className="w-4 h-4 text-red-600 focus:ring-red-500 focus:ring-2 border-gray-300 rounded"
+                    />
+                    <label htmlFor="includeAlbumStatisticsIndividual" className="ml-2 text-sm font-medium text-gray-700">
+                      Album Statistics
+                    </label>
+                  </div>
                 </div>
 
                 {/* Generate Report Button */}

@@ -73,6 +73,10 @@ export const analyticsApi = {
     username: string;
     startDate: string;
     endDate: string;
+    includePlaylistStatistics?: boolean;
+    includeAlbumStatistics?: boolean;
+    showSongStats?: boolean;
+    showArtistStats?: boolean;
   }) =>
     fetch(`${API_BASE}/api/analytics/individual`, {
       method: 'POST',
