@@ -150,6 +150,7 @@ const AdminDashboard: React.FC = () => {
   const [songs, setSongs] = useState<Song[]>([]);
   const [albums, setAlbums] = useState<Album[]>([]);
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
+  // @ts-ignore - Keeping for future overview tab restoration
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(false);
   
@@ -316,6 +317,7 @@ const AdminDashboard: React.FC = () => {
     });
   };
 
+  // @ts-ignore - Keeping for future overview tab restoration
   const fetchStats = async () => {
     setLoading(true);
     try {
