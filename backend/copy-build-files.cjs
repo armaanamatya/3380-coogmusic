@@ -49,6 +49,19 @@ const schemaSource = path.join(__dirname, 'src', 'schema.mysql.sql');
 const schemaDest = path.join(__dirname, 'dist', 'schema.mysql.sql');
 copyFile(schemaSource, schemaDest);
 
+// Copy JavaScript files that aren't compiled by TypeScript
+const notificationControllerSource = path.join(__dirname, 'src', 'controllers', 'notificationController.js');
+const notificationControllerDest = path.join(__dirname, 'dist', 'controllers', 'notificationController.js');
+if (fs.existsSync(notificationControllerSource)) {
+  copyFile(notificationControllerSource, notificationControllerDest);
+}
+
+const notificationModelSource = path.join(__dirname, 'src', 'models', 'notificationModel.js');
+const notificationModelDest = path.join(__dirname, 'dist', 'models', 'notificationModel.js');
+if (fs.existsSync(notificationModelSource)) {
+  copyFile(notificationModelSource, notificationModelDest);
+}
+
 // Copy seedData directory from project root
 const seedDataSource = path.join(__dirname, '..', 'seedData');
 const seedDataDest = path.join(__dirname, 'dist', 'seedData');
