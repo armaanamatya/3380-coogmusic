@@ -202,7 +202,7 @@ export const AlbumExpanded: React.FC<AlbumExpandedProps> = ({
     }
   };
 
-  const handlePlaySong = async (song: Song, songIndex: number) => {
+  const handlePlaySong = async (song: Song, _songIndex: number) => {
     try {
       // Clear any previous playback errors
       setPlaybackError(null);

@@ -1006,7 +1006,7 @@ function HomePage() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 p-8 overflow-x-hidden">
+      <main className="flex-1 p-8 pb-20 overflow-x-hidden">
         <div className="max-w-7xl mx-auto">
           {/* Header with Search Bar and Notification Bell */}
           <div className="mb-8 flex justify-between items-center">
