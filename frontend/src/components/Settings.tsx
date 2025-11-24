@@ -78,14 +78,17 @@ function Settings({ onPlaySong, historyRefreshTrigger }: SettingsProps) {
       
       const data = await response.json();
       setProfile(data.user);
+      
+      const dateOfBirth = data.user.DateOfBirth ? data.user.DateOfBirth.split('T')[0] : '';
+      
       setFormData({
-        Username: data.user.Username,
-        FirstName: data.user.FirstName,
-        LastName: data.user.LastName,
-        Email: data.user.Email,
-        Country: data.user.Country,
+        Username: data.user.Username || '',
+        FirstName: data.user.FirstName || '',
+        LastName: data.user.LastName || '',
+        Email: data.user.Email || '',
+        Country: data.user.Country || '',
         City: data.user.City || '',
-        DateOfBirth: data.user.DateOfBirth
+        DateOfBirth: dateOfBirth
       });
       const pictureUrl = data.user.ProfilePicture ? getFileUrl(data.user.ProfilePicture) : '';
       updateProfilePicturePreview(pictureUrl);
@@ -244,14 +247,16 @@ function Settings({ onPlaySong, historyRefreshTrigger }: SettingsProps) {
 
   const handleCancel = () => {
     if (profile) {
+      const dateOfBirth = profile.DateOfBirth ? profile.DateOfBirth.split('T')[0] : '';
+      
       setFormData({
-        Username: profile.Username,
-        FirstName: profile.FirstName,
-        LastName: profile.LastName,
-        Email: profile.Email,
-        Country: profile.Country,
+        Username: profile.Username || '',
+        FirstName: profile.FirstName || '',
+        LastName: profile.LastName || '',
+        Email: profile.Email || '',
+        Country: profile.Country || '',
         City: profile.City || '',
-        DateOfBirth: profile.DateOfBirth
+        DateOfBirth: dateOfBirth
       });
       const pictureUrl = profile.ProfilePicture ? getFileUrl(profile.ProfilePicture) : '';
       updateProfilePicturePreview(pictureUrl);
