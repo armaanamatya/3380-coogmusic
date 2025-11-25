@@ -1194,12 +1194,6 @@ export const AnalyticsExpanded: React.FC<AnalyticsExpandedProps> = ({
     });
   }, [countryChartData, ageHistogramData]);
 
-  const handleExportPdf = useCallback(() => {
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = 'visible';
-    window.print();
-    document.body.style.overflow = previous;
-  }, []);
 
   const reportMeta = reportData?.meta ?? {};
   const reportStartDate: string | undefined = reportMeta.startDate;
@@ -1725,18 +1719,6 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
                       </p>
                       <p className="uppercase tracking-wide text-xs text-gray-500">Total Likes</p>
                     </div>
-                    <div className="text-center">
-                      <p className="font-semibold text-lg text-gray-900">
-                        {formatTime(Number(song.averageListeningTime ?? 0))}
-                      </p>
-                      <p className="uppercase tracking-wide text-xs text-gray-500">Average Listen Duration</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="font-semibold text-lg text-gray-900">
-                        {formatTime(Number(song.totalListeningTime ?? 0))}
-                      </p>
-                      <p className="uppercase tracking-wide text-xs text-gray-500 whitespace-nowrap">Total Listen Duration</p>
-                    </div>
                   </div>
                 </div>
 
@@ -1765,10 +1747,7 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
                           <tr className="text-xs font-semibold text-gray-600 uppercase tracking-wider">
                             <th className="px-3.5 py-2.5 text-left">Listener</th>
                             <th className="px-3.5 py-2.5 text-center">Listens</th>
-                            <th className="px-3.5 py-2.5 text-center">Avg Listen Duration</th>
-                            <th className="px-3.5 py-2.5 text-center">Total Listen Duration</th>
                             <th className="px-3.5 py-2.5 text-left">Liked?</th>
-                            <th className="px-3.5 py-2.5 text-left">Liked On</th>
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-100">
@@ -1779,10 +1758,7 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
                             >
                               <td className="px-3.5 py-2.5 text-sm text-gray-900">{listener.username || 'Unknown User'}</td>
                               <td className="px-3.5 py-2.5 text-sm text-gray-900 text-center">{formatNumber(listener.listenCount || 0)}</td>
-                              <td className="px-3.5 py-2.5 text-sm text-gray-900 text-center">{formatTime(listener.averageListeningTime || 0)}</td>
-                              <td className="px-3.5 py-2.5 text-sm text-gray-900 text-center">{formatTime(listener.totalListeningTime || 0)}</td>
                               <td className="px-3.5 py-2.5 text-sm text-gray-900">{listener.liked ? 'Liked' : 'Not Liked'}</td>
-                              <td className="px-3.5 py-2.5 text-sm text-gray-900">{formatDate(listener.likedAt)}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -4256,12 +4232,6 @@ const SummarySection: React.FC<{ title: string; rows: SummaryRow[] }> = ({ title
             )}
           </div>
           <div className="flex gap-3 self-end sm:self-auto print-controls">
-            <button
-              onClick={handleExportPdf}
-              className="px-4 py-2 bg-white text-red-600 font-semibold rounded-lg shadow-sm hover:bg-red-50 transition-colors"
-            >
-              Export PDF
-            </button>
           <button
             onClick={onClose}
               className="px-4 py-2 bg-red-700 text-white font-semibold rounded-lg shadow-sm hover:bg-red-800 transition-colors"

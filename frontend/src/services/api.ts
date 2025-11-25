@@ -4,6 +4,12 @@
 // Normalize API_BASE by removing trailing slashes
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001').replace(/\/+$/, '');
 
+// Warn if using localhost in production
+if (import.meta.env.PROD && API_BASE.includes('localhost')) {
+  console.error('⚠️ WARNING: VITE_API_BASE_URL is not set! Using localhost fallback which will not work in production.');
+  console.error('Please set VITE_API_BASE_URL environment variable to your backend URL (e.g., https://three380-coogmusic-1.onrender.com)');
+}
+
 // Types for API responses
 export interface ApiResponse<T = any> {
   data?: T;

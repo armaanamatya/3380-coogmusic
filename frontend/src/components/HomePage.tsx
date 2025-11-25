@@ -725,7 +725,9 @@ function HomePage() {
         const response = await songApi.getTop()
         
         if (!response.ok) {
-          throw new Error('Failed to fetch top songs')
+          const errorText = await response.text()
+          console.error('Failed to fetch top songs:', response.status, errorText)
+          throw new Error(`Failed to fetch top songs: ${response.status} ${errorText}`)
         }
         
         const data = await response.json()
@@ -734,6 +736,10 @@ function HomePage() {
         setTopSongs(songsArray)
       } catch (error) {
         console.error('Error fetching top songs:', error)
+        // Check if it's a network error (CORS, connection refused, etc.)
+        if (error instanceof TypeError && error.message.includes('fetch')) {
+          console.error('Network error - check if VITE_API_BASE_URL is set correctly in your deployment environment')
+        }
         setTopSongs([])
       } finally {
         setSongsLoading(false)
