@@ -140,3 +140,6 @@ import-database-data.cjs
 
 B_Songs/
 C_James-Songs/
+
+.qodo
+*.txt
