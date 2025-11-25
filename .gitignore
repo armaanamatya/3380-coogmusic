@@ -153,3 +153,7 @@ updateDatabaseWithAudio.js
 uploadAudioFiles.js
 test-file-url.js
 test-images.html
+
+# Backend upload folders
+backend/uploads/
+backend/uploads_backup/
