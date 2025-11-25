@@ -2640,6 +2640,9 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
           updatedAtTo: requestData.updatedAtTo || ''
         };
 
+        // Debug logging
+        console.log('User filters received:', filters);
+
         const pool = await getPool();
         
         // Build WHERE conditions
@@ -2652,48 +2655,55 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
           queryParams.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`);
         }
 
-        // Add filter conditions
-        if (filters.dateOfBirthTo) {
-          conditions.push('u.DateOfBirth <= ?');
-          queryParams.push(filters.dateOfBirthTo);
+        // Add filter conditions - check for truthy values and non-empty strings
+        if (filters.dateOfBirthTo && filters.dateOfBirthTo.trim() !== '') {
+          const dateValue = filters.dateOfBirthTo.trim();
+          conditions.push('u.DateOfBirth IS NOT NULL AND u.DateOfBirth <= ?');
+          queryParams.push(dateValue);
         }
-        if (filters.dateJoinedTo) {
-          conditions.push('u.DateJoined <= ?');
-          queryParams.push(filters.dateJoinedTo);
+        if (filters.dateJoinedTo && filters.dateJoinedTo.trim() !== '') {
+          const dateValue = filters.dateJoinedTo.trim();
+          conditions.push('u.DateJoined IS NOT NULL AND u.DateJoined <= ?');
+          queryParams.push(dateValue);
         }
-        if (filters.country) {
+        if (filters.country && filters.country.trim() !== '') {
           conditions.push('u.Country = ?');
-          queryParams.push(filters.country);
+          queryParams.push(filters.country.trim());
         }
-        if (filters.city) {
+        if (filters.city && filters.city.trim() !== '') {
           conditions.push('u.City = ?');
-          queryParams.push(filters.city);
+          queryParams.push(filters.city.trim());
         }
-        if (filters.userType) {
+        if (filters.userType && filters.userType.trim() !== '') {
           conditions.push('u.UserType = ?');
-          queryParams.push(filters.userType);
+          queryParams.push(filters.userType.trim());
         }
-        if (filters.accountStatus) {
+        if (filters.accountStatus && filters.accountStatus.trim() !== '') {
           conditions.push('u.AccountStatus = ?');
-          queryParams.push(filters.accountStatus);
+          queryParams.push(filters.accountStatus.trim());
         }
-        if (filters.createdAtTo) {
-          conditions.push('u.CreatedAt <= ?');
-          queryParams.push(filters.createdAtTo);
+        if (filters.createdAtTo && filters.createdAtTo.trim() !== '') {
+          // For DATETIME fields, include the entire day by adding time component
+          const dateValue = filters.createdAtTo.trim();
+          conditions.push('u.CreatedAt IS NOT NULL AND u.CreatedAt <= ?');
+          queryParams.push(`${dateValue} 23:59:59`);
         }
-        if (filters.updatedAtTo) {
-          conditions.push('u.UpdatedAt <= ?');
-          queryParams.push(filters.updatedAtTo);
+        if (filters.updatedAtTo && filters.updatedAtTo.trim() !== '') {
+          // For DATETIME fields, include the entire day by adding time component
+          const dateValue = filters.updatedAtTo.trim();
+          conditions.push('u.UpdatedAt IS NOT NULL AND u.UpdatedAt <= ?');
+          queryParams.push(`${dateValue} 23:59:59`);
         }
 
         const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
         
         // Get total count for pagination
-        const [countResult] = await pool.execute(
-          `SELECT COUNT(*) as total FROM userprofile u ${whereClause}`,
-          queryParams
-        );
+        const countQuery = `SELECT COUNT(*) as total FROM userprofile u ${whereClause}`;
+        console.log('Count query:', countQuery);
+        console.log('Query params:', queryParams);
+        const [countResult] = await pool.execute(countQuery, queryParams);
         const total = (countResult as any)[0].total;
+        console.log('Total users found:', total);
         
         // Get paginated users
         const baseQuery = `
@@ -2712,7 +2722,9 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
           ORDER BY u.UserID
           LIMIT ${limit} OFFSET ${offset}
         `;
+        console.log('Users query:', baseQuery);
         const [users] = await pool.execute(baseQuery, queryParams);
+        console.log('Users returned:', (users as any[]).length);
         
         const totalPages = Math.ceil(total / limit);
         
