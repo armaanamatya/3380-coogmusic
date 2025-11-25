@@ -124,7 +124,6 @@ setup-env.cjs
 *.js.map
 
 # Utility scripts
-copy-build-files.cjs
 export-database-data.cjs
 import-database-data.cjs
 
