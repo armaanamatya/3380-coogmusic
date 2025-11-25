@@ -143,3 +143,6 @@ C_James-Songs/
 
 .qodo
 *.txt
+
+# Seed data
+seedData/
