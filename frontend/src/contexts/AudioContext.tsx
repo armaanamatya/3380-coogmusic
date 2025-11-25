@@ -216,8 +216,8 @@ interface AudioContextValue {
   clearQueue: () => void
   
   // Listen count callback
-  onListenCountUpdate?: (songId: string, newCount: number) => void
-  setListenCountCallback: (callback: (songId: string, newCount: number) => void) => void
+  onListenCountUpdate?: (songId: string) => void
+  setListenCountCallback: (callback: (songId: string) => void) => void
   
   // History update callback
   setHistoryUpdateCallback: (callback: () => void) => void
@@ -251,7 +251,7 @@ export function AudioProvider({ children }: AudioProviderProps) {
   const hasRecordedHistoryRef = useRef<boolean>(false)
   
   // Listen count callback
-  const listenCountCallbackRef = useRef<((songId: string, newCount: number) => void) | null>(null)
+  const listenCountCallbackRef = useRef<((songId: string) => void) | null>(null)
   
   // History update callback
   const historyUpdateCallbackRef = useRef<(() => void) | null>(null)
@@ -290,17 +290,15 @@ export function AudioProvider({ children }: AudioProviderProps) {
       if (!hasIncrementedListenCount.current && state.currentSong?.id) {
         hasIncrementedListenCount.current = true
         const currentSongId = state.currentSong.id
-        const currentListenCount = state.currentSong.listenCount || 0
         
         try {
           await songApi.incrementListenCount(parseInt(currentSongId))
           // Update the frontend count after successful backend increment
           dispatch({ type: 'INCREMENT_LISTEN_COUNT' })
           
-          // Notify callback about the listen count update with the correct new count
+          // Notify callback about the listen count update
           if (listenCountCallbackRef.current) {
-            const newCount = currentListenCount + 1
-            listenCountCallbackRef.current(currentSongId, newCount)
+            listenCountCallbackRef.current(currentSongId)
           }
         } catch (error) {
           console.error('Failed to increment listen count:', error)
@@ -459,7 +457,7 @@ export function AudioProvider({ children }: AudioProviderProps) {
     dispatch({ type: 'CLEAR_QUEUE' })
   }
 
-  const setListenCountCallback = (callback: (songId: string, newCount: number) => void) => {
+  const setListenCountCallback = (callback: (songId: string) => void) => {
     listenCountCallbackRef.current = callback
   }
 

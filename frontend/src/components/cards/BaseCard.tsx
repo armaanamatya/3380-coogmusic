@@ -87,7 +87,7 @@ export const BaseCard: React.FC<BaseCardProps> = ({
                 </div>
               )}
               
-              {listenCount !== undefined && (
+              {listenCount !== undefined && type !== 'album' && (
                 <span className="text-gray-600">
                   {listenCount} listens
                 </span>
@@ -96,7 +96,7 @@ export const BaseCard: React.FC<BaseCardProps> = ({
           </div>
         )}
         
-        {!showStats && listenCount !== undefined && (
+        {!showStats && listenCount !== undefined && type !== 'album' && (
           <p className="text-xs text-gray-600 mt-1">
             {listenCount.toLocaleString()} listens
           </p>

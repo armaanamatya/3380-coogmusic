@@ -354,13 +354,17 @@ const AdminDashboard: React.FC = () => {
     const searchQuery = search !== undefined ? search : usersSearch;
     const currentFilters = filters || debouncedUsersFilters;
     
+    const requestBody = {
+      page: currentPage,
+      limit: 20,
+      search: searchQuery,
+      ...currentFilters
+    };
+    
+    console.log('Fetching users with filters:', requestBody);
+    
     try {
-      const response = await fetchWithAdminAuth('/api/admin/users', {
-        page: currentPage,
-        limit: 20,
-        search: searchQuery,
-        ...currentFilters
-      });
+      const response = await fetchWithAdminAuth('/api/admin/users', requestBody);
       const data = await response.json();
       if (data.users && data.pagination) {
         setUsers(data.users);
