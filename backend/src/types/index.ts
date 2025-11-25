@@ -29,7 +29,7 @@ export interface UserProfile {
   DateJoined: string;
   Country: string;
   City: string | null;
-  AccountStatus: 'Active' | 'Suspended' | 'Banned';
+  AccountStatus: 'Active' | 'Banned';
   IsOnline: number;
   LastLogin: string | null;
   ProfilePicture: string | null;

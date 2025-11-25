@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
-import { artistApi, followApi, getFileUrl } from '../services/api'
+import { artistApi, followApi, getFileUrl, ratingApi, likeApi } from '../services/api'
 import { useAuth } from '../hooks/useAuth'
+import { useAudio } from '../contexts/AudioContext'
 import { SongCard } from './cards/SongCard'
 import { AlbumCard } from './cards/AlbumCard'
 
@@ -53,6 +54,7 @@ export const ArtistExpanded: React.FC<ArtistExpandedProps> = ({
   onClose
 }) => {
   const { user } = useAuth()
+  const { playSong } = useAudio()
   const [artist, setArtist] = useState<Artist | null>(null)
   const [stats, setStats] = useState<ArtistStats | null>(null)
   const [albums, setAlbums] = useState<Album[]>([])
@@ -62,6 +64,7 @@ export const ArtistExpanded: React.FC<ArtistExpandedProps> = ({
   const [activeTab, setActiveTab] = useState<TabType>('overview')
   const [isFollowing, setIsFollowing] = useState(false)
   const [followLoading, setFollowLoading] = useState(false)
+  const [playbackError, setPlaybackError] = useState<string | null>(null)
 
   useEffect(() => {
     fetchArtistData()
@@ -180,6 +183,84 @@ export const ArtistExpanded: React.FC<ArtistExpandedProps> = ({
       return (num / 1000).toFixed(1) + 'K'
     }
     return num.toString()
+  }
+
+  const handlePlaySong = async (song: Song, _songIndex: number) => {
+    try {
+      // Clear any previous playback errors
+      setPlaybackError(null)
+      
+      // Validate that the song has a valid audio file
+      if (!song.FilePath || song.FilePath.trim() === '') {
+        const errorMsg = 'This song is not available for playback - no audio file found.'
+        setPlaybackError(errorMsg)
+        setTimeout(() => setPlaybackError(null), 5000)
+        return
+      }
+
+      // Convert all artist songs to the format expected by AudioContext
+      // Only include songs that have valid audio files
+      const queue = songs
+        .filter(s => s.FilePath && s.FilePath.trim() !== '')
+        .map(s => ({
+          id: s.SongID.toString(),
+          title: s.SongName,
+          artist: `${artist?.FirstName || ''} ${artist?.LastName || ''}`,
+          audioFilePath: s.FilePath!,
+          imageUrl: '',
+          averageRating: 0,
+          totalRatings: 0,
+          userRating: null as number | null,
+          isLiked: false,
+          likeCount: 0,
+          listenCount: s.ListenCount
+        }))
+      
+      // Find the current song in the filtered queue
+      const currentSongInQueue = queue.findIndex(s => s.id === song.SongID.toString())
+      if (currentSongInQueue === -1) {
+        const errorMsg = 'Cannot play this song - audio file is not available.'
+        setPlaybackError(errorMsg)
+        setTimeout(() => setPlaybackError(null), 5000)
+        return
+      }
+
+      // Enrich the current song with rating and like data if user is logged in
+      if (user?.userId) {
+        const [ratingStatsResponse, userRatingResponse, likeStatusResponse] = await Promise.all([
+          ratingApi.getSongRatingStats(song.SongID),
+          ratingApi.getUserSongRating(song.SongID, user.userId),
+          likeApi.isSongLiked(user.userId, song.SongID)
+        ])
+
+        if (ratingStatsResponse.ok) {
+          const ratingStats = await ratingStatsResponse.json()
+          queue[currentSongInQueue].averageRating = ratingStats.averageRating
+          queue[currentSongInQueue].totalRatings = ratingStats.totalRatings
+        }
+
+        if (userRatingResponse.ok) {
+          const userRating = await userRatingResponse.json()
+          queue[currentSongInQueue].userRating = userRating.rating
+        }
+
+        if (likeStatusResponse.ok) {
+          const likeStatus = await likeStatusResponse.json()
+          queue[currentSongInQueue].isLiked = likeStatus.isLiked
+          queue[currentSongInQueue].likeCount = likeStatus.likeCount
+        }
+      }
+
+      // Play the song with the entire artist's songs as queue (without opening the player modal)
+      playSong(queue[currentSongInQueue], queue, currentSongInQueue, false)
+      
+      console.log('✅ Started playing song from artist:', song.SongName)
+    } catch (error) {
+      console.error('Error playing song:', error)
+      const errorMsg = 'Failed to start playback. Please try again.'
+      setPlaybackError(errorMsg)
+      setTimeout(() => setPlaybackError(null), 5000)
+    }
   }
 
   if (loading) {
@@ -378,28 +459,73 @@ export const ArtistExpanded: React.FC<ArtistExpandedProps> = ({
           {activeTab === 'songs' && (
             <div>
               <h3 className="text-lg font-semibold text-gray-800 mb-4">All Songs</h3>
+              
+              {/* Playback Error Message */}
+              {playbackError && (
+                <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-4">
+                  <div className="flex items-center">
+                    <svg className="w-5 h-5 text-red-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <p className="text-red-800 text-sm">{playbackError}</p>
+                  </div>
+                </div>
+              )}
+              
               {songs.length === 0 ? (
                 <p className="text-gray-500 text-center py-8">No songs found</p>
               ) : (
                 <div className="space-y-2">
-                  {songs.map((song, index) => (
-                    <div key={song.SongID} className="flex items-center p-3 hover:bg-gray-50 rounded-lg">
-                      <div className="text-gray-400 w-8 text-sm">{index + 1}</div>
-                      <div className="flex-1 ml-4">
-                        <h4 className="font-medium text-gray-800">{song.SongName}</h4>
-                        <p className="text-sm text-gray-500">
-                          {song.AlbumName && `${song.AlbumName} • `}
-                          {song.GenreName || 'Unknown Genre'}
-                        </p>
+                  {songs.map((song, index) => {
+                    const hasValidAudio = song.FilePath && song.FilePath.trim() !== ''
+                    
+                    return (
+                      <div
+                        key={song.SongID}
+                        className={`flex items-center p-3 rounded-lg border border-gray-200 group transition-colors ${
+                          hasValidAudio ? 'hover:bg-gray-50 cursor-pointer' : 'opacity-60'
+                        }`}
+                      >
+                        {/* Play Button */}
+                        {hasValidAudio ? (
+                          <button
+                            onClick={() => handlePlaySong(song, index)}
+                            className="flex-shrink-0 w-10 h-10 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center transition-all opacity-30 group-hover:opacity-100 mr-2"
+                            title="Play song"
+                          >
+                            <svg className="w-4 h-4 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M8 5v14l11-7z" />
+                            </svg>
+                          </button>
+                        ) : (
+                          <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gray-300 text-gray-500 flex items-center justify-center mr-2" title="Audio file not available">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L5.636 5.636" />
+                            </svg>
+                          </div>
+                        )}
+
+                        {/* Position Number */}
+                        <div className={`text-gray-400 w-8 text-sm text-center transition-opacity ${
+                          hasValidAudio ? 'group-hover:opacity-20' : ''
+                        }`}>
+                          {index + 1}
+                        </div>
+                        
+                        <div className="flex-1 ml-4">
+                          <h4 className="font-medium text-gray-800">{song.SongName}</h4>
+                          <p className="text-sm text-gray-500">
+                            {song.AlbumName && `${song.AlbumName} • `}
+                            {song.GenreName || 'Unknown Genre'}
+                          </p>
+                        </div>
+                        
+                        <div className="text-sm text-gray-500 font-mono">
+                          {formatDuration(song.Duration)}
+                        </div>
                       </div>
-                      <div className="text-sm text-gray-500 mr-4">
-                        {song.ListenCount.toLocaleString()} plays
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        {formatDuration(song.Duration)}
-                      </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               )}
             </div>

@@ -928,7 +928,6 @@ const AdminDashboard: React.FC = () => {
                         >
                           <option value="">All Statuses</option>
                           <option value="Active">Active</option>
-                          <option value="Suspended">Suspended</option>
                           <option value="Banned">Banned</option>
                         </select>
                       </div>

@@ -10,7 +10,7 @@ export interface AnalyticsFilters {
   includePlaylistStatistics: boolean;
   includeAlbumStatistics: boolean;
   includeGeographics: boolean;
-  includeSuspendedAccounts?: boolean;
+  includeBannedAccounts?: boolean;
   showSongStats?: boolean;
   showArtistStats?: boolean;
   showAgeDemographics?: boolean;
@@ -108,7 +108,7 @@ export interface AnalyticsReport {
   artistActivity?: ArtistActivity[];
   albumActivity?: AlbumActivity[];
   playlistActivity?: PlaylistActivityResult;
-  includeSuspendedAccounts: boolean;
+  includeBannedAccounts: boolean;
   dailyListeningCounts?: Array<{ date: string; count: number }>;
 }
 
@@ -127,9 +127,9 @@ const buildExcludedUsernameFilter = (column: string) => {
 
 const buildAccountStatusFilter = (
   column: string,
-  includeSuspendedAccounts?: boolean
+  includeBannedAccounts?: boolean
 ) => {
-  if (includeSuspendedAccounts) {
+  if (includeBannedAccounts) {
     return '';
   }
   return `\n      AND ${column} = 'Active'`;
@@ -423,7 +423,7 @@ export interface IndividualUserDetails {
   dateOfBirth: string | null;
   age: number | null;
   userType: string;
-  accountStatus: 'Active' | 'Suspended' | 'Banned';
+  accountStatus: 'Active' | 'Banned';
   statusDate: string | null;
   profilePicture: string | null;
   dateJoined: string | null;
@@ -466,9 +466,9 @@ export async function getUserCounts(
   pool: Pool,
   filters: AnalyticsFilters
 ): Promise<UserCount> {
-  const { startDate, endDate, includeListeners, includeArtists, includeSuspendedAccounts } = filters;
+  const { startDate, endDate, includeListeners, includeArtists, includeBannedAccounts } = filters;
   const { clause: excludedUsernameClause, params: excludedUsernameParams } = buildExcludedUsernameFilter('Username');
-  const accountStatusClause = buildAccountStatusFilter('AccountStatus', includeSuspendedAccounts);
+  const accountStatusClause = buildAccountStatusFilter('AccountStatus', includeBannedAccounts);
   
   let query = `
     SELECT 
@@ -511,9 +511,9 @@ export async function getLoginCounts(
   pool: Pool,
   filters: AnalyticsFilters
 ): Promise<LoginCount> {
-  const { startDate, endDate, includeListeners, includeArtists, includeSuspendedAccounts } = filters;
+  const { startDate, endDate, includeListeners, includeArtists, includeBannedAccounts } = filters;
   const { clause: excludedUsernameClause, params: excludedUsernameParams } = buildExcludedUsernameFilter('up.Username');
-  const accountStatusClause = buildAccountStatusFilter('up.AccountStatus', includeSuspendedAccounts);
+  const accountStatusClause = buildAccountStatusFilter('up.AccountStatus', includeBannedAccounts);
   
   let query = `
     SELECT 
@@ -557,9 +557,9 @@ export async function getLoginTime(
   pool: Pool,
   filters: AnalyticsFilters
 ): Promise<LoginTime> {
-  const { startDate, endDate, includeListeners, includeArtists, includeSuspendedAccounts } = filters;
+  const { startDate, endDate, includeListeners, includeArtists, includeBannedAccounts } = filters;
   const { clause: excludedUsernameClause, params: excludedUsernameParams } = buildExcludedUsernameFilter('up.Username');
-  const accountStatusClause = buildAccountStatusFilter('up.AccountStatus', includeSuspendedAccounts);
+  const accountStatusClause = buildAccountStatusFilter('up.AccountStatus', includeBannedAccounts);
   
   const query = `
     SELECT 
@@ -619,9 +619,9 @@ export async function getSongsListened(
   pool: Pool,
   filters: AnalyticsFilters
 ): Promise<number> {
-  const { startDate, endDate, includeSuspendedAccounts } = filters;
+  const { startDate, endDate, includeBannedAccounts } = filters;
   const { clause: excludedUsernameClause, params: excludedUsernameParams } = buildExcludedUsernameFilter('listener.Username');
-  const accountStatusClause = buildAccountStatusFilter('listener.AccountStatus', includeSuspendedAccounts);
+  const accountStatusClause = buildAccountStatusFilter('listener.AccountStatus', includeBannedAccounts);
   
   const query = `
     SELECT COUNT(*) as total
@@ -642,9 +642,9 @@ export async function getDailyListeningCounts(
   pool: Pool,
   filters: AnalyticsFilters
 ): Promise<Array<{ date: string; count: number }>> {
-  const { startDate, endDate, includeSuspendedAccounts } = filters;
+  const { startDate, endDate, includeBannedAccounts } = filters;
   const { clause: excludedUsernameClause, params: excludedUsernameParams } = buildExcludedUsernameFilter('listener.Username');
-  const accountStatusClause = buildAccountStatusFilter('listener.AccountStatus', includeSuspendedAccounts);
+  const accountStatusClause = buildAccountStatusFilter('listener.AccountStatus', includeBannedAccounts);
   
   const query = `
     SELECT 
@@ -683,9 +683,9 @@ export async function getSongsUploaded(
   pool: Pool,
   filters: AnalyticsFilters
 ): Promise<number> {
-  const { startDate, endDate, includeSuspendedAccounts } = filters;
+  const { startDate, endDate, includeBannedAccounts } = filters;
   const { clause: excludedUsernameClause, params: excludedUsernameParams } = buildExcludedUsernameFilter('up.Username');
-  const accountStatusClause = buildAccountStatusFilter('up.AccountStatus', includeSuspendedAccounts);
+  const accountStatusClause = buildAccountStatusFilter('up.AccountStatus', includeBannedAccounts);
   
   const query = `
     SELECT COUNT(*) as total
@@ -712,8 +712,8 @@ export async function getSongActivity(
   const { startDate, endDate } = filters;
   const excludedListener = buildExcludedUsernameFilter('listener.Username');
   const excludedLiker = buildExcludedUsernameFilter('liker.Username');
-  const listenerStatusClause = buildAccountStatusFilter('listener.AccountStatus', filters.includeSuspendedAccounts);
-  const likerStatusClause = buildAccountStatusFilter('liker.AccountStatus', filters.includeSuspendedAccounts);
+  const listenerStatusClause = buildAccountStatusFilter('listener.AccountStatus', filters.includeBannedAccounts);
+  const likerStatusClause = buildAccountStatusFilter('liker.AccountStatus', filters.includeBannedAccounts);
 
   const songRowsQuery = `
     SELECT
@@ -855,9 +855,9 @@ export async function getArtistActivity(
     return { artists: [], albums: [] };
   }
 
-  const { startDate, endDate, includeSuspendedAccounts } = filters;
+  const { startDate, endDate, includeBannedAccounts } = filters;
   const { clause: excludedUsernameClause, params: excludedUsernameParams } = buildExcludedUsernameFilter('up.Username');
-  const accountStatusClause = buildAccountStatusFilter('up.AccountStatus', includeSuspendedAccounts);
+  const accountStatusClause = buildAccountStatusFilter('up.AccountStatus', includeBannedAccounts);
 
   const baseQuery = `
     SELECT
@@ -887,11 +887,11 @@ export async function getArtistActivity(
   }
 
   const { clause: excludedListenerClause, params: excludedListenerParams } = buildExcludedUsernameFilter('listener.Username');
-  const listenerStatusClause = buildAccountStatusFilter('listener.AccountStatus', includeSuspendedAccounts);
+  const listenerStatusClause = buildAccountStatusFilter('listener.AccountStatus', includeBannedAccounts);
   const { clause: excludedLikerClause, params: excludedLikerParams } = buildExcludedUsernameFilter('liker.Username');
-  const likerStatusClause = buildAccountStatusFilter('liker.AccountStatus', includeSuspendedAccounts);
+  const likerStatusClause = buildAccountStatusFilter('liker.AccountStatus', includeBannedAccounts);
   const { clause: excludedFollowerClause, params: excludedFollowerParams } = buildExcludedUsernameFilter('follower.Username');
-  const followerStatusClause = buildAccountStatusFilter('follower.AccountStatus', includeSuspendedAccounts);
+  const followerStatusClause = buildAccountStatusFilter('follower.AccountStatus', includeBannedAccounts);
 
   const activities: ArtistActivity[] = [];
   const albumActivities: AlbumActivity[] = [];
@@ -1214,9 +1214,9 @@ export async function getPlaylistActivity(
     return { publicPlaylists: [], privatePlaylists: [] };
   }
 
-  const { startDate, endDate, includeSuspendedAccounts } = filters;
+  const { startDate, endDate, includeBannedAccounts } = filters;
   const { clause: excludedOwnerClause, params: excludedOwnerParams } = buildExcludedUsernameFilter('owner.Username');
-  const ownerStatusClause = buildAccountStatusFilter('owner.AccountStatus', includeSuspendedAccounts);
+  const ownerStatusClause = buildAccountStatusFilter('owner.AccountStatus', includeBannedAccounts);
 
   const playlistQuery = `
     SELECT DISTINCT
@@ -1292,7 +1292,7 @@ export async function getPlaylistActivity(
   if (publicPlaylistIds.length > 0) {
     const publicPlaceholders = publicPlaylistIds.map(() => '?').join(', ');
     const { clause: excludedLikerClause, params: excludedLikerParams } = buildExcludedUsernameFilter('liker.Username');
-    const likerStatusClause = buildAccountStatusFilter('liker.AccountStatus', includeSuspendedAccounts);
+    const likerStatusClause = buildAccountStatusFilter('liker.AccountStatus', includeBannedAccounts);
 
     const likesQuery = `
       SELECT
@@ -1388,9 +1388,9 @@ export async function getUsersByType(
   filters: AnalyticsFilters,
   userType: 'Listener' | 'Artist'
 ): Promise<UserSummary[]> {
-  const { startDate, endDate, includeSuspendedAccounts } = filters;
+  const { startDate, endDate, includeBannedAccounts } = filters;
   const { clause: excludedUsernameClause, params: excludedUsernameParams } = buildExcludedUsernameFilter('up.Username');
-  const accountStatusClause = buildAccountStatusFilter('up.AccountStatus', includeSuspendedAccounts);
+  const accountStatusClause = buildAccountStatusFilter('up.AccountStatus', includeBannedAccounts);
 
   const query = `
     SELECT 
@@ -1526,9 +1526,9 @@ export async function getPlaylistStats(
   pool: Pool,
   filters: AnalyticsFilters
 ): Promise<PlaylistStats> {
-  const { startDate, endDate, includeSuspendedAccounts } = filters;
+  const { startDate, endDate, includeBannedAccounts } = filters;
   const { clause: excludedUsernameClause, params: excludedUsernameParams } = buildExcludedUsernameFilter('up.Username');
-  const accountStatusClause = buildAccountStatusFilter('up.AccountStatus', includeSuspendedAccounts);
+  const accountStatusClause = buildAccountStatusFilter('up.AccountStatus', includeBannedAccounts);
   
   // Total created, private, public (excluding Analyst users)
   const createdQuery = `
@@ -1588,9 +1588,9 @@ export async function getAlbumStats(
   pool: Pool,
   filters: AnalyticsFilters
 ): Promise<AlbumStats> {
-  const { startDate, endDate, includeSuspendedAccounts } = filters;
+  const { startDate, endDate, includeBannedAccounts } = filters;
   const { clause: excludedUsernameClause, params: excludedUsernameParams } = buildExcludedUsernameFilter('up.Username');
-  const accountStatusClause = buildAccountStatusFilter('up.AccountStatus', includeSuspendedAccounts);
+  const accountStatusClause = buildAccountStatusFilter('up.AccountStatus', includeBannedAccounts);
   
   // Total liked and distinct liked (excluding Analyst users)
   const likedQuery = `
@@ -1633,9 +1633,9 @@ export async function getSongsLikedStats(
   pool: Pool,
   filters: AnalyticsFilters
 ): Promise<{ total: number; distinct: number }> {
-  const { startDate, endDate, includeSuspendedAccounts } = filters;
+  const { startDate, endDate, includeBannedAccounts } = filters;
   const { clause: excludedUsernameClause, params: excludedUsernameParams } = buildExcludedUsernameFilter('up.Username');
-  const accountStatusClause = buildAccountStatusFilter('up.AccountStatus', includeSuspendedAccounts);
+  const accountStatusClause = buildAccountStatusFilter('up.AccountStatus', includeBannedAccounts);
   
   const query = `
     SELECT 
@@ -1662,9 +1662,9 @@ export async function getArtistsFollowedStats(
   pool: Pool,
   filters: AnalyticsFilters
 ): Promise<{ total: number; distinct: number }> {
-  const { startDate, endDate, includeSuspendedAccounts } = filters;
+  const { startDate, endDate, includeBannedAccounts } = filters;
   const { clause: excludedUsernameClause, params: excludedUsernameParams } = buildExcludedUsernameFilter('up.Username');
-  const accountStatusClause = buildAccountStatusFilter('up.AccountStatus', includeSuspendedAccounts);
+  const accountStatusClause = buildAccountStatusFilter('up.AccountStatus', includeBannedAccounts);
   
   const query = `
     SELECT 
@@ -1691,9 +1691,9 @@ export async function getAgeDemographics(
   pool: Pool,
   filters: AnalyticsFilters
 ): Promise<AgeDemographics[]> {
-  const { startDate, endDate, includeListeners, includeArtists, includeSuspendedAccounts } = filters;
+  const { startDate, endDate, includeListeners, includeArtists, includeBannedAccounts } = filters;
   const { clause: excludedUsernameClause, params: excludedUsernameParams } = buildExcludedUsernameFilter('Username');
-  const accountStatusClause = buildAccountStatusFilter('AccountStatus', includeSuspendedAccounts);
+  const accountStatusClause = buildAccountStatusFilter('AccountStatus', includeBannedAccounts);
   
   const userTypes: string[] = [];
   if (includeListeners) userTypes.push('Listener');
@@ -1748,9 +1748,9 @@ export async function getCountryStats(
   pool: Pool,
   filters: AnalyticsFilters
 ): Promise<CountryStats[]> {
-  const { startDate, endDate, includeListeners, includeArtists, includeSuspendedAccounts } = filters;
+  const { startDate, endDate, includeListeners, includeArtists, includeBannedAccounts } = filters;
   const { clause: excludedUsernameClause, params: excludedUsernameParams } = buildExcludedUsernameFilter('Username');
-  const accountStatusClause = buildAccountStatusFilter('AccountStatus', includeSuspendedAccounts);
+  const accountStatusClause = buildAccountStatusFilter('AccountStatus', includeBannedAccounts);
   
   const userTypes: string[] = [];
   if (includeListeners) userTypes.push('Listener');
@@ -1860,7 +1860,7 @@ export async function getAnalyticsReport(
     showSongStats,
     showArtistStats,
     showAgeDemographics,
-    includeSuspendedAccounts: !!filters.includeSuspendedAccounts
+    includeBannedAccounts: !!filters.includeBannedAccounts
   };
   
   if (filters.includeListeners) {
@@ -2036,7 +2036,7 @@ export async function getIndividualUserReport(
   const country = user.Country || '';
   const city = normalizeCity(user.City);
   const profilePicture = user.ProfilePicture || null;
-  const accountStatus = (user.AccountStatus || 'Active') as 'Active' | 'Suspended' | 'Banned';
+  const accountStatus = (user.AccountStatus || 'Active') as 'Active' | 'Banned';
   const statusDate = user.UpdatedAt ? new Date(user.UpdatedAt).toISOString() : null;
 
   // Get user's current age using DateOfBirth

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { playlistApi } from '../services/api';
+import { playlistApi, ratingApi, likeApi } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
+import { useAudio } from '../contexts/AudioContext';
 
 interface Song {
   SongID: number;
@@ -13,6 +14,7 @@ interface Song {
   ListenCount: number;
   Position: number;
   AddedAt: string;
+  FilePath?: string;
 }
 
 interface PlaylistStats {
@@ -48,12 +50,14 @@ export const PlaylistExpanded: React.FC<PlaylistExpandedProps> = ({
   onClose
 }) => {
   const { user } = useAuth();
+  const { playSong } = useAudio();
   const [songs, setSongs] = useState<Song[]>([]);
   const [stats, setStats] = useState<PlaylistStats | null>(null);
   const [playlistDetails, setPlaylistDetails] = useState<PlaylistDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deletingSongId, setDeletingSongId] = useState<number | null>(null);
+  const [playbackError, setPlaybackError] = useState<string | null>(null);
 
   const fetchPlaylistData = useCallback(async () => {
     try {
@@ -171,6 +175,84 @@ export const PlaylistExpanded: React.FC<PlaylistExpandedProps> = ({
     }
   };
 
+  const handlePlaySong = async (song: Song, _songIndex: number) => {
+    try {
+      // Clear any previous playback errors
+      setPlaybackError(null);
+      
+      // Validate that the song has a valid audio file
+      if (!song.FilePath || song.FilePath.trim() === '') {
+        const errorMsg = 'This song is not available for playback - no audio file found.';
+        setPlaybackError(errorMsg);
+        setTimeout(() => setPlaybackError(null), 5000);
+        return;
+      }
+
+      // Convert all playlist songs to the format expected by AudioContext
+      // Only include songs that have valid audio files
+      const queue = songs
+        .filter(s => s.FilePath && s.FilePath.trim() !== '')
+        .map(s => ({
+          id: s.SongID.toString(),
+          title: s.SongName,
+          artist: `${s.ArtistFirstName} ${s.ArtistLastName}`,
+          audioFilePath: s.FilePath!,
+          imageUrl: '',
+          averageRating: 0,
+          totalRatings: 0,
+          userRating: null as number | null,
+          isLiked: false,
+          likeCount: 0,
+          listenCount: s.ListenCount
+        }));
+      
+      // Find the current song in the filtered queue
+      const currentSongInQueue = queue.findIndex(s => s.id === song.SongID.toString());
+      if (currentSongInQueue === -1) {
+        const errorMsg = 'Cannot play this song - audio file is not available.';
+        setPlaybackError(errorMsg);
+        setTimeout(() => setPlaybackError(null), 5000);
+        return;
+      }
+
+      // Enrich the current song with rating and like data if user is logged in
+      if (user?.userId) {
+        const [ratingStatsResponse, userRatingResponse, likeStatusResponse] = await Promise.all([
+          ratingApi.getSongRatingStats(song.SongID),
+          ratingApi.getUserSongRating(song.SongID, user.userId),
+          likeApi.isSongLiked(user.userId, song.SongID)
+        ]);
+
+        if (ratingStatsResponse.ok) {
+          const ratingStats = await ratingStatsResponse.json();
+          queue[currentSongInQueue].averageRating = ratingStats.averageRating;
+          queue[currentSongInQueue].totalRatings = ratingStats.totalRatings;
+        }
+
+        if (userRatingResponse.ok) {
+          const userRating = await userRatingResponse.json();
+          queue[currentSongInQueue].userRating = userRating.rating;
+        }
+
+        if (likeStatusResponse.ok) {
+          const likeStatus = await likeStatusResponse.json();
+          queue[currentSongInQueue].isLiked = likeStatus.isLiked;
+          queue[currentSongInQueue].likeCount = likeStatus.likeCount;
+        }
+      }
+
+      // Play the song with the entire playlist as queue (without opening the player modal)
+      playSong(queue[currentSongInQueue], queue, currentSongInQueue, false);
+      
+      console.log('✅ Started playing song from playlist:', song.SongName);
+    } catch (error) {
+      console.error('Error playing song:', error);
+      const errorMsg = 'Failed to start playback. Please try again.';
+      setPlaybackError(errorMsg);
+      setTimeout(() => setPlaybackError(null), 5000);
+    }
+  };
+
   const isPlaylistOwner = user && playlistDetails && user.userId === playlistDetails.UserID;
 
   return (
@@ -232,6 +314,18 @@ export const PlaylistExpanded: React.FC<PlaylistExpandedProps> = ({
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6">
+          {/* Playback Error Message */}
+          {playbackError && (
+            <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-4">
+              <div className="flex items-center">
+                <svg className="w-5 h-5 text-red-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p className="text-red-800 text-sm">{playbackError}</p>
+              </div>
+            </div>
+          )}
+          
           {loading ? (
             <div className="flex justify-center items-center py-12">
               <div className="text-gray-600">Loading songs...</div>
@@ -246,72 +340,94 @@ export const PlaylistExpanded: React.FC<PlaylistExpandedProps> = ({
             </div>
           ) : (
             <div className="space-y-2">
-              {songs.map((song, index) => (
-                <div
-                  key={song.SongID}
-                  className="bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition-colors border border-gray-200"
-                >
-                  <div className="flex items-center gap-4">
-                    {/* Position Number */}
-                    <div className="text-gray-400 font-mono w-8 text-center">
-                      {index + 1}
-                    </div>
+              {songs.map((song, index) => {
+                const hasValidAudio = song.FilePath && song.FilePath.trim() !== '';
+                
+                return (
+                  <div
+                    key={song.SongID}
+                    className={`bg-gray-50 rounded-lg p-4 transition-colors border border-gray-200 group ${
+                      hasValidAudio ? 'hover:bg-gray-100 cursor-pointer' : 'opacity-60'
+                    }`}
+                  >
+                    <div className="flex items-center gap-4">
+                      {/* Play Button */}
+                      {hasValidAudio ? (
+                        <button
+                          onClick={() => handlePlaySong(song, index)}
+                          className="flex-shrink-0 w-10 h-10 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center transition-all opacity-30 group-hover:opacity-100"
+                          title="Play song"
+                        >
+                          <svg className="w-4 h-4 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M8 5v14l11-7z" />
+                          </svg>
+                        </button>
+                      ) : (
+                        <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gray-300 text-gray-500 flex items-center justify-center" title="Audio file not available">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L5.636 5.636" />
+                          </svg>
+                        </div>
+                      )}
 
-                    {/* Song Info */}
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-gray-900 truncate">
-                        {song.SongName}
-                      </h3>
-                      <p className="text-sm text-gray-600 truncate">
-                        {song.ArtistFirstName} {song.ArtistLastName}
-                        {song.AlbumName && ` • ${song.AlbumName}`}
-                      </p>
-                    </div>
-
-                    {/* Genre */}
-                    {song.GenreName && (
-                      <div className="hidden md:block">
-                        <span className="inline-block px-3 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
-                          {song.GenreName}
-                        </span>
+                      {/* Position Number */}
+                      <div className={`font-mono w-8 text-center transition-opacity ${
+                        hasValidAudio ? 'text-gray-400 group-hover:opacity-20' : 'text-gray-300'
+                      }`}>
+                        {index + 1}
                       </div>
-                    )}
 
-                    {/* Duration */}
-                    <div className="text-gray-600 font-mono text-sm w-16 text-right">
-                      {formatDuration(song.Duration)}
+                      {/* Song Info */}
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-gray-900 truncate">
+                          {song.SongName}
+                        </h3>
+                        <p className="text-sm text-gray-600 truncate">
+                          {song.ArtistFirstName} {song.ArtistLastName}
+                          {song.AlbumName && ` • ${song.AlbumName}`}
+                        </p>
+                      </div>
+
+                      {/* Genre */}
+                      {song.GenreName && (
+                        <div className="hidden md:block">
+                          <span className="inline-block px-3 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                            {song.GenreName}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Duration */}
+                      <div className="text-gray-600 font-mono text-sm w-16 text-right">
+                        {formatDuration(song.Duration)}
+                      </div>
+
+                      {/* Delete Button - only show if user owns the playlist */}
+                      {isPlaylistOwner && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteSong(song.SongID);
+                          }}
+                          disabled={deletingSongId === song.SongID}
+                          className="text-red-600 hover:text-red-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ml-2"
+                          title="Remove song from playlist"
+                        >
+                          {deletingSongId === song.SongID ? (
+                            <svg className="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                          ) : (
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          )}
+                        </button>
+                      )}
                     </div>
-
-                    {/* Listen Count */}
-                    <div className="hidden sm:block text-gray-500 text-sm w-20 text-right">
-                      {song.ListenCount.toLocaleString()} plays
-                    </div>
-
-                    {/* Delete Button - only show if user owns the playlist */}
-                    {isPlaylistOwner && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteSong(song.SongID);
-                        }}
-                        disabled={deletingSongId === song.SongID}
-                        className="text-red-600 hover:text-red-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ml-2"
-                        title="Remove song from playlist"
-                      >
-                        {deletingSongId === song.SongID ? (
-                          <svg className="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                          </svg>
-                        ) : (
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        )}
-                      </button>
-                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

@@ -62,7 +62,7 @@ export const analyticsApi = {
     showSongStats?: boolean;
     showArtistStats?: boolean;
     showAgeDemographics?: boolean;
-    includeSuspendedAccounts?: boolean;
+    includeBannedAccounts?: boolean;
   }) =>
     fetch(`${API_BASE}/api/analytics/report`, {
       method: 'POST',
