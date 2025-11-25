@@ -19,7 +19,7 @@ const Analytics = () => {
   const [showSongStats, setShowSongStats] = useState(true);
   const [showArtistStats, setShowArtistStats] = useState(true);
   const [showAgeDemographics, setShowAgeDemographics] = useState(true);
-  const [includeSuspendedAccounts, setIncludeSuspendedAccounts] = useState(false);
+  const [includeBannedAccounts, setIncludeBannedAccounts] = useState(false);
   
   // Individual user options - single username input
   const [individualUsername, setIndividualUsername] = useState<string>('');
@@ -182,7 +182,7 @@ const Analytics = () => {
           showSongStats,
           showArtistStats,
           showAgeDemographics,
-          includeSuspendedAccounts
+          includeBannedAccounts
         });
       }
 
@@ -204,7 +204,7 @@ const Analytics = () => {
               includePlaylistStatistics: includePlaylistStatisticsIndividual,
               includeAlbumStatistics: includeAlbumStatisticsIndividual,
               includeGeographics: false,
-              includeSuspendedAccounts: false
+              includeBannedAccounts: false
             }
           });
         } else {
@@ -222,7 +222,7 @@ const Analytics = () => {
               includePlaylistStatistics,
               includeAlbumStatistics,
               includeGeographics,
-              includeSuspendedAccounts
+              includeBannedAccounts
             }
           });
         }
@@ -342,13 +342,13 @@ const Analytics = () => {
                 <div className="flex items-center pt-2">
                   <input
                     type="checkbox"
-                    id="includeSuspendedAccounts"
-                    checked={includeSuspendedAccounts}
-                    onChange={(e) => setIncludeSuspendedAccounts(e.target.checked)}
+                    id="includeBannedAccounts"
+                    checked={includeBannedAccounts}
+                    onChange={(e) => setIncludeBannedAccounts(e.target.checked)}
                     className="w-4 h-4 text-red-600 focus:ring-red-500 focus-ring-2 border-gray-300 rounded"
                   />
-                  <label htmlFor="includeSuspendedAccounts" className="ml-2 text-sm font-medium text-gray-700">
-                    Include Suspended/Banned Accounts
+                  <label htmlFor="includeBannedAccounts" className="ml-2 text-sm font-medium text-gray-700">
+                    Include Banned Accounts
                   </label>
                 </div>
 

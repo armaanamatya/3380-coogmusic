@@ -165,7 +165,7 @@ export async function updateOnlineStatus(pool: Pool, userId: number, isOnline: b
 export async function updateAccountStatus(
   pool: Pool,
   userId: number,
-  status: 'Active' | 'Suspended' | 'Banned'
+  status: 'Active' | 'Banned'
 ): Promise<void> {
   const [users] = await pool.execute<RowDataPacket[]>(
     'SELECT UserID FROM userprofile WHERE UserID = ?', 

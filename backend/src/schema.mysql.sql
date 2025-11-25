@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS userprofile (
     DateJoined DATE NOT NULL DEFAULT (CURRENT_DATE),
     Country VARCHAR(100) NOT NULL,
     City VARCHAR(100),
-    AccountStatus ENUM('Active', 'Suspended', 'Banned') NOT NULL DEFAULT 'Active',
+    AccountStatus ENUM('Active', 'Banned') NOT NULL DEFAULT 'Active',
     IsOnline TINYINT(1) NOT NULL DEFAULT 0,
     LastLogin DATETIME,
     ProfilePicture LONGBLOB,

@@ -14,7 +14,7 @@ CREATE TABLE userprofile (
     DateJoined TEXT NOT NULL DEFAULT (DATE('now')),
     Country TEXT NOT NULL,
     City TEXT,
-    AccountStatus TEXT NOT NULL DEFAULT 'Active' CHECK (AccountStatus IN ('Active', 'Suspended', 'Banned')),
+    AccountStatus TEXT NOT NULL DEFAULT 'Active' CHECK (AccountStatus IN ('Active', 'Banned')),
     IsOnline INTEGER NOT NULL DEFAULT 0,
     LastLogin TEXT,
     ProfilePicture TEXT,

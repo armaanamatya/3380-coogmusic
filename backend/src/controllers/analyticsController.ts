@@ -17,7 +17,7 @@ export async function getAnalyticsReport(
       includePlaylistStatistics,
       includeAlbumStatistics,
       includeGeographics,
-      includeSuspendedAccounts,
+      includeBannedAccounts,
       showSongStats,
       showArtistStats,
       showAgeDemographics
@@ -44,7 +44,7 @@ export async function getAnalyticsReport(
       includePlaylistStatistics: !!includePlaylistStatistics,
       includeAlbumStatistics: !!includeAlbumStatistics,
       includeGeographics: !!includeGeographics,
-      includeSuspendedAccounts: !!includeSuspendedAccounts,
+      includeBannedAccounts: !!includeBannedAccounts,
       showSongStats: showSongStats !== false,
       showArtistStats: showArtistStats !== false,
       showAgeDemographics: showAgeDemographics !== false
