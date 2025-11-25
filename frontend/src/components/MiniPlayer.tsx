@@ -14,6 +14,9 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = ({ onOpenFullPlayer }) => {
   if (!song || state.isPlayerOpen) return null
 
   const formatTime = (time: number) => {
+    if (!isFinite(time) || isNaN(time) || time < 0) {
+      return '0:00'
+    }
     const minutes = Math.floor(time / 60)
     const seconds = Math.floor(time % 60)
     return `${minutes}:${seconds.toString().padStart(2, '0')}`
