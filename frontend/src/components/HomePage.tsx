@@ -751,12 +751,12 @@ function HomePage() {
 
   // Set up listen count callback
   useEffect(() => {
-    const handleListenCountUpdate = (songId: string, newCount: number) => {
-      // Update top songs
+    const handleListenCountUpdate = (songId: string) => {
+      // Update top songs by incrementing current count
       setTopSongs(prevSongs => 
         prevSongs.map(song => 
           song.SongID.toString() === songId 
-            ? { ...song, ListenCount: newCount }
+            ? { ...song, ListenCount: (song.ListenCount || 0) + 1 }
             : song
         )
       )
@@ -769,7 +769,7 @@ function HomePage() {
           ...prevResults,
           songs: prevResults.songs.map((song: any) => 
             song.SongID?.toString() === songId 
-              ? { ...song, ListenCount: newCount }
+              ? { ...song, ListenCount: (song.ListenCount || 0) + 1 }
               : song
           )
         }
